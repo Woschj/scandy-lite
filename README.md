@@ -9,8 +9,8 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 
 - **Backend:** FastAPI (async)
 - **Datenbank:** PostgreSQL + SQLModel + Alembic-Migrationen
-- **Frontend:** HTMX + Alpine.js (folgt in späterer Phase)
-- **Mobile:** PWA mit Kamera-basiertem Barcode-Scan (folgt in späterer Phase)
+- **Frontend:** HTMX + Alpine.js, eigenes Design-System (Grundlage steht, Item-Listen folgen Phase 3+)
+- **Mobile:** PWA (installierbar, responsive), Kamera-Barcode-Scan folgt Phase 4
 - **Auth:** lokal (Phase 1), LDAP/SSO andockbar ohne Schema-Umbau (siehe unten)
 
 ## Projektstatus
@@ -21,7 +21,7 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 - [ ] Phase 4 — Ausleihe/Rückgabe-Logik + Barcode-Scan-Endpoint
 - [ ] Phase 5 — Historie-Ansicht
 - [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker)
-- [ ] Phase 7 — Docker-Setup für Produktivbetrieb
+- [x] **Phase 7 — Docker-Setup für Produktivbetrieb** (dieser Stand, vorgezogen für Portainer-Deployment)
 
 ## Design-System
 
@@ -32,12 +32,10 @@ später durch alle Item-Karten. Typografie: **IBM Plex Mono** (Labels, Status, B
 (Daumen-erreichbar, `env(safe-area-inset-bottom)`-sicher). PWA-Manifest + Icons bereits
 vorhanden, Installierbarkeit kommt final in Phase 6 (Service Worker für Offline-Shell).
 
-## Erster Login (nach `alembic upgrade head`)
+## Erster Login
 
-```bash
-python -m scripts.seed_admin --username admin --password <sicheres-passwort> \
-  --department-code werkstatt --department-name Werkstatt
-```
+- **Portainer:** über `ADMIN_USERNAME`/`ADMIN_PASSWORD` beim ersten Deploy (siehe unten)
+- **Lokal:** über `scripts/seed_admin.py` (siehe unten)
 
 Danach unter `/auth/login` anmelden.
 
@@ -64,11 +62,67 @@ Wenn LDAP/SSO angebunden wird, kommt nur ein neuer Auth-Provider hinzu, der
 `User`-Datensätze mit `auth_source="ldap"`/`"sso"` erzeugt/synchronisiert — der
 Rest der App (Rechte, Abteilungs-Scoping, Ausleihe) bleibt unverändert.
 
-## Lokales Setup
+## ⛴️ Installation via Portainer
+
+Scandy-Lite ist als Portainer-Stack deploybar (App + PostgreSQL, ein Stack, kein separates DB-Setup nötig).
+
+### Methode 1: Repository (empfohlen)
+
+1. Repo zuerst auf GitHub pushen (siehe unten), dann in Portainer: **Stacks → Add stack**
+2. **Build method:** Repository
+3. **Repository URL:** dein Git-Remote, z. B. `https://github.com/woschj/scandy-lite.git`
+4. **Compose path:** `docker-compose.yml`
+5. **Environment variables:** siehe Tabelle unten
+6. **Deploy the stack**
+
+Portainer baut das Image dabei selbst aus dem `Dockerfile` im Repo (kein separates Image-Pushen nötig).
+
+### Methode 2: Web Editor
+
+1. **Stacks → Add stack → Web editor**
+2. Inhalt von `docker-compose.yml` einfügen
+3. Environment variables ergänzen (Tabelle unten)
+4. **Deploy the stack**
+
+Bei dieser Methode muss das Repo zusätzlich als „Additional files“/Build-Kontext verfügbar sein,
+oder du baust das Image vorher selbst und trägst es im `image:`-Feld ein statt `build:`.
+Für den Einstieg ist **Methode 1** deutlich unkomplizierter.
+
+### ⚙️ Umgebungsvariablen
+
+| Variable | Beschreibung | Default |
+| :--- | :--- | :--- |
+| `APP_PORT` | Port, unter dem die App erreichbar ist | `8000` |
+| `POSTGRES_USER` | Datenbank-User | `scandy` |
+| `POSTGRES_PASSWORD` | Datenbank-Passwort (**ändern!**) | `change_me_immediately` |
+| `POSTGRES_DB` | Datenbankname | `scandy_lite` |
+| `SECRET_KEY` | Signierschlüssel für Login-Sessions (**ändern!**) | `change_me_secret_key` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | Session-Gültigkeit in Minuten | `720` (12h) |
+| `ADMIN_USERNAME` | Erster Admin-Login, wird beim Start automatisch angelegt | *(leer = kein Auto-Bootstrap)* |
+| `ADMIN_PASSWORD` | Passwort dazu | *(leer)* |
+| `DEFAULT_DEPARTMENT_CODE` | Kurzcode der ersten Abteilung | `werkstatt` |
+| `DEFAULT_DEPARTMENT_NAME` | Anzeigename der ersten Abteilung | `Werkstatt` |
+
+**Empfehlung:** `ADMIN_USERNAME`/`ADMIN_PASSWORD` nur beim ersten Deploy setzen, danach in
+Portainer wieder leeren (Stack neu deployen) - das Skript überschreibt zwar nie ein
+bestehendes Passwort, aber ein Klartext-Admin-Passwort muss nicht dauerhaft in der
+Stack-Konfiguration stehen.
+
+### 📁 Persistenz
+
+- `scandy_lite_db_data` - PostgreSQL-Datenverzeichnis (Docker-Volume, überlebt Redeploys)
+
+### Migrationen bei Updates
+
+Der Container wendet beim Start automatisch `alembic upgrade head` an (siehe
+`docker/entrypoint.sh`) - ein Redeploy nach einem `git pull` reicht, kein manueller
+Migrations-Schritt nötig.
+
+## 🛠️ Lokale Entwicklung
 
 ```bash
-# 1. Postgres starten
-docker compose up -d
+# 1. Nur Postgres lokal starten (App läuft direkt via uvicorn, für schnelles Reload)
+docker compose -f docker-compose.dev.yml up -d
 
 # 2. Virtualenv + Dependencies
 python3 -m venv .venv
@@ -81,7 +135,10 @@ cp .env.example .env
 # 4. Migrationen anwenden
 alembic upgrade head
 
-# 5. App starten
+# 5. Ersten Admin-User anlegen
+python -m scripts.seed_admin --username admin --password <sicheres-passwort>
+
+# 6. App starten
 uvicorn app.main:app --reload
 ```
 

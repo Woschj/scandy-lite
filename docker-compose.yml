@@ -3,18 +3,44 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: scandy
-      POSTGRES_PASSWORD: scandy
-      POSTGRES_DB: scandy_lite
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:-scandy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_immediately}
+      POSTGRES_DB: ${POSTGRES_DB:-scandy_lite}
     volumes:
       - scandy_lite_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U scandy -d scandy_lite"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scandy} -d ${POSTGRES_DB:-scandy_lite}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    # Kein Port-Publish nach außen - nur der App-Container braucht Zugriff.
+    # Für Wartung: über Portainer-Konsole in den db-Container exec'en (psql).
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENV: production
+      APP_NAME: Scandy-Lite
+      SECRET_KEY: ${SECRET_KEY:-change_me_secret_key}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-scandy}:${POSTGRES_PASSWORD:-change_me_immediately}@db:5432/${POSTGRES_DB:-scandy_lite}
+      DATABASE_URL_SYNC: postgresql+psycopg2://${POSTGRES_USER:-scandy}:${POSTGRES_PASSWORD:-change_me_immediately}@db:5432/${POSTGRES_DB:-scandy_lite}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
+      # Optional: wird beim ersten Start automatisch angelegt, wenn beide Werte gesetzt sind.
+      # Danach in Portainer wieder entfernen/leeren - das Skript ist zwar idempotent
+      # (überschreibt kein bestehendes Passwort), aber das Secret muss nicht dauerhaft
+      # als Klartext-Env-Var im Stack stehen bleiben.
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      DEFAULT_DEPARTMENT_CODE: ${DEFAULT_DEPARTMENT_CODE:-werkstatt}
+      DEFAULT_DEPARTMENT_NAME: ${DEFAULT_DEPARTMENT_NAME:-Werkstatt}
+    ports:
+      - "${APP_PORT:-8000}:8000"
 
 volumes:
   scandy_lite_db_data:
