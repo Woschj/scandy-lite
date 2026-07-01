@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+build/
+dist/
+
+# Env / Secrets
+.env
+.env.local
+.env.production
+
+# DB
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic (Versionen bleiben im Repo, nur lokale Caches raus)
+.alembic_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docker
+*.log
