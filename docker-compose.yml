@@ -31,6 +31,9 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-scandy}:${POSTGRES_PASSWORD:-change_me_immediately}@db:5432/${POSTGRES_DB:-scandy_lite}
       DATABASE_URL_SYNC: postgresql+psycopg2://${POSTGRES_USER:-scandy}:${POSTGRES_PASSWORD:-change_me_immediately}@db:5432/${POSTGRES_DB:-scandy_lite}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
+      # Nur auf "true" setzen, wenn ein Reverse-Proxy davor TLS terminiert
+      # (sonst verwirft der Browser das Login-Cookie über HTTP stillschweigend).
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       # Optional: wird beim ersten Start automatisch angelegt, wenn beide Werte gesetzt sind.
       # Danach in Portainer wieder entfernen/leeren - das Skript ist zwar idempotent
       # (überschreibt kein bestehendes Passwort), aber das Secret muss nicht dauerhaft
