@@ -1,6 +1,8 @@
 # Web-Framework
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
+jinja2==3.1.4
+aiofiles==24.1.0
 
 # Datenbank (PostgreSQL, async für die App, sync für Alembic-Migrationen)
 sqlmodel==0.0.22
@@ -13,7 +15,7 @@ pydantic-settings==2.7.0
 python-dotenv==1.0.1
 
 # Auth (lokal, Phase 1 - LDAP/SSO folgt später als eigenes Modul)
-passlib[bcrypt]==1.7.4
+bcrypt==4.2.1
 python-jose[cryptography]==3.3.0
 
 # Formulare (HTMX/Alpine senden teils form-encoded)

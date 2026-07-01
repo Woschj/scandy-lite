@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Übersicht — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">
+  {% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}
+</span>
+<h1>Übersicht</h1>
+<p>Angemeldet als {{ user.username }} ({{ user.role.value }}).</p>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="value">{{ tool_count }}</div>
+    <div class="label">Werkzeuge in dieser Abteilung</div>
+  </div>
+</div>
+
+<div class="tag-card" style="margin-top: var(--space-8); max-width: 480px;">
+  <span class="chip chip-neutral">Phase 2 abgeschlossen</span>
+  <h2 style="margin-top: var(--space-3);">Als Nächstes</h2>
+  <p>Werkzeug-/Verbrauchsmaterial-Verwaltung, Ausleihe mit Barcode-Scan und
+    die Historie-Ansicht kommen in den nächsten Phasen dazu.</p>
+</div>
+{% endblock %}

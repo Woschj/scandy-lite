@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # Auth (Phase 1: lokal. LDAP/SSO wird später als zusätzlicher auth_source andocken)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 12  # 12h, praktisch für Werkstatt-Schichten
     JWT_ALGORITHM: str = "HS256"
+    SESSION_COOKIE_NAME: str = "scandy_session"
 
     # Multi-Abteilung
     DEFAULT_DEPARTMENT_CODE: str = "default"

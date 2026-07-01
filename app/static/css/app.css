@@ -1,0 +1,425 @@
+/* ==========================================================================
+   Scandy-Lite Design-System
+   Leitidee: physische Werkstatt-Anhänger (Asset-Tags) als visuelles Motiv.
+   ========================================================================== */
+
+:root {
+  /* Farben */
+  --bg: #eff1ee;
+  --bg-raised: #ffffff;
+  --ink: #14201d;
+  --ink-soft: #4d5952;
+  --brand: #1b5e5a;
+  --brand-ink: #0f3f3c;
+  --accent: #e8a33d;
+  --success: #3d8361;
+  --success-bg: #e3efe7;
+  --danger: #b84a3b;
+  --danger-bg: #f6e6e2;
+  --line: #d9d5c9;
+  --line-strong: #b9b4a4;
+
+  /* Typografie */
+  --font-display: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  /* Skalen */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  --radius: 6px;
+  --nav-height: 60px;
+  --tab-bar-height: 64px;
+
+  --shadow-card: 0 1px 2px rgba(20, 32, 29, 0.06), 0 4px 12px rgba(20, 32, 29, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-2);
+}
+
+h1 { font-size: 1.5rem; }
+h2 { font-size: 1.125rem; }
+h3 { font-size: 0.9375rem; }
+
+p { margin: 0 0 var(--space-3); color: var(--ink-soft); }
+
+a { color: var(--brand-ink); }
+
+/* Eyebrow / Label - technisches Beschriftungsmuster, kein Fließtext */
+.eyebrow {
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Sichtbarer Fokus-Ring - Pflicht, keine Ausnahme */
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+button, input, select {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+/* -------------------------------------------------------------------------
+   Buttons
+   ------------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 0.625rem 1.125rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform 0.08s ease, background-color 0.15s ease;
+  min-height: 44px; /* Touch-Ziel */
+}
+
+.btn:active { transform: scale(0.98); }
+
+.btn-primary {
+  background: var(--brand);
+  color: #fff;
+}
+.btn-primary:hover { background: var(--brand-ink); }
+
+.btn-ghost {
+  background: transparent;
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+.btn-ghost:hover { background: var(--bg-raised); }
+
+.btn-block { width: 100%; }
+
+/* -------------------------------------------------------------------------
+   Formulare
+   ------------------------------------------------------------------------- */
+
+.field {
+  margin-bottom: var(--space-4);
+  text-align: left;
+}
+
+.field label {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: var(--space-2);
+}
+
+.field input {
+  width: 100%;
+  padding: 0.75rem var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  min-height: 44px;
+}
+
+.field input:focus {
+  border-color: var(--brand);
+}
+
+.form-error {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  padding: var(--space-3);
+  font-size: 0.875rem;
+  margin-bottom: var(--space-4);
+}
+
+/* -------------------------------------------------------------------------
+   Asset-Tag-Karte - das Signatur-Element.
+   Gezackte Perforationskante links (Repeating-Gradient-Mask) +
+   Barcode-Streifen. Zieht sich durch Login-Panel, Item-Karten, etc.
+   ------------------------------------------------------------------------- */
+
+.tag-card {
+  position: relative;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-8) var(--space-6) var(--space-6) var(--space-8);
+}
+
+.tag-card::before {
+  /* Perforationskante links: Reihe kleiner Kreis-Ausstanzungen */
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  background-image: radial-gradient(circle 3px, var(--bg) 3px, transparent 3.5px);
+  background-size: 18px 18px;
+  background-position: -3px 4px;
+  border-right: 1px dashed var(--line-strong);
+}
+
+.tag-barcode {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 28px;
+  margin-bottom: var(--space-4);
+  opacity: 0.85;
+}
+
+.tag-barcode span {
+  display: block;
+  width: 2px;
+  background: var(--ink);
+}
+.tag-barcode span:nth-child(4n) { width: 3px; }
+.tag-barcode span:nth-child(7n) { background: var(--brand); }
+
+/* -------------------------------------------------------------------------
+   Status-Chips
+   ------------------------------------------------------------------------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.chip-success { background: var(--success-bg); color: var(--success); }
+.chip-danger { background: var(--danger-bg); color: var(--danger); }
+.chip-neutral { background: var(--bg); color: var(--ink-soft); border: 1px solid var(--line); }
+
+/* -------------------------------------------------------------------------
+   Layout: Top-Nav (Desktop) + Bottom-Tab-Bar (Mobile)
+   ------------------------------------------------------------------------- */
+
+.app-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topnav {
+  height: var(--nav-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-6);
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.wordmark .dot { color: var(--accent); }
+
+.topnav-links {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.topnav-links a {
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ink-soft);
+  padding: var(--space-2) 0;
+  border-bottom: 2px solid transparent;
+}
+.topnav-links a.active,
+.topnav-links a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.main-content {
+  flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--space-6);
+  padding-bottom: calc(var(--space-6) + var(--tab-bar-height));
+}
+
+.tab-bar {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .topnav-links { display: none; }
+
+  .tab-bar {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--tab-bar-height);
+    background: var(--bg-raised);
+    border-top: 1px solid var(--line);
+    z-index: 20;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .tab-bar a {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-family: var(--font-display);
+    font-size: 0.625rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    min-height: 44px;
+  }
+
+  .tab-bar a.active { color: var(--brand); }
+  .tab-bar svg { width: 22px; height: 22px; }
+
+  .main-content { padding: var(--space-4); padding-bottom: calc(var(--tab-bar-height) + var(--space-6)); }
+}
+
+/* -------------------------------------------------------------------------
+   Login-Seite
+   ------------------------------------------------------------------------- */
+
+.auth-screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--bg);
+  background-image:
+    radial-gradient(circle at 15% 15%, rgba(27, 94, 90, 0.06), transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(232, 163, 61, 0.08), transparent 40%);
+}
+
+.auth-panel {
+  width: 100%;
+  max-width: 380px;
+  text-align: left;
+}
+
+.auth-panel h1 {
+  font-size: 1.375rem;
+  margin-bottom: var(--space-1);
+}
+
+.auth-panel .eyebrow {
+  display: block;
+  margin-bottom: var(--space-4);
+}
+
+/* -------------------------------------------------------------------------
+   Utility
+   ------------------------------------------------------------------------- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.stat-card {
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+}
+
+.stat-card .value {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.stat-card .label {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}

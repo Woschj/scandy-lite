@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Anmelden — Scandy-Lite{% endblock %}
+
+{% block body %}
+<div class="auth-screen">
+  <div class="auth-panel">
+    <div class="tag-card">
+      <div class="tag-barcode" aria-hidden="true">
+        {% for i in range(28) %}<span style="height:{{ (40 + (i * 37) % 60) }}%"></span>{% endfor %}
+      </div>
+
+      <span class="eyebrow">Scandy // Lite — Zugang</span>
+      <h1>Anmelden</h1>
+      <p>Mit deinem Werkstatt-Konto anmelden, um Ausleihen zu erfassen.</p>
+
+      {% if error %}
+        <div class="form-error" role="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/auth/login" novalidate>
+        <div class="field">
+          <label for="username">Benutzername</label>
+          <input type="text" id="username" name="username" autocomplete="username" required autofocus>
+        </div>
+        <div class="field">
+          <label for="password">Passwort</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Anmelden</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

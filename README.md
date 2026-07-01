@@ -15,13 +15,31 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 
 ## Projektstatus
 
-- [x] **Phase 1 — Datenmodell + DB-Layer** (dieser Stand)
-- [ ] Phase 2 — Auth + Abteilungs-Scoping (2 Rollen: Admin, Mitarbeiter)
+- [x] **Phase 1 — Datenmodell + DB-Layer**
+- [x] **Phase 2 — Auth + Abteilungs-Scoping + Frontend-Fundament** (dieser Stand)
 - [ ] Phase 3 — CRUD für Tools/Consumables/Workers
 - [ ] Phase 4 — Ausleihe/Rückgabe-Logik + Barcode-Scan-Endpoint
 - [ ] Phase 5 — Historie-Ansicht
-- [ ] Phase 6 — UI/Templates (HTMX + Alpine, PWA)
+- [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker)
 - [ ] Phase 7 — Docker-Setup für Produktivbetrieb
+
+## Design-System
+
+Signatur-Element: Karten im Look physischer Werkstatt-Inventaranhänger (Asset-Tags)
+mit Perforationskante und Barcode-Streifen — zieht sich durch Login, Dashboard und
+später durch alle Item-Karten. Typografie: **IBM Plex Mono** (Labels, Status, Barcodes)
++ **IBM Plex Sans** (Fließtext). Responsive: Top-Nav am Desktop, Bottom-Tab-Bar mobil
+(Daumen-erreichbar, `env(safe-area-inset-bottom)`-sicher). PWA-Manifest + Icons bereits
+vorhanden, Installierbarkeit kommt final in Phase 6 (Service Worker für Offline-Shell).
+
+## Erster Login (nach `alembic upgrade head`)
+
+```bash
+python -m scripts.seed_admin --username admin --password <sicheres-passwort> \
+  --department-code werkstatt --department-name Werkstatt
+```
+
+Danach unter `/auth/login` anmelden.
 
 ## Datenmodell (Phase 1)
 
