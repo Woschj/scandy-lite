@@ -9,15 +9,18 @@ from app.models.consumable import Consumable, ConsumableUsage  # noqa: F401
 from app.models.department import Department  # noqa: F401
 from app.models.item import Item  # noqa: F401
 from app.models.lending import Lending  # noqa: F401
+from app.models.preset import Category, Location  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.worker import Worker  # noqa: F401
 
 __all__ = [
+    "Category",
     "Consumable",
     "ConsumableUsage",
     "Department",
     "Item",
     "Lending",
+    "Location",
     "User",
     "Worker",
 ]

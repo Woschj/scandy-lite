@@ -27,6 +27,7 @@ class Item(TimestampMixin, SoftDeleteMixin, table=True):
     name: str = Field(max_length=200)
     category: str | None = Field(default=None, max_length=100)
     location: str | None = Field(default=None, max_length=100)
+    notes: str | None = Field(default=None, max_length=2000)
 
     status: ItemStatus = Field(default=ItemStatus.VERFUEGBAR)
 

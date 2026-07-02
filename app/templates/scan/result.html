@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Scan-Ergebnis — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
+<h1>Scan-Ergebnis</h1>
+
+{% if kind == "item" %}
+  <div class="tag-card form-card">
+    <div class="item-card-top" style="margin-bottom: var(--space-4);">
+      <div>
+        <h2>{{ item.name }}</h2>
+        <span class="item-barcode">{{ item.barcode }}</span>
+      </div>
+      {% if item.status.value == "verfuegbar" %}<span class="chip chip-success">Verfügbar</span>
+      {% elif item.status.value == "ausgeliehen" %}<span class="chip chip-neutral">Ausgeliehen</span>
+      {% elif item.status.value == "defekt" %}<span class="chip chip-danger">Defekt</span>
+      {% else %}<span class="chip chip-neutral">Ausgemustert</span>{% endif %}
+    </div>
+
+    {% if item.status.value == "verfuegbar" %}
+      <p>Gegenstand ausleihen - Mitarbeiter-Barcode scannen oder eintippen:</p>
+      <form method="post" action="/scan/lend">
+        <input type="hidden" name="item_id" value="{{ item.id }}">
+        <div class="field">
+          <label for="worker_barcode">Mitarbeiter-Barcode</label>
+          <input type="text" id="worker_barcode" name="worker_barcode" required autofocus autocomplete="off"
+                 style="font-family: var(--font-display); font-size: 1.125rem;">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Ausleihen bestätigen</button>
+      </form>
+
+    {% elif item.status.value == "ausgeliehen" %}
+      {% if lending and lending.worker %}
+        <p>Aktuell ausgeliehen an <strong>{{ lending.worker.full_name }}</strong> seit {{ lending.lent_at.strftime("%d.%m.%Y %H:%M") }}.</p>
+      {% else %}
+        <p>Als ausgeliehen markiert, aber keine offene Ausleihe gefunden - bitte manuell prüfen.</p>
+      {% endif %}
+      <form method="post" action="/scan/return">
+        <input type="hidden" name="item_id" value="{{ item.id }}">
+        <button type="submit" class="btn btn-primary btn-block">Rückgabe bestätigen</button>
+      </form>
+
+    {% else %}
+      <p>Dieser Gegenstand ist als "{{ item.status.value }}" markiert und kann aktuell nicht ausgeliehen werden.</p>
+    {% endif %}
+  </div>
+  <p style="margin-top: var(--space-4);"><a href="/items/{{ item.id }}/edit" class="link-btn">Details bearbeiten</a></p>
+
+{% elif kind == "consumable" %}
+  <div class="tag-card form-card">
+    <div class="item-card-top" style="margin-bottom: var(--space-4);">
+      <div>
+        <h2>{{ consumable.name }}</h2>
+        <span class="item-barcode">{{ consumable.barcode }}</span>
+      </div>
+      <span class="qty-badge {% if consumable.quantity <= consumable.min_quantity %}qty-low{% endif %}">{{ consumable.quantity }} {{ consumable.unit }}</span>
+    </div>
+
+    <p>Entnahme protokollieren - Menge und Mitarbeiter-Barcode angeben:</p>
+    <form method="post" action="/scan/consume">
+      <input type="hidden" name="consumable_id" value="{{ consumable.id }}">
+      <div class="field">
+        <label for="quantity">Menge</label>
+        <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ consumable.quantity }}" required>
+      </div>
+      <div class="field">
+        <label for="worker_barcode">Mitarbeiter-Barcode</label>
+        <input type="text" id="worker_barcode" name="worker_barcode" required autocomplete="off"
+               style="font-family: var(--font-display); font-size: 1.125rem;">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Entnahme bestätigen</button>
+    </form>
+  </div>
+
+{% else %}
+  <div class="tag-card form-card">
+    <div class="form-error" role="alert">Kein Gegenstand oder Material mit Barcode "{{ barcode }}" gefunden.</div>
+    {% if department %}
+      <p>Neu anlegen mit diesem Barcode:</p>
+      <a href="/items/new" class="btn btn-ghost btn-block" style="margin-bottom: var(--space-2);">Als Gegenstand anlegen</a>
+      <a href="/consumables/new" class="btn btn-ghost btn-block">Als Verbrauchsmaterial anlegen</a>
+    {% endif %}
+  </div>
+{% endif %}
+
+<p style="margin-top: var(--space-4);"><a href="/scan" class="link-btn">← Nächsten Barcode scannen</a></p>
+{% endblock %}

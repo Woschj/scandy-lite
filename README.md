@@ -17,11 +17,30 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 
 - [x] **Phase 1 — Datenmodell + DB-Layer**
 - [x] **Phase 2 — Auth + Abteilungs-Scoping + Frontend-Fundament**
-- [x] **Phase 3 — CRUD für Gegenstände/Verbrauchsmaterial/Mitarbeiter** (dieser Stand)
-- [ ] Phase 4 — Ausleihe/Rückgabe-Logik + Barcode-Scan-Endpoint
+- [x] **Phase 3 — CRUD für Gegenstände/Verbrauchsmaterial/Mitarbeiter**
+- [x] **Phase 4 — Quickscan: Ausleihe/Rückgabe/Entnahme** (dieser Stand)
 - [ ] Phase 5 — Historie-Ansicht
-- [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker)
+- [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker, Kamera-Scan)
 - [x] **Phase 7 — Docker-Setup für Produktivbetrieb** (vorgezogen für Portainer-Deployment)
+
+## Admin-Einstellungen
+
+Unter `/admin/settings` (nur Admin-Rolle): Abteilungen anlegen/deaktivieren,
+Kategorien- und Standort-Vorschläge pro Abteilung pflegen (Datalist-Autocomplete
+in den Gegenstand-/Verbrauchsmaterial-Formularen - freies Textfeld bleibt weiterhin
+möglich, die Presets sind nur Vorschläge, kein Zwang).
+
+## Quickscan
+
+Unter `/scan` (auch prominent in der Navigation/Tab-Bar): Barcode eintippen oder
+mit einem angeschlossenen Scanner scannen (Scanner senden i.d.R. Enter nach dem
+Scan, das reicht zum Absenden des Formulars - kein JS nötig). Je nach Fund:
+- **Gegenstand verfügbar** → Mitarbeiter-Barcode angeben → Ausleihe wird erfasst
+- **Gegenstand ausgeliehen** → Rückgabe mit einem Klick
+- **Verbrauchsmaterial** → Menge + Mitarbeiter-Barcode → Bestand wird reduziert, Entnahme protokolliert
+- **Unbekannter Barcode** → direkter Link zum Neuanlegen mit vorausgefülltem Barcode
+
+Kamera-basiertes Scannen (statt externem Hardware-Scanner) folgt in Phase 6.
 
 ## Begriff "Gegenstand" statt "Werkzeug"
 

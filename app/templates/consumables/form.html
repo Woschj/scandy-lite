@@ -19,11 +19,17 @@
     </div>
     <div class="field">
       <label for="category">Kategorie</label>
-      <input type="text" id="category" name="category" value="{{ consumable.category if consumable else '' }}">
+      <input type="text" id="category" name="category" value="{{ consumable.category if consumable else '' }}" list="category-options">
+      <datalist id="category-options">
+        {% for c in categories %}<option value="{{ c.name }}">{% endfor %}
+      </datalist>
     </div>
     <div class="field">
       <label for="location">Standort</label>
-      <input type="text" id="location" name="location" value="{{ consumable.location if consumable else '' }}">
+      <input type="text" id="location" name="location" value="{{ consumable.location if consumable else '' }}" list="location-options">
+      <datalist id="location-options">
+        {% for l in locations %}<option value="{{ l.name }}">{% endfor %}
+      </datalist>
     </div>
     <div class="field">
       <label for="unit">Einheit</label>

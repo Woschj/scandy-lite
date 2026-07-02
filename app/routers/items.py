@@ -17,9 +17,20 @@ from app.core.templating import templates
 from app.models.common import ItemStatus
 from app.models.department import Department
 from app.models.item import Item
+from app.models.preset import Category, Location
 from app.models.user import User
 
 router = APIRouter(prefix="/items", tags=["items"])
+
+
+async def _presets(session: AsyncSession, department_id):
+    categories = (await session.exec(
+        select(Category).where(Category.department_id == department_id).order_by(Category.name)
+    )).all()
+    locations = (await session.exec(
+        select(Location).where(Location.department_id == department_id).order_by(Location.name)
+    )).all()
+    return categories, locations
 
 
 @router.get("")
@@ -52,13 +63,18 @@ async def new_item_form(
     request: Request,
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
+    session: AsyncSession = Depends(get_session),
 ):
     if not department:
         raise Forbidden()  # Admin ohne gewählte Abteilung kann nichts anlegen - Zielabteilung ist nicht eindeutig
+    categories, locations = await _presets(session, department.id)
     return templates.TemplateResponse(
         request,
         "items/form.html",
-        {"user": user, "department": department, "item": None, "error": None},
+        {
+            "user": user, "department": department, "item": None, "error": None,
+            "categories": categories, "locations": locations,
+        },
     )
 
 
@@ -69,6 +85,7 @@ async def create_item(
     name: str = Form(...),
     category: str = Form(""),
     location: str = Form(""),
+    notes: str = Form(""),
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
@@ -78,19 +95,21 @@ async def create_item(
 
     result = await session.exec(select(Item).where(Item.barcode == barcode, Item.deleted_at.is_(None)))
     if result.first():
+        categories, locations = await _presets(session, department.id)
         return templates.TemplateResponse(
             request,
             "items/form.html",
             {
                 "user": user, "department": department, "item": None,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
+                "categories": categories, "locations": locations,
             },
             status_code=409,
         )
 
     item = Item(
         barcode=barcode, name=name,
-        category=category or None, location=location or None,
+        category=category or None, location=location or None, notes=notes or None,
         department_id=department.id,
     )
     session.add(item)
@@ -110,10 +129,14 @@ async def edit_item_form(
     if not item or item.deleted_at is not None or (department and item.department_id != department.id):
         raise Forbidden()
 
+    categories, locations = await _presets(session, item.department_id)
     return templates.TemplateResponse(
         request,
         "items/form.html",
-        {"user": user, "department": department, "item": item, "error": None},
+        {
+            "user": user, "department": department, "item": item, "error": None,
+            "categories": categories, "locations": locations,
+        },
     )
 
 
@@ -125,6 +148,7 @@ async def update_item(
     name: str = Form(...),
     category: str = Form(""),
     location: str = Form(""),
+    notes: str = Form(""),
     status: str = Form(...),
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
@@ -138,12 +162,14 @@ async def update_item(
         select(Item).where(Item.barcode == barcode, Item.id != item_id, Item.deleted_at.is_(None))
     )
     if result.first():
+        categories, locations = await _presets(session, item.department_id)
         return templates.TemplateResponse(
             request,
             "items/form.html",
             {
                 "user": user, "department": department, "item": item,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
+                "categories": categories, "locations": locations,
             },
             status_code=409,
         )
@@ -152,6 +178,7 @@ async def update_item(
     item.name = name
     item.category = category or None
     item.location = location or None
+    item.notes = notes or None
     item.status = ItemStatus(status)
     session.add(item)
     await session.commit()

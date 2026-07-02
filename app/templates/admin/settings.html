@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Einstellungen — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">Admin</span>
+<h1>Einstellungen</h1>
+<p>Abteilungen und die Vorschlagslisten für Kategorien/Standorte verwalten.</p>
+
+<h2 style="margin-top: var(--space-8);">Abteilungen</h2>
+<div class="item-grid">
+  {% for d in departments %}
+    <div class="item-card">
+      <div class="item-card-top">
+        <div>
+          <h3>{{ d.name }}</h3>
+          <span class="item-barcode">{{ d.code }}</span>
+        </div>
+        {% if d.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
+      </div>
+      <div class="item-card-actions">
+        <form method="post" action="/admin/departments/{{ d.id }}/toggle">
+          <button type="submit" class="link-btn">{% if d.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="tag-card form-card" style="margin-top: var(--space-4);">
+  <h3>Neue Abteilung</h3>
+  <form method="post" action="/admin/departments/new">
+    <div class="field">
+      <label for="dep-code">Kurzcode</label>
+      <input type="text" id="dep-code" name="code" placeholder="z.B. buero" required>
+    </div>
+    <div class="field">
+      <label for="dep-name">Name</label>
+      <input type="text" id="dep-name" name="name" placeholder="z.B. Büro" required>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Anlegen</button>
+  </form>
+</div>
+
+<h2 style="margin-top: var(--space-12);">Kategorien</h2>
+<p style="color: var(--ink-soft); font-size: 0.875rem;">Vorschläge fürs Kategorie-Feld bei Gegenständen/Verbrauchsmaterial - pro Abteilung.</p>
+
+<div class="item-grid">
+  {% for c in categories %}
+    <div class="item-card">
+      <div class="item-card-top">
+        <div>
+          <h3>{{ c.name }}</h3>
+          <span class="item-barcode">{{ c.department.name if c.department else "" }}</span>
+        </div>
+      </div>
+      <div class="item-card-actions">
+        <form method="post" action="/admin/categories/{{ c.id }}/delete" onsubmit="return confirm('{{ c.name }} wirklich entfernen?')">
+          <button type="submit" class="link-btn danger">Entfernen</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="tag-card form-card" style="margin-top: var(--space-4);">
+  <h3>Neue Kategorie</h3>
+  <form method="post" action="/admin/categories/new">
+    <div class="field">
+      <label for="cat-department">Abteilung</label>
+      <select id="cat-department" name="department_id" required>
+        {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="cat-name">Name</label>
+      <input type="text" id="cat-name" name="name" placeholder="z.B. Elektrowerkzeug" required>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Anlegen</button>
+  </form>
+</div>
+
+<h2 style="margin-top: var(--space-12);">Standorte</h2>
+<p style="color: var(--ink-soft); font-size: 0.875rem;">Vorschläge fürs Standort-Feld - pro Abteilung.</p>
+
+<div class="item-grid">
+  {% for l in locations %}
+    <div class="item-card">
+      <div class="item-card-top">
+        <div>
+          <h3>{{ l.name }}</h3>
+          <span class="item-barcode">{{ l.department.name if l.department else "" }}</span>
+        </div>
+      </div>
+      <div class="item-card-actions">
+        <form method="post" action="/admin/locations/{{ l.id }}/delete" onsubmit="return confirm('{{ l.name }} wirklich entfernen?')">
+          <button type="submit" class="link-btn danger">Entfernen</button>
+        </form>
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="tag-card form-card" style="margin-top: var(--space-4);">
+  <h3>Neuer Standort</h3>
+  <form method="post" action="/admin/locations/new">
+    <div class="field">
+      <label for="loc-department">Abteilung</label>
+      <select id="loc-department" name="department_id" required>
+        {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="loc-name">Name</label>
+      <input type="text" id="loc-name" name="name" placeholder="z.B. Regal A1" required>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Anlegen</button>
+  </form>
+</div>
+{% endblock %}

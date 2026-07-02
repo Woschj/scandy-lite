@@ -16,10 +16,21 @@ from app.core.deps import Forbidden, get_current_department, get_current_user
 from app.core.templating import templates
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.department import Department
+from app.models.preset import Category, Location
 from app.models.user import User
 from app.models.worker import Worker
 
 router = APIRouter(prefix="/consumables", tags=["consumables"])
+
+
+async def _presets(session: AsyncSession, department_id):
+    categories = (await session.exec(
+        select(Category).where(Category.department_id == department_id).order_by(Category.name)
+    )).all()
+    locations = (await session.exec(
+        select(Location).where(Location.department_id == department_id).order_by(Location.name)
+    )).all()
+    return categories, locations
 
 
 @router.get("")
@@ -52,13 +63,18 @@ async def new_consumable_form(
     request: Request,
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
+    session: AsyncSession = Depends(get_session),
 ):
     if not department:
         raise Forbidden()
+    categories, locations = await _presets(session, department.id)
     return templates.TemplateResponse(
         request,
         "consumables/form.html",
-        {"user": user, "department": department, "consumable": None, "error": None},
+        {
+            "user": user, "department": department, "consumable": None, "error": None,
+            "categories": categories, "locations": locations,
+        },
     )
 
 
@@ -83,12 +99,14 @@ async def create_consumable(
         select(Consumable).where(Consumable.barcode == barcode, Consumable.deleted_at.is_(None))
     )
     if result.first():
+        categories, locations = await _presets(session, department.id)
         return templates.TemplateResponse(
             request,
             "consumables/form.html",
             {
                 "user": user, "department": department, "consumable": None,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
+                "categories": categories, "locations": locations,
             },
             status_code=409,
         )
@@ -118,12 +136,14 @@ async def edit_consumable_form(
     workers_result = await session.exec(
         select(Worker).where(Worker.department_id == consumable.department_id, Worker.deleted_at.is_(None)).order_by(Worker.last_name)
     )
+    categories, locations = await _presets(session, consumable.department_id)
     return templates.TemplateResponse(
         request,
         "consumables/form.html",
         {
             "user": user, "department": department, "consumable": consumable, "error": None,
             "workers": workers_result.all(),
+            "categories": categories, "locations": locations,
         },
     )
 
@@ -152,12 +172,14 @@ async def update_consumable(
         )
     )
     if result.first():
+        categories, locations = await _presets(session, consumable.department_id)
         return templates.TemplateResponse(
             request,
             "consumables/form.html",
             {
                 "user": user, "department": department, "consumable": consumable,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
+                "categories": categories, "locations": locations,
             },
             status_code=409,
         )

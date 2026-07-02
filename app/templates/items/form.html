@@ -19,11 +19,21 @@
     </div>
     <div class="field">
       <label for="category">Kategorie</label>
-      <input type="text" id="category" name="category" value="{{ item.category if item else '' }}">
+      <input type="text" id="category" name="category" value="{{ item.category if item else '' }}" list="category-options">
+      <datalist id="category-options">
+        {% for c in categories %}<option value="{{ c.name }}">{% endfor %}
+      </datalist>
     </div>
     <div class="field">
       <label for="location">Standort</label>
-      <input type="text" id="location" name="location" value="{{ item.location if item else '' }}">
+      <input type="text" id="location" name="location" value="{{ item.location if item else '' }}" list="location-options">
+      <datalist id="location-options">
+        {% for l in locations %}<option value="{{ l.name }}">{% endfor %}
+      </datalist>
+    </div>
+    <div class="field">
+      <label for="notes">Bemerkungen</label>
+      <textarea id="notes" name="notes" rows="3" style="width:100%; padding:0.75rem; border:1px solid var(--line-strong); border-radius:var(--radius); font-family:inherit; resize:vertical;">{{ item.notes if item else '' }}</textarea>
     </div>
     {% if item %}
       <div class="field">

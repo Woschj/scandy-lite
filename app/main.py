@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import get_settings
 from app.core.deps import Forbidden, RedirectToLogin
 from app.core.templating import templates
-from app.routers import auth, consumables, items, pages, workers
+from app.routers import admin_settings, auth, consumables, items, pages, scan, workers
 
 settings = get_settings()
 
@@ -35,9 +35,11 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.include_router(auth.router)
 app.include_router(pages.router)
+app.include_router(scan.router)
 app.include_router(items.router)
 app.include_router(consumables.router)
 app.include_router(workers.router)
+app.include_router(admin_settings.router)
 
 
 @app.get("/favicon.ico", include_in_schema=False)

@@ -12,11 +12,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import get_settings  # noqa: E402
 from app.models import (  # noqa: E402,F401  (Import registriert alle Tabellen in SQLModel.metadata)
+    Category,
     Consumable,
     ConsumableUsage,
     Department,
     Lending,
     Item,
+    Location,
     User,
     Worker,
 )

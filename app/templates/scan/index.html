@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Scannen — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
+<h1>Scannen</h1>
+<p>Barcode scannen oder eintippen - für Ausleihe, Rückgabe oder Materialentnahme.</p>
+
+{% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
+{% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+<div class="tag-card form-card">
+  <div class="tag-barcode" aria-hidden="true">
+    {% for i in range(20) %}<span style="height:{{ (35 + (i * 41) % 65) }}%"></span>{% endfor %}
+  </div>
+  <form method="post" action="/scan/lookup">
+    <div class="field">
+      <label for="barcode">Barcode</label>
+      <input type="text" id="barcode" name="barcode" required autofocus autocomplete="off"
+             placeholder="Scannen oder eintippen…"
+             style="font-family: var(--font-display); font-size: 1.25rem;">
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Suchen</button>
+  </form>
+</div>
+{% endblock %}

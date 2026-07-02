@@ -47,6 +47,9 @@
             {% if item.location %}{{ item.location }}{% endif %}
           </p>
         {% endif %}
+        {% if item.notes %}
+          <p class="item-meta" style="font-style: italic;">{{ item.notes }}</p>
+        {% endif %}
         <div class="item-card-actions">
           <a href="/items/{{ item.id }}/edit" class="link-btn">Bearbeiten</a>
           <form method="post" action="/items/{{ item.id }}/delete" onsubmit="return confirm('{{ item.name }} wirklich entfernen?')">
