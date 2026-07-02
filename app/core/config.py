@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 12  # 12h, praktisch für Werkstatt-Schichten
     JWT_ALGORITHM: str = "HS256"
     SESSION_COOKIE_NAME: str = "scandy_session"
+    # Bewusst NICHT an ENV gekoppelt: "Secure"-Cookies werden von Browsern nur über
+    # HTTPS akzeptiert. Läuft die App (wie im internen Netz üblich) über reines HTTP,
+    # würde ein Secure-Cookie sonst kommentarlos verworfen -> Login scheint zu "hängen".
+    # Erst auf true setzen, wenn ein Reverse-Proxy TLS terminiert.
+    SESSION_COOKIE_SECURE: bool = False
 
     # Multi-Abteilung
     DEFAULT_DEPARTMENT_CODE: str = "default"
