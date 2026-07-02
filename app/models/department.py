@@ -1,6 +1,6 @@
 """
 Abteilungen (Departments) - die zentrale Mandantentrennung.
-Jedes Tool, Consumable, Worker und jede Lending gehört zu genau einer Abteilung.
+Jeder Gegenstand, Consumable, Worker und jede Lending gehört zu genau einer Abteilung.
 Admins können abteilungsübergreifend agieren, Mitarbeiter sind auf ihre Abteilung gescoped.
 """
 import uuid
@@ -12,8 +12,8 @@ from app.models.common import TimestampMixin, new_uuid
 
 if TYPE_CHECKING:
     from app.models.consumable import Consumable
+    from app.models.item import Item
     from app.models.lending import Lending
-    from app.models.tool import Tool
     from app.models.user import User
     from app.models.worker import Worker
 
@@ -29,6 +29,6 @@ class Department(TimestampMixin, table=True):
     # Beziehungen
     users: list["User"] = Relationship(back_populates="department")
     workers: list["Worker"] = Relationship(back_populates="department")
-    tools: list["Tool"] = Relationship(back_populates="department")
+    items: list["Item"] = Relationship(back_populates="department")
     consumables: list["Consumable"] = Relationship(back_populates="department")
     lendings: list["Lending"] = Relationship(back_populates="department")

@@ -1,6 +1,6 @@
 """
-Startseite nach dem Login. Phase 2 liefert nur das Gerüst (Nav, Abteilungs-Kontext,
-Design-System) - die eigentlichen Werkzeug-/Verbrauchsmaterial-Listen kommen in Phase 3/4.
+Startseite nach dem Login. Phase 2 lieferte nur das Gerüst (Nav, Abteilungs-
+Kontext, Design-System). Phase 3 zeigt hier bereits echte Kennzahlen.
 """
 from fastapi import APIRouter, Depends, Request
 from sqlmodel import func, select
@@ -9,9 +9,11 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import get_session
 from app.core.deps import get_current_department, get_current_user
 from app.core.templating import templates
+from app.models.consumable import Consumable
 from app.models.department import Department
-from app.models.tool import Tool
+from app.models.item import Item
 from app.models.user import User
+from app.models.worker import Worker
 
 router = APIRouter(tags=["pages"])
 
@@ -28,14 +30,30 @@ async def dashboard(
         result = await session.exec(select(Department).where(Department.is_active == True))  # noqa: E712
         all_departments = result.all()
 
-    tool_count = 0
+    item_count = 0
+    consumable_count = 0
+    worker_count = 0
     if department:
         result = await session.exec(
-            select(func.count()).select_from(Tool).where(
-                Tool.department_id == department.id, Tool.deleted_at.is_(None)
+            select(func.count()).select_from(Item).where(
+                Item.department_id == department.id, Item.deleted_at.is_(None)
             )
         )
-        tool_count = result.one()
+        item_count = result.one()
+
+        result = await session.exec(
+            select(func.count()).select_from(Consumable).where(
+                Consumable.department_id == department.id, Consumable.deleted_at.is_(None)
+            )
+        )
+        consumable_count = result.one()
+
+        result = await session.exec(
+            select(func.count()).select_from(Worker).where(
+                Worker.department_id == department.id, Worker.deleted_at.is_(None)
+            )
+        )
+        worker_count = result.one()
 
     return templates.TemplateResponse(
         request,
@@ -44,6 +62,8 @@ async def dashboard(
             "user": user,
             "department": department,
             "all_departments": all_departments,
-            "tool_count": tool_count,
+            "item_count": item_count,
+            "consumable_count": consumable_count,
+            "worker_count": worker_count,
         },
     )

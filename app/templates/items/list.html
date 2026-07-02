@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Gegenstände — Scandy-Lite{% endblock %}
+
+{% block content %}
+<div class="list-header">
+  <div>
+    <span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
+    <h1>Gegenstände</h1>
+  </div>
+  {% if department %}
+    <a href="/items/new" class="btn btn-primary">+ Neuer Gegenstand</a>
+  {% endif %}
+</div>
+
+<form class="list-toolbar" method="get" action="/items">
+  <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Name oder Barcode…" class="search-input">
+  <button type="submit" class="btn btn-ghost">Suchen</button>
+</form>
+
+{% if not department %}
+  <p class="form-error">Wähle oben eine Abteilung aus, um Gegenstände anzulegen oder zu bearbeiten. In der Übersicht "Alle Abteilungen" kannst du nur ansehen.</p>
+{% endif %}
+
+{% if items %}
+  <div class="item-grid">
+    {% for item in items %}
+      <div class="item-card">
+        <div class="item-card-top">
+          <div>
+            <h3>{{ item.name }}</h3>
+            <span class="item-barcode">{{ item.barcode }}</span>
+          </div>
+          {% if item.status.value == "verfuegbar" %}
+            <span class="chip chip-success">Verfügbar</span>
+          {% elif item.status.value == "ausgeliehen" %}
+            <span class="chip chip-neutral">Ausgeliehen</span>
+          {% elif item.status.value == "defekt" %}
+            <span class="chip chip-danger">Defekt</span>
+          {% else %}
+            <span class="chip chip-neutral">Ausgemustert</span>
+          {% endif %}
+        </div>
+        {% if item.category or item.location %}
+          <p class="item-meta">
+            {% if item.category %}{{ item.category }}{% endif %}
+            {% if item.category and item.location %} · {% endif %}
+            {% if item.location %}{{ item.location }}{% endif %}
+          </p>
+        {% endif %}
+        <div class="item-card-actions">
+          <a href="/items/{{ item.id }}/edit" class="link-btn">Bearbeiten</a>
+          <form method="post" action="/items/{{ item.id }}/delete" onsubmit="return confirm('{{ item.name }} wirklich entfernen?')">
+            <button type="submit" class="link-btn danger">Entfernen</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <p>{% if q %}Keine Gegenstände gefunden für "{{ q }}".{% else %}Noch keine Gegenstände angelegt.{% endif %}</p>
+  </div>
+{% endif %}
+{% endblock %}

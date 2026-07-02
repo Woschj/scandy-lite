@@ -2,7 +2,7 @@
 Scandy-Lite - FastAPI-Einstiegspunkt.
 
 Phase 2: Auth (lokal, cookie-basiert), Abteilungs-Scoping, Frontend-Fundament
-(Design-System, responsive Nav, PWA-Shell). CRUD-Router für Tools/Consumables/
+(Design-System, responsive Nav, PWA-Shell). CRUD-Router für Items/Consumables/
 Lending folgen in Phase 3/4.
 """
 from contextlib import asynccontextmanager
@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import get_settings
 from app.core.deps import Forbidden, RedirectToLogin
 from app.core.templating import templates
-from app.routers import auth, pages
+from app.routers import auth, consumables, items, pages, workers
 
 settings = get_settings()
 
@@ -35,6 +35,9 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.include_router(auth.router)
 app.include_router(pages.router)
+app.include_router(items.router)
+app.include_router(consumables.router)
+app.include_router(workers.router)
 
 
 @app.get("/favicon.ico", include_in_schema=False)

@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Mitarbeiter — Scandy-Lite{% endblock %}
+
+{% block content %}
+<div class="list-header">
+  <div>
+    <span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
+    <h1>Mitarbeiter</h1>
+  </div>
+  {% if department %}
+    <a href="/workers/new" class="btn btn-primary">+ Neuer Mitarbeiter</a>
+  {% endif %}
+</div>
+
+<form class="list-toolbar" method="get" action="/workers">
+  <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Name oder Barcode…" class="search-input">
+  <button type="submit" class="btn btn-ghost">Suchen</button>
+</form>
+
+{% if not department %}
+  <p class="form-error">Wähle oben eine Abteilung aus, um Mitarbeiter anzulegen oder zu bearbeiten.</p>
+{% endif %}
+
+{% if workers %}
+  <div class="item-grid">
+    {% for w in workers %}
+      <div class="item-card">
+        <div class="item-card-top">
+          <div>
+            <h3>{{ w.full_name }}</h3>
+            <span class="item-barcode">{{ w.barcode }}</span>
+          </div>
+          {% if not w.is_active %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
+        </div>
+        <div class="item-card-actions">
+          <a href="/workers/{{ w.id }}/edit" class="link-btn">Bearbeiten</a>
+          <form method="post" action="/workers/{{ w.id }}/delete" onsubmit="return confirm('{{ w.full_name }} wirklich entfernen?')">
+            <button type="submit" class="link-btn danger">Entfernen</button>
+          </form>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <p>{% if q %}Keine Mitarbeiter gefunden für "{{ q }}".{% else %}Noch keine Mitarbeiter angelegt.{% endif %}</p>
+  </div>
+{% endif %}
+{% endblock %}

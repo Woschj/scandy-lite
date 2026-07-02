@@ -1,7 +1,18 @@
 <nav class="tab-bar" aria-label="Hauptnavigation">
-  <a href="/" class="active">
+  <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></svg>
     Übersicht
   </a>
-  {# Scan / Werkzeuge / Verbrauchsmaterial / Historie kommen in Phase 3-5 dazu #}
+  <a href="/items" class="{% if request.url.path.startswith('/items') %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+    Gegenstände
+  </a>
+  <a href="/consumables" class="{% if request.url.path.startswith('/consumables') %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6v4l3 12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2l3-12V2Z"/><path d="M9 12h6"/></svg>
+    Material
+  </a>
+  <a href="/workers" class="{% if request.url.path.startswith('/workers') %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+    Mitarbeiter
+  </a>
 </nav>

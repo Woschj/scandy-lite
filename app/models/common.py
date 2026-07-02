@@ -29,7 +29,7 @@ class UserRole(str, Enum):
     MITARBEITER = "mitarbeiter"
 
 
-class ToolStatus(str, Enum):
+class ItemStatus(str, Enum):
     VERFUEGBAR = "verfuegbar"
     AUSGELIEHEN = "ausgeliehen"
     DEFEKT = "defekt"

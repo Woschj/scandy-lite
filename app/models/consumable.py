@@ -1,6 +1,6 @@
 """
 Consumable = Verbrauchsmaterial mit einem Bestand (quantity).
-Anders als bei Tools gibt es keine "Rückgabe" - nur Entnahmen, die den Bestand reduzieren.
+Anders als bei Gegenständen gibt es keine "Rückgabe" - nur Entnahmen, die den Bestand reduzieren.
 Jede Entnahme wird als ConsumableUsage protokolliert (-> Ausleih-Historie).
 """
 import uuid

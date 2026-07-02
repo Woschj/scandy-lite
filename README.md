@@ -16,12 +16,17 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 ## Projektstatus
 
 - [x] **Phase 1 — Datenmodell + DB-Layer**
-- [x] **Phase 2 — Auth + Abteilungs-Scoping + Frontend-Fundament** (dieser Stand)
-- [ ] Phase 3 — CRUD für Tools/Consumables/Workers
+- [x] **Phase 2 — Auth + Abteilungs-Scoping + Frontend-Fundament**
+- [x] **Phase 3 — CRUD für Gegenstände/Verbrauchsmaterial/Mitarbeiter** (dieser Stand)
 - [ ] Phase 4 — Ausleihe/Rückgabe-Logik + Barcode-Scan-Endpoint
 - [ ] Phase 5 — Historie-Ansicht
 - [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker)
-- [x] **Phase 7 — Docker-Setup für Produktivbetrieb** (dieser Stand, vorgezogen für Portainer-Deployment)
+- [x] **Phase 7 — Docker-Setup für Produktivbetrieb** (vorgezogen für Portainer-Deployment)
+
+## Begriff "Gegenstand" statt "Werkzeug"
+
+Bewusst neutral gehalten (Modell `Item`, Tabelle `items`) statt "Tool"/"Werkzeug" -
+nicht jede Abteilung leiht zwangsläufig Werkzeuge im engeren Sinn aus.
 
 ## Design-System
 
@@ -98,6 +103,7 @@ Für den Einstieg ist **Methode 1** deutlich unkomplizierter.
 | `POSTGRES_DB` | Datenbankname | `scandy_lite` |
 | `SECRET_KEY` | Signierschlüssel für Login-Sessions (**ändern!**) | `change_me_secret_key` |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Session-Gültigkeit in Minuten | `720` (12h) |
+| `SESSION_COOKIE_SECURE` | `true`, wenn ein Reverse-Proxy TLS terminiert. Bei reinem HTTP im internen Netz auf `false` lassen, sonst verwirft der Browser das Login-Cookie stillschweigend | `false` |
 | `ADMIN_USERNAME` | Erster Admin-Login, wird beim Start automatisch angelegt | *(leer = kein Auto-Bootstrap)* |
 | `ADMIN_PASSWORD` | Passwort dazu | *(leer)* |
 | `DEFAULT_DEPARTMENT_CODE` | Kurzcode der ersten Abteilung | `werkstatt` |

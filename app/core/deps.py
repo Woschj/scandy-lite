@@ -68,15 +68,17 @@ async def get_current_department(
     Admins sehen standardmäßig ihre eigene (falls gesetzt) und können
     über ?department=<code> in eine andere wechseln (Abteilungs-Switcher im UI)."""
     if user.role == UserRole.ADMIN:
-        code = request.query_params.get("department")
-        if code:
+        if "department" in request.query_params:
+            code = request.query_params["department"]
+            if not code:
+                return None  # Admin hat bewusst "Alle Abteilungen" gewählt
             result = await session.exec(select(Department).where(Department.code == code))
             dept = result.first()
             if dept:
                 return dept
         if user.department_id:
             return await session.get(Department, user.department_id)
-        return None  # Admin ohne gewählte Abteilung -> Übersicht über alle
+        return None  # Admin ohne Default-Abteilung -> Übersicht über alle
 
     if not user.department_id:
         raise Forbidden()  # Mitarbeiter ohne Abteilung ist ein Datenfehler, kein Edge-Case zum Stillschweigen

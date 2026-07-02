@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{% if item %}Gegenstand bearbeiten{% else %}Neuer Gegenstand{% endif %} — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{{ department.name }}</span>
+<h1>{% if item %}Gegenstand bearbeiten{% else %}Neuer Gegenstand{% endif %}</h1>
+
+<div class="tag-card form-card">
+  {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+  <form method="post" action="{% if item %}/items/{{ item.id }}/edit{% else %}/items/new{% endif %}">
+    <div class="field">
+      <label for="barcode">Barcode</label>
+      <input type="text" id="barcode" name="barcode" value="{{ item.barcode if item else '' }}" required autofocus>
+    </div>
+    <div class="field">
+      <label for="name">Bezeichnung</label>
+      <input type="text" id="name" name="name" value="{{ item.name if item else '' }}" required>
+    </div>
+    <div class="field">
+      <label for="category">Kategorie</label>
+      <input type="text" id="category" name="category" value="{{ item.category if item else '' }}">
+    </div>
+    <div class="field">
+      <label for="location">Standort</label>
+      <input type="text" id="location" name="location" value="{{ item.location if item else '' }}">
+    </div>
+    {% if item %}
+      <div class="field">
+        <label for="status">Status</label>
+        <select id="status" name="status">
+          <option value="verfuegbar" {% if item.status.value == "verfuegbar" %}selected{% endif %}>Verfügbar</option>
+          <option value="defekt" {% if item.status.value == "defekt" %}selected{% endif %}>Defekt</option>
+          <option value="ausgemustert" {% if item.status.value == "ausgemustert" %}selected{% endif %}>Ausgemustert</option>
+          {% if item.status.value == "ausgeliehen" %}
+            <option value="ausgeliehen" selected>Ausgeliehen (wird automatisch verwaltet)</option>
+          {% endif %}
+        </select>
+      </div>
+    {% endif %}
+    <button type="submit" class="btn btn-primary btn-block">{% if item %}Speichern{% else %}Anlegen{% endif %}</button>
+  </form>
+</div>
+
+<p style="margin-top: var(--space-4);"><a href="/items" class="link-btn">← Zurück zur Übersicht</a></p>
+{% endblock %}

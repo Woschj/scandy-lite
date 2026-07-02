@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{% if worker %}Mitarbeiter bearbeiten{% else %}Neuer Mitarbeiter{% endif %} — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{{ department.name }}</span>
+<h1>{% if worker %}Mitarbeiter bearbeiten{% else %}Neuer Mitarbeiter{% endif %}</h1>
+
+<div class="tag-card form-card">
+  {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+  <form method="post" action="{% if worker %}/workers/{{ worker.id }}/edit{% else %}/workers/new{% endif %}">
+    <div class="field">
+      <label for="barcode">Barcode (Ausweis)</label>
+      <input type="text" id="barcode" name="barcode" value="{{ worker.barcode if worker else '' }}" required autofocus>
+    </div>
+    <div class="field">
+      <label for="first_name">Vorname</label>
+      <input type="text" id="first_name" name="first_name" value="{{ worker.first_name if worker else '' }}" required>
+    </div>
+    <div class="field">
+      <label for="last_name">Nachname</label>
+      <input type="text" id="last_name" name="last_name" value="{{ worker.last_name if worker else '' }}" required>
+    </div>
+    {% if worker %}
+      <div class="checkbox-field">
+        <input type="checkbox" id="is_active" name="is_active" value="true" {% if worker.is_active %}checked{% endif %}>
+        <label for="is_active">Aktiv</label>
+      </div>
+    {% endif %}
+    <button type="submit" class="btn btn-primary btn-block">{% if worker %}Speichern{% else %}Anlegen{% endif %}</button>
+  </form>
+</div>
+
+<p style="margin-top: var(--space-4);"><a href="/workers" class="link-btn">← Zurück zur Übersicht</a></p>
+{% endblock %}

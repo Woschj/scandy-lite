@@ -16,7 +16,7 @@ from app.models import (  # noqa: E402,F401  (Import registriert alle Tabellen i
     ConsumableUsage,
     Department,
     Lending,
-    Tool,
+    Item,
     User,
     Worker,
 )

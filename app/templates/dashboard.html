@@ -10,15 +10,16 @@
 
 <div class="stat-grid">
   <div class="stat-card">
-    <div class="value">{{ tool_count }}</div>
-    <div class="label">Werkzeuge in dieser Abteilung</div>
+    <div class="value">{{ item_count }}</div>
+    <div class="label">Gegenstände in dieser Abteilung</div>
   </div>
-</div>
-
-<div class="tag-card" style="margin-top: var(--space-8); max-width: 480px;">
-  <span class="chip chip-neutral">Phase 2 abgeschlossen</span>
-  <h2 style="margin-top: var(--space-3);">Als Nächstes</h2>
-  <p>Werkzeug-/Verbrauchsmaterial-Verwaltung, Ausleihe mit Barcode-Scan und
-    die Historie-Ansicht kommen in den nächsten Phasen dazu.</p>
+  <div class="stat-card">
+    <div class="value">{{ consumable_count }}</div>
+    <div class="label">Verbrauchsmaterial-Arten</div>
+  </div>
+  <div class="stat-card">
+    <div class="value">{{ worker_count }}</div>
+    <div class="label">Mitarbeiter in dieser Abteilung</div>
+  </div>
 </div>
 {% endblock %}

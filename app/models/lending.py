@@ -1,10 +1,12 @@
 """
-Lending = eine Werkzeug-Ausleihe. `returned_at IS NULL` bedeutet: aktuell ausgeliehen.
-Das ist die zentrale Tabelle für den Kern-Workflow und gleichzeitig die Basis der Historie.
+Lending = eine Ausleihe eines Gegenstands. `returned_at IS NULL` bedeutet:
+aktuell ausgeliehen. Das ist die zentrale Tabelle für den Kern-Workflow und
+gleichzeitig die Basis der Historie.
 
 Bewusste Design-Entscheidung ggü. dem Original: hier gibt es EINE Quelle der Wahrheit
-für "ist Tool X gerade ausgeliehen" (offene Lending statt zusätzlichem Status-Sync-Risiko).
-Ein DB-Constraint (siehe Migration) stellt sicher, dass pro Tool max. eine offene Lending existiert.
+für "ist Gegenstand X gerade ausgeliehen" (offene Lending statt zusätzlichem Status-
+Sync-Risiko). Ein DB-Constraint (siehe Migration) stellt sicher, dass pro Gegenstand
+max. eine offene Lending existiert.
 """
 import uuid
 from datetime import datetime
@@ -16,7 +18,7 @@ from app.models.common import TimestampMixin, new_uuid, utcnow
 
 if TYPE_CHECKING:
     from app.models.department import Department
-    from app.models.tool import Tool
+    from app.models.item import Item
     from app.models.worker import Worker
 
 
@@ -25,13 +27,13 @@ class Lending(TimestampMixin, table=True):
 
     id: uuid.UUID = Field(default_factory=new_uuid, primary_key=True)
 
-    tool_id: uuid.UUID = Field(foreign_key="tools.id", index=True)
-    tool: Optional["Tool"] = Relationship(back_populates="lendings")
+    item_id: uuid.UUID = Field(foreign_key="items.id", index=True)
+    item: Optional["Item"] = Relationship(back_populates="lendings")
 
     worker_id: uuid.UUID = Field(foreign_key="workers.id", index=True)
     worker: Optional["Worker"] = Relationship(back_populates="lendings")
 
-    # Denormalisiert für schnelle abteilungsgescopte Abfragen (spiegelt tool.department_id)
+    # Denormalisiert für schnelle abteilungsgescopte Abfragen (spiegelt item.department_id)
     department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)
     department: Optional["Department"] = Relationship(back_populates="lendings")
 
