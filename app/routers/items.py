@@ -4,7 +4,7 @@ nur ihre eigene Abteilung, Admins können zwischen Abteilungen wechseln oder
 alle sehen (Anlegen/Bearbeiten erfordert dann aber eine gewählte Abteilung).
 """
 import uuid
-from datetime import datetime, timezone
+
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -14,7 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user
 from app.core.templating import templates
-from app.models.common import ItemStatus
+from app.models.common import ItemStatus, utcnow
 from app.models.department import Department
 from app.models.item import Item
 from app.models.preset import Category, Location
@@ -196,7 +196,7 @@ async def delete_item(
     if not item or item.deleted_at is not None or (department and item.department_id != department.id):
         raise Forbidden()
 
-    item.deleted_at = datetime.now(timezone.utc)
+    item.deleted_at = utcnow()
     session.add(item)
     await session.commit()
     return RedirectResponse(url="/items", status_code=303)

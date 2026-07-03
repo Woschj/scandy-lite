@@ -7,6 +7,8 @@ Lending folgen in Phase 3/4.
 """
 from contextlib import asynccontextmanager
 
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,10 +19,16 @@ from app.core.templating import templates
 from app.routers import admin_settings, auth, consumables, items, pages, scan, workers
 
 settings = get_settings()
+logger = logging.getLogger("scandy-lite")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.ENV == "production" and settings.SECRET_KEY == "change-me-in-production":
+        logger.warning(
+            "SECRET_KEY steht noch auf dem Default-Wert! Login-Sessions sind damit fälschbar. "
+            "Bitte in der Portainer-Stack-Konfiguration SECRET_KEY setzen (z.B. mit `openssl rand -hex 32`)."
+        )
     # In Produktion managt Alembic das Schema, nicht die App selbst.
     yield
 

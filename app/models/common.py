@@ -2,7 +2,7 @@
 Gemeinsame Bausteine für alle Modelle: Enums, Timestamp-Mixin, Soft-Delete-Mixin.
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from sqlmodel import Field, SQLModel
@@ -13,7 +13,10 @@ def new_uuid() -> uuid.UUID:
 
 
 def utcnow() -> datetime:
-    return datetime.utcnow()
+    """Naive UTC - bewusst OHNE tzinfo, weil alle Spalten TIMESTAMP WITHOUT
+    TIME ZONE sind und asyncpg aware datetimes dafür ablehnt. Alle Zeitstempel
+    im System laufen über diese eine Funktion, damit naive/aware nie gemischt wird."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class AuthSource(str, Enum):

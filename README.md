@@ -30,6 +30,37 @@ Kategorien- und Standort-Vorschläge pro Abteilung pflegen (Datalist-Autocomplet
 in den Gegenstand-/Verbrauchsmaterial-Formularen - freies Textfeld bleibt weiterhin
 möglich, die Presets sind nur Vorschläge, kein Zwang).
 
+## Review-Durchgang (nach Phase 4)
+
+Sicherheits-/Konsistenz-Check über alle bisherigen Phasen, gefundene und behobene Probleme:
+
+- **Zeitzonen-Bug (kritisch für Produktivbetrieb):** Modelle nutzten `datetime.utcnow()`
+  (naiv), neuere Router-Codes `datetime.now(timezone.utc)` (aware) - beide schrieben in
+  dieselben `TIMESTAMP WITHOUT TIME ZONE`-Spalten. Auf SQLite fiel das nicht auf, gegen
+  echtes Postgres/asyncpg hätte das beim Schreiben eines aware-Datetimes einen Fehler
+  geworfen. Vereinheitlicht auf eine zentrale `utcnow()`-Funktion (naiv, ohne deprecated
+  `datetime.utcnow()`-Aufruf).
+- **Race-Condition beim Ausleihen:** zwei nahezu gleichzeitige Scans desselben Gegenstands
+  konnten beide eine Lending anlegen. Jetzt durch einen Partial-Unique-Index
+  (`uq_lendings_open_item`, nur eine offene Lending pro Gegenstand) auf DB-Ebene
+  ausgeschlossen, Anwendung fängt den resultierenden Konflikt sauber ab statt mit 500er.
+- **Unvalidierte UUID:** `worker_id` bei der Bestandsanpassung wurde ungeprüft geparst -
+  hätte bei manipulierten Formulardaten zu einem 500er statt einer sauberen Fehlermeldung geführt.
+- **Datenintegrität der künftigen Historie:** die Schnellanpassung in der
+  Verbrauchsmaterial-Liste erlaubte negative Werte ganz ohne Mitarbeiter-Zuordnung -
+  Entnahmen wären an der Historie vorbeigelaufen. Jetzt nur noch Nachschub (positiv) in
+  der Liste, Entnahmen mit Zuordnung laufen bewusst nur noch über Quickscan.
+- **Login-Rate-Limit** ergänzt (einfaches In-Memory-Limit, 10 Fehlversuche/5 Min. pro IP) -
+  vorher kein Schutz gegen Brute-Force.
+- **SECRET_KEY-Warnung:** Log-Warnung beim Start, falls in Produktion noch der
+  Default-Wert gesetzt ist.
+
+**Bekannte, bewusst nicht behobene Lücke:** kein CSRF-Token auf den Formularen. Die
+Session-Cookies sind `SameSite=Lax`, was die gängigsten CSRF-Angriffe (cross-site POST)
+bereits abfängt - für ein internes Tool ohne Internet-Exposition ist das Restrisiko
+gering, aber nicht null. Vollständiger CSRF-Schutz (Token in jedem der ~20 Formulare)
+wäre ein separater, größerer Umbau und ist aktuell zurückgestellt.
+
 ## Quickscan
 
 Unter `/scan` (auch prominent in der Navigation/Tab-Bar): Barcode eintippen oder

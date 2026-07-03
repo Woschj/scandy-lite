@@ -1,6 +1,6 @@
 """CRUD für Mitarbeiter (Worker) - die Personen, die Gegenstände ausleihen."""
 import uuid
-from datetime import datetime, timezone
+
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -10,6 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user
 from app.core.templating import templates
+from app.models.common import utcnow
 from app.models.department import Department
 from app.models.user import User
 from app.models.worker import Worker
@@ -159,7 +160,7 @@ async def delete_worker(
     if not worker or worker.deleted_at is not None or (department and worker.department_id != department.id):
         raise Forbidden()
 
-    worker.deleted_at = datetime.now(timezone.utc)
+    worker.deleted_at = utcnow()
     session.add(worker)
     await session.commit()
     return RedirectResponse(url="/workers", status_code=303)

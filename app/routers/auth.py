@@ -4,6 +4,9 @@ Login-Seite (GET), Login-Verarbeitung (POST) und Logout.
 Bewusst als klassisches Formular (kein JSON-API-Login), damit es ohne
 JavaScript funktioniert und HTMX es einfach progressiv verbessern kann.
 """
+from collections import defaultdict, deque
+from time import monotonic
+
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlmodel import select
@@ -17,6 +20,26 @@ from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 settings = get_settings()
+
+# Simples In-Memory-Rate-Limit gegen Brute-Force: max. N Fehlversuche pro IP
+# im Zeitfenster. Bewusst ohne externe Abhängigkeit (Redis etc.) - für ein
+# internes Tool mit einem einzelnen App-Container angemessen; bei mehreren
+# Replikas müsste das in einen gemeinsamen Store wandern.
+_MAX_FAILED_ATTEMPTS = 10
+_WINDOW_SECONDS = 300
+_failed_logins: dict[str, deque] = defaultdict(deque)
+
+
+def _is_rate_limited(ip: str) -> bool:
+    now = monotonic()
+    attempts = _failed_logins[ip]
+    while attempts and now - attempts[0] > _WINDOW_SECONDS:
+        attempts.popleft()
+    return len(attempts) >= _MAX_FAILED_ATTEMPTS
+
+
+def _register_failed_attempt(ip: str) -> None:
+    _failed_logins[ip].append(monotonic())
 
 
 @router.get("/login")
@@ -33,6 +56,15 @@ async def login_submit(
     password: str = Form(...),
     session: AsyncSession = Depends(get_session),
 ):
+    client_ip = request.client.host if request.client else "unknown"
+    if _is_rate_limited(client_ip):
+        return templates.TemplateResponse(
+            request,
+            "auth/login.html",
+            {"error": "Zu viele Fehlversuche. Bitte in ein paar Minuten erneut versuchen."},
+            status_code=429,
+        )
+
     result = await session.exec(select(User).where(User.username == username))
     user = result.first()
 
@@ -43,6 +75,7 @@ async def login_submit(
         or not verify_password(password, user.hashed_password)
     )
     if invalid:
+        _register_failed_attempt(client_ip)
         return templates.TemplateResponse(
             request,
             "auth/login.html",

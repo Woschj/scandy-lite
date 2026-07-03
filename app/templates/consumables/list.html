@@ -44,9 +44,10 @@
         {% endif %}
 
         {% if department %}
-        <form class="inline-form" method="post" action="/consumables/{{ c.id }}/adjust" style="margin-top: var(--space-3);">
-          <input type="number" name="delta" value="-1" required>
-          <button type="submit" class="btn btn-ghost" style="min-height:36px; padding:0.375rem 0.75rem;">Anpassen</button>
+        <form class="inline-form" method="post" action="/consumables/{{ c.id }}/adjust" style="margin-top: var(--space-3);" title="Nur Nachschub - Entnahmen bitte über Scannen erfassen, damit sie in der Historie landen">
+          <input type="number" name="delta" value="1" min="1" required>
+          <input type="hidden" name="worker_id" value="">
+          <button type="submit" class="btn btn-ghost" style="min-height:36px; padding:0.375rem 0.75rem;">+ Nachschub</button>
         </form>
         {% endif %}
 

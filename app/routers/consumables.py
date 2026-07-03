@@ -4,7 +4,7 @@ Mitarbeiter wird als ConsumableUsage protokolliert (Grundlage der Historie in
 Phase 5); reiner Nachschub (kein Mitarbeiter gewählt) verändert nur den Bestand.
 """
 import uuid
-from datetime import datetime, timezone
+
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -14,6 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user
 from app.core.templating import templates
+from app.models.common import utcnow
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.department import Department
 from app.models.preset import Category, Location
@@ -217,9 +218,13 @@ async def adjust_consumable(
 
     # Entnahme (delta < 0) mit gewähltem Mitarbeiter protokollieren -> Historie
     if delta < 0 and worker_id:
+        try:
+            parsed_worker_id = uuid.UUID(worker_id)
+        except ValueError:
+            raise Forbidden()  # manipulierte Form-Daten - kein stiller 500er
         usage = ConsumableUsage(
             consumable_id=consumable.id,
-            worker_id=uuid.UUID(worker_id),
+            worker_id=parsed_worker_id,
             quantity=abs(delta),
         )
         session.add(usage)
@@ -239,7 +244,7 @@ async def delete_consumable(
     if not consumable or consumable.deleted_at is not None or (department and consumable.department_id != department.id):
         raise Forbidden()
 
-    consumable.deleted_at = datetime.now(timezone.utc)
+    consumable.deleted_at = utcnow()
     session.add(consumable)
     await session.commit()
     return RedirectResponse(url="/consumables", status_code=303)

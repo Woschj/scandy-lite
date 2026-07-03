@@ -5,10 +5,11 @@ fertig. Barcodes sind global eindeutig (DB-Constraint), daher kein
 Abteilungs-Filter bei der Suche nötig - nur eine Berechtigungsprüfung danach.
 """
 import uuid
-from datetime import datetime, timezone
+
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -16,7 +17,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user
 from app.core.templating import templates
-from app.models.common import ItemStatus, UserRole
+from app.models.common import ItemStatus, UserRole, utcnow
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.department import Department
 from app.models.item import Item
@@ -117,7 +118,13 @@ async def scan_lend(
     item.status = ItemStatus.AUSGELIEHEN
     session.add(lending)
     session.add(item)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Partial-Unique-Index (uq_lendings_open_item) hat zugeschlagen: jemand
+        # war zwischen Anzeige und Bestätigung schneller. Sauber melden statt 500.
+        await session.rollback()
+        return RedirectResponse(url="/scan?error=Gegenstand+wurde+soeben+bereits+ausgeliehen.", status_code=303)
 
     return RedirectResponse(url=f"/scan?ok={item.name}+an+{worker.full_name}+ausgeliehen.", status_code=303)
 
@@ -140,7 +147,7 @@ async def scan_return(
     if not lending:
         return RedirectResponse(url="/scan?error=Keine+offene+Ausleihe+gefunden.", status_code=303)
 
-    lending.returned_at = datetime.now(timezone.utc)
+    lending.returned_at = utcnow()
     item.status = ItemStatus.VERFUEGBAR
     session.add(lending)
     session.add(item)
