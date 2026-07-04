@@ -15,7 +15,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import require_admin
+from app.core.deps import get_current_department, require_admin
 from app.core.security import hash_password
 from app.core.templating import templates
 from app.models.common import UserRole
@@ -30,6 +30,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 async def settings_page(
     request: Request,
     user: User = Depends(require_admin),
+    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     departments = (await session.exec(select(Department).order_by(Department.name))).all()
@@ -46,7 +47,8 @@ async def settings_page(
         "admin/settings.html",
         {
             "user": user,
-            "department": None,
+            "department": department,
+            "all_departments": departments,
             "departments": departments,
             "categories": categories,
             "locations": locations,
@@ -76,7 +78,7 @@ async def create_user(
         )
         session.add(new_user)
         await session.commit()
-    return RedirectResponse(url="/admin/settings", status_code=303)
+    return RedirectResponse(url="/admin/settings#users", status_code=303)
 
 
 @router.post("/users/{user_id}/toggle")
@@ -90,7 +92,7 @@ async def toggle_user(
         target.is_active = not target.is_active
         session.add(target)
         await session.commit()
-    return RedirectResponse(url="/admin/settings", status_code=303)
+    return RedirectResponse(url="/admin/settings#users", status_code=303)
 
 
 # --- Abteilungen -----------------------------------------------------------
@@ -106,7 +108,7 @@ async def create_department(
     if not result.first():
         session.add(Department(code=code.strip().lower(), name=name.strip()))
         await session.commit()
-    return RedirectResponse(url="/admin/settings", status_code=303)
+    return RedirectResponse(url="/admin/settings#departments", status_code=303)
 
 
 @router.post("/departments/{department_id}/toggle")
@@ -120,7 +122,7 @@ async def toggle_department(
         department.is_active = not department.is_active
         session.add(department)
         await session.commit()
-    return RedirectResponse(url="/admin/settings", status_code=303)
+    return RedirectResponse(url="/admin/settings#departments", status_code=303)
 
 
 # --- Kategorien --------------------------------------------------------
@@ -138,7 +140,7 @@ async def create_category(
     if not result.first():
         session.add(Category(name=name.strip(), department_id=department_id))
         await session.commit()
-    return RedirectResponse(url="/admin/settings", status_code=303)
+    return RedirectResponse(url="/admin/settings#categories", status_code=303)
 
 
 @router.post("/categories/{category_id}/delete")
@@ -151,7 +153,7 @@ async def delete_category(
     if category:
         await session.delete(category)
         await session.commit()
-    return RedirectResponse(url="/admin/settings", status_code=303)
+    return RedirectResponse(url="/admin/settings#categories", status_code=303)
 
 
 # --- Standorte ---------------------------------------------------------
@@ -169,7 +171,7 @@ async def create_location(
     if not result.first():
         session.add(Location(name=name.strip(), department_id=department_id))
         await session.commit()
-    return RedirectResponse(url="/admin/settings", status_code=303)
+    return RedirectResponse(url="/admin/settings#locations", status_code=303)
 
 
 @router.post("/locations/{location_id}/delete")
@@ -182,4 +184,4 @@ async def delete_location(
     if location:
         await session.delete(location)
         await session.commit()
-    return RedirectResponse(url="/admin/settings", status_code=303)
+    return RedirectResponse(url="/admin/settings#locations", status_code=303)

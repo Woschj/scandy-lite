@@ -29,9 +29,18 @@
     {% for item in items %}
       <div class="item-card">
         <div class="item-card-top">
-          <div>
-            <h3>{{ item.name }}</h3>
-            <span class="item-barcode">{{ item.barcode }}</span>
+          <div class="main">
+            {% if has_image("items", item.id) %}
+              <img src="{{ image_url('items', item.id) }}" alt="" class="item-thumb">
+            {% else %}
+              <div class="item-thumb-placeholder">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              </div>
+            {% endif %}
+            <div>
+              <h3>{{ item.name }}</h3>
+              <span class="item-barcode">{{ item.barcode }}</span>
+            </div>
           </div>
           {% if item.id in reserved_ids %}
             <span class="chip chip-neutral">Reserviert</span>

@@ -898,3 +898,50 @@ button, input, select {
   color: var(--ink);
   border-bottom-color: var(--brand);
 }
+
+/* -------------------------------------------------------------------------
+   Bild-Thumbnails (Gegenstände/Verbrauchsmaterial)
+   ------------------------------------------------------------------------- */
+
+.item-thumb {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius);
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.item-thumb-placeholder {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius);
+  background: var(--bg);
+  border: 1px dashed var(--line-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--line-strong);
+  flex-shrink: 0;
+}
+.item-thumb-placeholder svg { width: 24px; height: 24px; }
+
+.image-upload-preview {
+  width: 100%;
+  max-width: 240px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  margin-bottom: var(--space-3);
+  display: block;
+}
+
+.image-upload-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* Alpine: verhindert kurzes Aufblitzen aller Tab-Inhalte vor der Initialisierung */
+[x-cloak] { display: none !important; }

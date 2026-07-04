@@ -22,8 +22,25 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 - [x] **Phase 3 — CRUD für Gegenstände/Verbrauchsmaterial/Mitarbeiter**
 - [x] **Phase 4 — Quickscan: Ausleihe/Rückgabe/Entnahme**
 - [x] **Phase 5 — Historie-Ansicht**
-- [x] **Reservierungs-Workflow (Kanban)** — Reservieren per App → Ausgabe per Scan + digitale Unterschrift → Rückgabe per Scan (dieser Stand)
+- [x] **Reservierungs-Workflow (Kanban)** — Reservieren per App → Ausgabe per Scan + digitale Unterschrift → Rückgabe per Scan
+- [x] **Bild-Upload für Gegenstände/Verbrauchsmaterial** + **Einstellungen als Tabs statt Scroll-Seite** (dieser Stand)
 - [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker, Einstellungsseiten-Layout)
+
+## Bild-Upload
+
+Gegenstände und Verbrauchsmaterial können im Bearbeiten-Formular ein Foto bekommen
+(JPEG/PNG/WebP, wird serverseitig validiert, EXIF-Rotation korrigiert, auf max.
+900px verkleinert und einheitlich als JPEG gespeichert). Erscheint als Thumbnail
+in der Liste und im Scan-Ergebnis. Liegt auf einem eigenen, persistenten
+Docker-Volume (`scandy_lite_uploads`) — überlebt Rebuilds/Redeploys, anders als
+der restliche Anwendungscode.
+
+## Einstellungen
+
+`/admin/settings` ist jetzt eine Tab-Ansicht (Abteilungen/Benutzer/Kategorien/
+Standorte) statt einer langen Scroll-Seite — nur ein Bereich sichtbar,
+Tab-Wechsel ohne Neuladen (Alpine.js). Die aktuell aktive Abteilung ist immer
+sichtbar und wird beim Anlegen neuer Kategorien/Standorte automatisch vorausgewählt.
 
 ## Reservierungs-Workflow
 

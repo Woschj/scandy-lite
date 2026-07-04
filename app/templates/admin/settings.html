@@ -2,19 +2,31 @@
 {% block title %}Einstellungen — Scandy-Lite{% endblock %}
 
 {% block content %}
+<div x-data="{ tab: (window.location.hash || '#departments').slice(1) }">
+
 <span class="eyebrow">Admin</span>
 <h1>Einstellungen</h1>
 
+<div class="chip chip-neutral" style="margin-bottom: var(--space-6);">
+  Aktuell aktive Abteilung: <strong>{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</strong>
+  — neue Kategorien/Standorte werden unten standardmäßig hierfür vorausgewählt, lässt sich pro Eintrag aber ändern.
+</div>
+
 <nav class="settings-tabs">
-  <a href="#departments">Abteilungen</a>
-  <a href="#users">Benutzer</a>
-  <a href="#categories">Kategorien</a>
-  <a href="#locations">Standorte</a>
+  <a href="#departments" @click.prevent="tab = 'departments'" :class="{active: tab === 'departments'}">Abteilungen <span class="count">{{ departments | length }}</span></a>
+  <a href="#users" @click.prevent="tab = 'users'" :class="{active: tab === 'users'}">Benutzer <span class="count">{{ users | length }}</span></a>
+  <a href="#categories" @click.prevent="tab = 'categories'" :class="{active: tab === 'categories'}">Kategorien <span class="count">{{ categories | length }}</span></a>
+  <a href="#locations" @click.prevent="tab = 'locations'" :class="{active: tab === 'locations'}">Standorte <span class="count">{{ locations | length }}</span></a>
 </nav>
 
+{% if department %}
+  {% set ordered_departments = [department] + (departments | rejectattr("id", "equalto", department.id) | list) %}
+{% else %}
+  {% set ordered_departments = departments %}
+{% endif %}
+
 {# ================= Abteilungen ================= #}
-<section class="settings-section" id="departments">
-  <h2>Abteilungen <span class="count">({{ departments | length }})</span></h2>
+<section class="settings-section" x-show="tab === 'departments'" x-cloak>
   <div class="settings-list">
     {% for d in departments %}
       <div class="settings-row">
@@ -48,8 +60,7 @@
 </section>
 
 {# ================= Benutzer ================= #}
-<section class="settings-section" id="users">
-  <h2>Benutzer <span class="count">({{ users | length }})</span></h2>
+<section class="settings-section" x-show="tab === 'users'" x-cloak>
   <p class="settings-hint">Für Self-Service-Reservierungen den Login anschließend beim jeweiligen Mitarbeiter verknüpfen (Mitarbeiter → Bearbeiten).</p>
 
   <div class="settings-list">
@@ -95,7 +106,7 @@
       <label for="u-department">Abteilung</label>
       <select id="u-department" name="department_id">
         <option value="">— keine —</option>
-        {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
       </select>
     </div>
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
@@ -103,12 +114,11 @@
 </section>
 
 {# ================= Kategorien ================= #}
-<section class="settings-section" id="categories">
-  <h2>Kategorien <span class="count">({{ categories | length }})</span></h2>
+<section class="settings-section" x-show="tab === 'categories'" x-cloak>
   <p class="settings-hint">Vorschläge fürs Kategorie-Feld bei Gegenständen/Verbrauchsmaterial - pro Abteilung.</p>
 
   <div class="settings-list">
-    {% for d in departments %}
+    {% for d in ordered_departments %}
       {% set dept_categories = categories | selectattr("department_id", "equalto", d.id) | list %}
       {% if dept_categories %}
         <div class="settings-group-label">{{ d.name }}</div>
@@ -133,7 +143,7 @@
     <div class="field">
       <label for="cat-department">Abteilung</label>
       <select id="cat-department" name="department_id" required>
-        {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
       </select>
     </div>
     <div class="field">
@@ -145,12 +155,11 @@
 </section>
 
 {# ================= Standorte ================= #}
-<section class="settings-section" id="locations">
-  <h2>Standorte <span class="count">({{ locations | length }})</span></h2>
+<section class="settings-section" x-show="tab === 'locations'" x-cloak>
   <p class="settings-hint">Vorschläge fürs Standort-Feld - pro Abteilung.</p>
 
   <div class="settings-list">
-    {% for d in departments %}
+    {% for d in ordered_departments %}
       {% set dept_locations = locations | selectattr("department_id", "equalto", d.id) | list %}
       {% if dept_locations %}
         <div class="settings-group-label">{{ d.name }}</div>
@@ -175,7 +184,7 @@
     <div class="field">
       <label for="loc-department">Abteilung</label>
       <select id="loc-department" name="department_id" required>
-        {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
       </select>
     </div>
     <div class="field">
@@ -185,4 +194,6 @@
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
 </section>
+
+</div>
 {% endblock %}

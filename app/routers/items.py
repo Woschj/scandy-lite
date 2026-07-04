@@ -6,7 +6,7 @@ alle sehen (Anlegen/Bearbeiten erfordert dann aber eine gewählte Abteilung).
 import uuid
 
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user
 from app.core.templating import templates
+from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
 from app.models.common import ItemStatus, utcnow
 from app.models.department import Department
 from app.models.item import Item
@@ -147,6 +148,8 @@ async def create_item(
 async def edit_item_form(
     request: Request,
     item_id: uuid.UUID,
+    ok: str = "",
+    error: str = "",
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
@@ -160,6 +163,7 @@ async def edit_item_form(
         request,
         "items/form.html",
         {
+            "ok": ok, "error": error,
             "user": user, "department": department, "item": item, "error": None,
             "categories": categories, "locations": locations,
         },
@@ -234,3 +238,38 @@ async def delete_item(
         await session.rollback()
         return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/items", status_code=303)
+
+
+@router.post("/{item_id}/image")
+async def upload_item_image(
+    item_id: uuid.UUID,
+    image: UploadFile,
+    user: User = Depends(get_current_user),
+    department: Department | None = Depends(get_current_department),
+    session: AsyncSession = Depends(get_session),
+):
+    item = await session.get(Item, item_id)
+    if not item or item.deleted_at is not None or (department and item.department_id != department.id):
+        raise Forbidden()
+
+    try:
+        await save_image(image, "items", item.id)
+    except InvalidImage as exc:
+        return RedirectResponse(url=f"/items/{item_id}/edit?error={exc}", status_code=303)
+
+    return RedirectResponse(url=f"/items/{item_id}/edit?ok=Bild+aktualisiert.", status_code=303)
+
+
+@router.post("/{item_id}/image/delete")
+async def delete_item_image(
+    item_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    department: Department | None = Depends(get_current_department),
+    session: AsyncSession = Depends(get_session),
+):
+    item = await session.get(Item, item_id)
+    if not item or item.deleted_at is not None or (department and item.department_id != department.id):
+        raise Forbidden()
+
+    delete_image("items", item.id)
+    return RedirectResponse(url=f"/items/{item_id}/edit?ok=Bild+entfernt.", status_code=303)

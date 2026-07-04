@@ -19,6 +19,7 @@ RUN chmod +x docker/entrypoint.sh
 
 # Kein Root-User im Container
 RUN useradd --create-home --uid 1000 scandy \
+    && mkdir -p /app/uploads \
     && chown -R scandy:scandy /app
 USER scandy
 

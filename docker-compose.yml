@@ -44,6 +44,8 @@ services:
       DEFAULT_DEPARTMENT_NAME: ${DEFAULT_DEPARTMENT_NAME:-Werkstatt}
     ports:
       - "${APP_PORT:-8000}:8000"
+    volumes:
+      - scandy_lite_uploads:/app/uploads
 
   # Optional: HTTPS-Reverse-Proxy mit selbstsigniertem Zertifikat.
   # Nötig für Kamera-basiertes Scannen (Browser verweigern Kamerazugriff
@@ -66,4 +68,5 @@ services:
 
 volumes:
   scandy_lite_db_data:
+  scandy_lite_uploads:
   caddy_data:

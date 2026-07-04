@@ -36,5 +36,8 @@ Thumbs.db
 .coverage
 htmlcov/
 
+# Uploads (lokal - in Produktion liegt das auf einem Docker-Volume)
+/uploads/
+
 # Docker
 *.log

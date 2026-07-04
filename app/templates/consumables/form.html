@@ -5,6 +5,28 @@
 <span class="eyebrow">{{ department.name }}</span>
 <h1>{% if consumable %}Material bearbeiten{% else %}Neues Material{% endif %}</h1>
 
+{% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
+
+{% if consumable %}
+<div class="tag-card form-card" style="margin-bottom: var(--space-4);">
+  <h3>Bild</h3>
+  {% if has_image("consumables", consumable.id) %}
+    <img src="{{ image_url('consumables', consumable.id) }}?v={{ consumable.updated_at.timestamp() | int }}" alt="" class="image-upload-preview">
+  {% endif %}
+  <div class="image-upload-row">
+    <form method="post" action="/consumables/{{ consumable.id }}/image" enctype="multipart/form-data" style="margin:0;">
+      <input type="file" name="image" accept="image/png,image/jpeg,image/webp" required
+             onchange="this.form.requestSubmit()">
+    </form>
+    {% if has_image("consumables", consumable.id) %}
+      <form method="post" action="/consumables/{{ consumable.id }}/image/delete" style="margin:0;" onsubmit="return confirm('Bild entfernen?')">
+        <button type="submit" class="link-btn danger">Bild entfernen</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <div class="tag-card form-card">
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
@@ -28,7 +50,7 @@
           <option value="{{ consumable.category }}" selected>{{ consumable.category }} (nicht in Vorgaben)</option>
         {% endif %}
       </select>
-      {% if not categories %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Kategorien angelegt — Admin: Einstellungen → Kategorien.</p>{% endif %}
+      {% if not categories %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Kategorien für {{ department.name }} angelegt — Admin: Einstellungen → Kategorien (Abteilung dort korrekt auswählen!).</p>{% endif %}
     </div>
     <div class="field">
       <label for="location">Standort</label>
@@ -41,7 +63,7 @@
           <option value="{{ consumable.location }}" selected>{{ consumable.location }} (nicht in Vorgaben)</option>
         {% endif %}
       </select>
-      {% if not locations %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Standorte angelegt — Admin: Einstellungen → Standorte.</p>{% endif %}
+      {% if not locations %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Standorte für {{ department.name }} angelegt — Admin: Einstellungen → Standorte (Abteilung dort korrekt auswählen!).</p>{% endif %}
     </div>
     <div class="field">
       <label for="unit">Einheit</label>

@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Multi-Abteilung
     DEFAULT_DEPARTMENT_CODE: str = "default"
 
+    # Bild-Uploads (Gegenstände/Verbrauchsmaterial)
+    UPLOADS_DIR: str = "uploads"
+    MAX_UPLOAD_BYTES: int = 8 * 1024 * 1024  # 8 MB - vor der Pillow-Verarbeitung
+    IMAGE_MAX_DIMENSION: int = 900  # px, längere Kante - hält Dateien klein & Karten einheitlich
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -6,6 +6,7 @@ Phase 2: Auth (lokal, cookie-basiert), Abteilungs-Scoping, Frontend-Fundament
 Lending folgen in Phase 3/4.
 """
 from contextlib import asynccontextmanager
+import os
 
 import logging
 
@@ -40,6 +41,12 @@ app = FastAPI(
 )
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Eigener Mount für Uploads (Bilder) - bewusst getrennt von /static, weil
+# /app/app/static im Image gebacken wird (Rebuild würde Uploads löschen),
+# /app/uploads liegt dagegen auf einem eigenen, persistenten Docker-Volume.
+os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads")
 
 app.include_router(auth.router)
 app.include_router(pages.router)

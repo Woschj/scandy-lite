@@ -6,7 +6,7 @@ Phase 5); reiner Nachschub (kein Mitarbeiter gewählt) verändert nur den Bestan
 import uuid
 
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user
 from app.core.templating import templates
+from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
 from app.models.common import utcnow
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.department import Department
@@ -133,6 +134,8 @@ async def create_consumable(
 async def edit_consumable_form(
     request: Request,
     consumable_id: uuid.UUID,
+    ok: str = "",
+    error: str = "",
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
@@ -149,7 +152,7 @@ async def edit_consumable_form(
         request,
         "consumables/form.html",
         {
-            "user": user, "department": department, "consumable": consumable, "error": None,
+            "user": user, "department": department, "consumable": consumable, "error": error, "ok": ok,
             "workers": workers_result.all(),
             "categories": categories, "locations": locations,
         },
@@ -267,3 +270,38 @@ async def delete_consumable(
         await session.rollback()
         return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/consumables", status_code=303)
+
+
+@router.post("/{consumable_id}/image")
+async def upload_consumable_image(
+    consumable_id: uuid.UUID,
+    image: UploadFile,
+    user: User = Depends(get_current_user),
+    department: Department | None = Depends(get_current_department),
+    session: AsyncSession = Depends(get_session),
+):
+    consumable = await session.get(Consumable, consumable_id)
+    if not consumable or consumable.deleted_at is not None or (department and consumable.department_id != department.id):
+        raise Forbidden()
+
+    try:
+        await save_image(image, "consumables", consumable.id)
+    except InvalidImage as exc:
+        return RedirectResponse(url=f"/consumables/{consumable_id}/edit?error={exc}", status_code=303)
+
+    return RedirectResponse(url=f"/consumables/{consumable_id}/edit?ok=Bild+aktualisiert.", status_code=303)
+
+
+@router.post("/{consumable_id}/image/delete")
+async def delete_consumable_image(
+    consumable_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    department: Department | None = Depends(get_current_department),
+    session: AsyncSession = Depends(get_session),
+):
+    consumable = await session.get(Consumable, consumable_id)
+    if not consumable or consumable.deleted_at is not None or (department and consumable.department_id != department.id):
+        raise Forbidden()
+
+    delete_image("consumables", consumable.id)
+    return RedirectResponse(url=f"/consumables/{consumable_id}/edit?ok=Bild+entfernt.", status_code=303)
