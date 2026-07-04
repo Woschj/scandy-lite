@@ -8,6 +8,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -38,6 +39,8 @@ async def _presets(session: AsyncSession, department_id):
 async def list_consumables(
     request: Request,
     q: str = "",
+    ok: str = "",
+    error: str = "",
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
@@ -55,7 +58,7 @@ async def list_consumables(
     return templates.TemplateResponse(
         request,
         "consumables/list.html",
-        {"user": user, "department": department, "consumables": consumables, "q": q},
+        {"user": user, "department": department, "consumables": consumables, "q": q, "ok": ok, "error": error},
     )
 
 
@@ -118,7 +121,11 @@ async def create_consumable(
         department_id=department.id,
     )
     session.add(consumable)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/consumables", status_code=303)
 
 
@@ -192,7 +199,11 @@ async def update_consumable(
     consumable.unit = unit or "Stück"
     consumable.min_quantity = max(min_quantity, 0)
     session.add(consumable)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/consumables", status_code=303)
 
 
@@ -229,7 +240,11 @@ async def adjust_consumable(
         )
         session.add(usage)
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/consumables", status_code=303)
 
 
@@ -246,5 +261,9 @@ async def delete_consumable(
 
     consumable.deleted_at = utcnow()
     session.add(consumable)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/consumables", status_code=303)

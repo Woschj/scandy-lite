@@ -4,6 +4,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -22,6 +23,8 @@ router = APIRouter(prefix="/workers", tags=["workers"])
 async def list_workers(
     request: Request,
     q: str = "",
+    ok: str = "",
+    error: str = "",
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
@@ -41,7 +44,7 @@ async def list_workers(
     return templates.TemplateResponse(
         request,
         "workers/list.html",
-        {"user": user, "department": department, "workers": workers, "q": q},
+        {"user": user, "department": department, "workers": workers, "q": q, "ok": ok, "error": error},
     )
 
 
@@ -87,7 +90,11 @@ async def create_worker(
 
     worker = Worker(barcode=barcode, first_name=first_name, last_name=last_name, department_id=department.id)
     session.add(worker)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/workers?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/workers", status_code=303)
 
 
@@ -159,7 +166,11 @@ async def update_worker(
     else:
         worker.user_id = None
     session.add(worker)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/workers?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/workers", status_code=303)
 
 
@@ -176,5 +187,9 @@ async def delete_worker(
 
     worker.deleted_at = utcnow()
     session.add(worker)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/workers?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/workers", status_code=303)

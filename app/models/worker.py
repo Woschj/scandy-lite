@@ -19,7 +19,7 @@ class Worker(TimestampMixin, SoftDeleteMixin, table=True):
     __tablename__ = "workers"
 
     id: uuid.UUID = Field(default_factory=new_uuid, primary_key=True)
-    barcode: str = Field(index=True, unique=True, max_length=100)
+    barcode: str = Field(index=True, max_length=100)  # Eindeutigkeit: partieller Unique-Index (nur aktive Datensätze), s. Migration 45dd75eab85a
     first_name: str = Field(max_length=100)
     last_name: str = Field(max_length=100)
 

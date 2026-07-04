@@ -8,6 +8,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -37,6 +38,8 @@ async def _presets(session: AsyncSession, department_id):
 async def list_items(
     request: Request,
     q: str = "",
+    ok: str = "",
+    error: str = "",
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
@@ -71,7 +74,7 @@ async def list_items(
         request,
         "items/list.html",
         {
-            "user": user, "department": department, "items": items, "q": q,
+            "user": user, "department": department, "items": items, "q": q, "ok": ok, "error": error,
             "reserved_ids": reserved_ids, "linked_worker": linked_worker,
         },
     )
@@ -132,7 +135,11 @@ async def create_item(
         department_id=department.id,
     )
     session.add(item)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/items", status_code=303)
 
 
@@ -200,7 +207,11 @@ async def update_item(
     item.notes = notes or None
     item.status = ItemStatus(status)
     session.add(item)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/items", status_code=303)
 
 
@@ -217,5 +228,9 @@ async def delete_item(
 
     item.deleted_at = utcnow()
     session.add(item)
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/items", status_code=303)

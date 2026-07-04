@@ -23,7 +23,7 @@ class Item(TimestampMixin, SoftDeleteMixin, table=True):
     __tablename__ = "items"
 
     id: uuid.UUID = Field(default_factory=new_uuid, primary_key=True)
-    barcode: str = Field(index=True, unique=True, max_length=100)
+    barcode: str = Field(index=True, max_length=100)  # Eindeutigkeit: partieller Unique-Index (nur aktive Datensätze), s. Migration 45dd75eab85a
     name: str = Field(max_length=200)
     category: str | None = Field(default=None, max_length=100)
     location: str | None = Field(default=None, max_length=100)

@@ -19,21 +19,41 @@
     </div>
     <div class="field">
       <label for="category">Kategorie</label>
-      <input type="text" id="category" name="category" value="{{ consumable.category if consumable else '' }}" list="category-options">
-      <datalist id="category-options">
-        {% for c in categories %}<option value="{{ c.name }}">{% endfor %}
-      </datalist>
+      <select id="category" name="category">
+        <option value="">— keine —</option>
+        {% for c in categories %}
+          <option value="{{ c.name }}" {% if consumable and consumable.category == c.name %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+        {% if consumable and consumable.category and consumable.category not in categories | map(attribute="name") | list %}
+          <option value="{{ consumable.category }}" selected>{{ consumable.category }} (nicht in Vorgaben)</option>
+        {% endif %}
+      </select>
+      {% if not categories %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Kategorien angelegt — Admin: Einstellungen → Kategorien.</p>{% endif %}
     </div>
     <div class="field">
       <label for="location">Standort</label>
-      <input type="text" id="location" name="location" value="{{ consumable.location if consumable else '' }}" list="location-options">
-      <datalist id="location-options">
-        {% for l in locations %}<option value="{{ l.name }}">{% endfor %}
-      </datalist>
+      <select id="location" name="location">
+        <option value="">— keiner —</option>
+        {% for l in locations %}
+          <option value="{{ l.name }}" {% if consumable and consumable.location == l.name %}selected{% endif %}>{{ l.name }}</option>
+        {% endfor %}
+        {% if consumable and consumable.location and consumable.location not in locations | map(attribute="name") | list %}
+          <option value="{{ consumable.location }}" selected>{{ consumable.location }} (nicht in Vorgaben)</option>
+        {% endif %}
+      </select>
+      {% if not locations %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Standorte angelegt — Admin: Einstellungen → Standorte.</p>{% endif %}
     </div>
     <div class="field">
       <label for="unit">Einheit</label>
-      <input type="text" id="unit" name="unit" value="{{ consumable.unit if consumable else 'Stück' }}">
+      <select id="unit" name="unit">
+        {% set units = ["Stück", "Packung", "Paar", "Rolle", "Meter", "Liter", "kg", "g", "Karton", "Satz"] %}
+        {% for u in units %}
+          <option value="{{ u }}" {% if (consumable and consumable.unit == u) or (not consumable and u == "Stück") %}selected{% endif %}>{{ u }}</option>
+        {% endfor %}
+        {% if consumable and consumable.unit and consumable.unit not in units %}
+          <option value="{{ consumable.unit }}" selected>{{ consumable.unit }}</option>
+        {% endif %}
+      </select>
     </div>
     {% if not consumable %}
       <div class="field">

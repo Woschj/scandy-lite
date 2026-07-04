@@ -12,6 +12,9 @@
   {% endif %}
 </div>
 
+{% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
+{% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
 <form class="list-toolbar" method="get" action="/workers">
   <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Name oder Barcode…" class="search-input">
   <button type="submit" class="btn btn-ghost">Suchen</button>
