@@ -2,12 +2,13 @@
 {% block title %}Verbrauchsmaterial — Scandy-Lite{% endblock %}
 
 {% block content %}
+{% set is_staff = user.role.value in ("admin", "mitarbeiter") %}
 <div class="list-header">
   <div>
     <span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
     <h1>Verbrauchsmaterial</h1>
   </div>
-  {% if department %}
+  {% if department and is_staff %}
     <a href="/consumables/new" class="btn btn-primary">+ Neues Material</a>
   {% endif %}
 </div>
@@ -20,7 +21,7 @@
   <button type="submit" class="btn btn-ghost">Suchen</button>
 </form>
 
-{% if not department %}
+{% if not department and is_staff %}
   <p class="form-error">Wähle oben eine Abteilung aus, um Material anzulegen oder zu bearbeiten.</p>
 {% endif %}
 
@@ -55,7 +56,7 @@
           <span class="chip chip-danger">Mindestbestand erreicht</span>
         {% endif %}
 
-        {% if department %}
+        {% if department and is_staff %}
         <form class="inline-form" method="post" action="/consumables/{{ c.id }}/adjust" style="margin-top: var(--space-3);" title="Nur Nachschub - Entnahmen bitte über Scannen erfassen, damit sie in der Historie landen">
           <input type="number" name="delta" value="1" min="1" required>
           <input type="hidden" name="worker_id" value="">
@@ -63,12 +64,14 @@
         </form>
         {% endif %}
 
+        {% if is_staff %}
         <div class="item-card-actions">
           <a href="/consumables/{{ c.id }}/edit" class="link-btn">Bearbeiten</a>
           <form method="post" action="/consumables/{{ c.id }}/delete" onsubmit="return confirm('{{ c.name }} wirklich entfernen?')">
             <button type="submit" class="link-btn danger">Entfernen</button>
           </form>
         </div>
+        {% endif %}
       </div>
     {% endfor %}
   </div>

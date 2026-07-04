@@ -13,7 +13,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments
+from app.core.deps import Forbidden, get_current_department, get_current_user, require_staff, populate_switchable_departments
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
 from app.models.common import utcnow
@@ -66,7 +66,7 @@ async def list_consumables(
 @router.get("/new")
 async def new_consumable_form(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -93,7 +93,7 @@ async def create_consumable(
     unit: str = Form("Stück"),
     quantity: int = Form(0),
     min_quantity: int = Form(0),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -136,7 +136,7 @@ async def edit_consumable_form(
     consumable_id: uuid.UUID,
     ok: str = "",
     error: str = "",
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -169,7 +169,7 @@ async def update_consumable(
     location: str = Form(""),
     unit: str = Form("Stück"),
     min_quantity: int = Form(0),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -215,7 +215,7 @@ async def adjust_consumable(
     consumable_id: uuid.UUID,
     delta: int = Form(...),
     worker_id: str = Form(""),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -254,7 +254,7 @@ async def adjust_consumable(
 @router.post("/{consumable_id}/delete")
 async def delete_consumable(
     consumable_id: uuid.UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -276,7 +276,7 @@ async def delete_consumable(
 async def upload_consumable_image(
     consumable_id: uuid.UUID,
     image: UploadFile,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -295,7 +295,7 @@ async def upload_consumable_image(
 @router.post("/{consumable_id}/image/delete")
 async def delete_consumable_image(
     consumable_id: uuid.UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):

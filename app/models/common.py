@@ -30,6 +30,7 @@ class AuthSource(str, Enum):
 class UserRole(str, Enum):
     ADMIN = "admin"
     MITARBEITER = "mitarbeiter"
+    NUTZER = "nutzer"  # Ansehen + Reservieren, keine Verwaltung/Ausgabe
 
 
 class ItemStatus(str, Enum):

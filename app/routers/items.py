@@ -13,7 +13,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments
+from app.core.deps import Forbidden, get_current_department, get_current_user, require_staff, populate_switchable_departments
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
 from app.models.common import ItemStatus, utcnow
@@ -84,7 +84,7 @@ async def list_items(
 @router.get("/new")
 async def new_item_form(
     request: Request,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -109,7 +109,7 @@ async def create_item(
     category: str = Form(""),
     location: str = Form(""),
     notes: str = Form(""),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -150,7 +150,7 @@ async def edit_item_form(
     item_id: uuid.UUID,
     ok: str = "",
     error: str = "",
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -180,7 +180,7 @@ async def update_item(
     location: str = Form(""),
     notes: str = Form(""),
     status: str = Form(...),
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -222,7 +222,7 @@ async def update_item(
 @router.post("/{item_id}/delete")
 async def delete_item(
     item_id: uuid.UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -244,7 +244,7 @@ async def delete_item(
 async def upload_item_image(
     item_id: uuid.UUID,
     image: UploadFile,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
@@ -263,7 +263,7 @@ async def upload_item_image(
 @router.post("/{item_id}/image/delete")
 async def delete_item_image(
     item_id: uuid.UUID,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_staff),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):

@@ -2,12 +2,13 @@
 {% block title %}Gegenstände — Scandy-Lite{% endblock %}
 
 {% block content %}
+{% set is_staff = user.role.value in ("admin", "mitarbeiter") %}
 <div class="list-header">
   <div>
     <span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
     <h1>Gegenstände</h1>
   </div>
-  {% if department %}
+  {% if department and is_staff %}
     <a href="/items/new" class="btn btn-primary">+ Neuer Gegenstand</a>
   {% endif %}
 </div>
@@ -20,7 +21,7 @@
   <button type="submit" class="btn btn-ghost">Suchen</button>
 </form>
 
-{% if not department %}
+{% if not department and is_staff %}
   <p class="form-error">Wähle oben eine Abteilung aus, um Gegenstände anzulegen oder zu bearbeiten. In der Übersicht "Alle Abteilungen" kannst du nur ansehen.</p>
 {% endif %}
 
@@ -70,10 +71,12 @@
               <button type="submit" class="link-btn" style="color: var(--brand); font-weight: 700;">Reservieren</button>
             </form>
           {% endif %}
-          <a href="/items/{{ item.id }}/edit" class="link-btn">Bearbeiten</a>
-          <form method="post" action="/items/{{ item.id }}/delete" onsubmit="return confirm('{{ item.name }} wirklich entfernen?')">
-            <button type="submit" class="link-btn danger">Entfernen</button>
-          </form>
+          {% if is_staff %}
+            <a href="/items/{{ item.id }}/edit" class="link-btn">Bearbeiten</a>
+            <form method="post" action="/items/{{ item.id }}/delete" onsubmit="return confirm('{{ item.name }} wirklich entfernen?')">
+              <button type="submit" class="link-btn danger">Entfernen</button>
+            </form>
+          {% endif %}
         </div>
       </div>
     {% endfor %}

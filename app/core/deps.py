@@ -68,6 +68,15 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+async def require_staff(user: User = Depends(get_current_user)) -> User:
+    """Admin oder Mitarbeiter - Verwaltung (Anlegen/Bearbeiten/Löschen) und
+    Ausgabe/Rückgabe (Scan). Die Rolle 'Nutzer' darf ansehen und reservieren,
+    aber nicht verwalten oder Ausgaben durchführen."""
+    if user.role not in (UserRole.ADMIN, UserRole.MITARBEITER):
+        raise Forbidden()
+    return user
+
+
 async def populate_switchable_departments(
     request: Request,
     user: User = Depends(get_current_user),

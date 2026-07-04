@@ -71,7 +71,7 @@ async def create_user(
     if not result.first() and len(password) >= 8:
         new_user = User(
             username=username.strip(),
-            role=UserRole(role) if role in ("admin", "mitarbeiter") else UserRole.MITARBEITER,
+            role=UserRole(role) if role in ("admin", "mitarbeiter", "nutzer") else UserRole.NUTZER,
             hashed_password=hash_password(password),
             department_id=uuid.UUID(department_id) if department_id else None,
         )

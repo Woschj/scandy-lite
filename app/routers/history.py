@@ -13,7 +13,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import get_current_department, get_current_user, populate_switchable_departments
+from app.core.deps import get_current_department, get_current_user, populate_switchable_departments, require_staff
 from app.core.templating import templates
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.department import Department
@@ -21,7 +21,7 @@ from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
 
-router = APIRouter(prefix="/history", tags=["history"], dependencies=[Depends(populate_switchable_departments)])
+router = APIRouter(prefix="/history", tags=["history"], dependencies=[Depends(populate_switchable_departments), Depends(require_staff)])
 
 _FETCH_LIMIT = 300  # pro Quelle - für ein internes Tool ausreichend, keine Pagination-API nötig
 _PAGE_SIZE = 50

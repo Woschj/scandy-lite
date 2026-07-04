@@ -23,8 +23,21 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 - [x] **Phase 4 — Quickscan: Ausleihe/Rückgabe/Entnahme**
 - [x] **Phase 5 — Historie-Ansicht**
 - [x] **Reservierungs-Workflow (Kanban)** — Reservieren per App → Ausgabe per Scan + digitale Unterschrift → Rückgabe per Scan
-- [x] **Bild-Upload für Gegenstände/Verbrauchsmaterial** + **Einstellungen als Tabs statt Scroll-Seite** (dieser Stand)
+- [x] **Bild-Upload für Gegenstände/Verbrauchsmaterial** + **Einstellungen als Tabs statt Scroll-Seite**
+- [x] **Rollenmodell: Admin / Mitarbeiter / Nutzer** (dieser Stand)
 - [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker, Einstellungsseiten-Layout)
+
+## Rollenmodell
+
+| Rolle | Darf |
+|---|---|
+| **Admin** | Alles: Einstellungen, Abteilungen wechseln, Benutzer verwalten, plus alles von Mitarbeiter |
+| **Mitarbeiter** | Gegenstände/Material/Mitarbeiter verwalten (anlegen/bearbeiten/löschen), Scannen (Ausgabe/Rückgabe/Entnahme), Historie einsehen — innerhalb der eigenen Abteilung |
+| **Nutzer** | Gegenstände/Material **ansehen**, Gegenstände **reservieren** (erfordert einen mit dem Login verknüpften Mitarbeiter-Datensatz), eigene Reservierungen einsehen/stornieren — keine Verwaltung, kein Scannen, keine Historie |
+
+Ein Nutzer-Login wird unter *Einstellungen → Benutzer* angelegt; damit er reservieren
+kann, muss ein Admin ihn anschließend bei einem Mitarbeiter-Datensatz verknüpfen
+(*Mitarbeiter → Bearbeiten → Verknüpfter Login*).
 
 ## Bild-Upload
 
