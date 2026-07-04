@@ -52,7 +52,9 @@ services:
   # Bei Nichtgebrauch: diesen Service + den caddy_data-Volume-Eintrag
   # unten einfach aus der Stack-Konfiguration entfernen.
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
       app:
@@ -60,7 +62,6 @@ services:
     ports:
       - "${APP_HTTPS_PORT:-8443}:8443"
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
 
 volumes:
