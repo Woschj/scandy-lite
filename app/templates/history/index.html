@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Historie — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
+<h1>Historie</h1>
+<p>{{ total }} Einträge - Ausleihen, Rückgaben und Materialentnahmen.</p>
+
+<form class="list-toolbar" method="get" action="/history">
+  <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Gegenstand, Material oder Mitarbeiter…" class="search-input">
+  <button type="submit" class="btn btn-ghost">Suchen</button>
+</form>
+
+{% if entries %}
+  <div class="history-list">
+    {% for e in entries %}
+      <div class="history-row">
+        <span class="history-icon action-{{ e.action }}" aria-hidden="true">
+          {% if e.action == "ausgeliehen" %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
+          {% elif e.action == "zurückgegeben" %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17M17 17H7V7"/></svg>
+          {% else %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6v4l3 12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2l3-12V2Z"/></svg>
+          {% endif %}
+        </span>
+        <div class="history-main">
+          <div class="title">
+            {{ e.title }}
+            {% if e.detail %}<span style="color: var(--ink-soft); font-weight: 400;">({{ e.detail }})</span>{% endif %}
+            <span class="chip chip-neutral" style="margin-left: var(--space-2);">{{ e.action }}</span>
+          </div>
+          <div class="subtitle">{{ e.subtitle }}</div>
+        </div>
+        <div class="history-time">
+          {{ e.timestamp.strftime("%d.%m.%Y") }}<br>{{ e.timestamp.strftime("%H:%M") }}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="pagination">
+    {% if page > 1 %}
+      <a href="/history?page={{ page - 1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-ghost">← Neuer</a>
+    {% else %}
+      <span></span>
+    {% endif %}
+    {% if has_more %}
+      <a href="/history?page={{ page + 1 }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-ghost">Älter →</a>
+    {% endif %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <p>{% if q %}Keine Einträge gefunden für "{{ q }}".{% else %}Noch keine Ausleihen oder Entnahmen erfasst.{% endif %}</p>
+  </div>
+{% endif %}
+{% endblock %}

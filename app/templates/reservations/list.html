@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Reservierungen — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
+<h1>Reservierungen</h1>
+
+{% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
+{% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+{% if not worker %}
+  <div class="tag-card form-card">
+    <p>Dein Login ist noch mit keinem Mitarbeiter-Ausweis verknüpft - deshalb kannst du aktuell nichts reservieren.
+    Bitte wende dich an eine Administratorin oder einen Administrator (Verknüpfung: Mitarbeiter bearbeiten → Login zuordnen).</p>
+  </div>
+{% else %}
+  <h2>Meine Reservierungen</h2>
+  {% if reservations %}
+    <div class="item-grid">
+      {% for r in reservations %}
+        <div class="item-card">
+          <div class="item-card-top">
+            <div>
+              <h3>{{ r.item.name if r.item else "?" }}</h3>
+              <span class="item-barcode">{{ r.item.barcode if r.item else "" }}</span>
+            </div>
+            <span class="chip chip-neutral">Reserviert</span>
+          </div>
+          <p class="item-meta">Reserviert am {{ r.created_at.strftime("%d.%m.%Y %H:%M") }} - zur Abholung bereit, einfach an der Ausgabe scannen lassen.</p>
+          <div class="item-card-actions">
+            <form method="post" action="/reservations/{{ r.id }}/cancel" onsubmit="return confirm('Reservierung stornieren?')">
+              <button type="submit" class="link-btn danger">Stornieren</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <p>Keine offenen Reservierungen. <a href="/items">Zu den Gegenständen</a> - dort kannst du verfügbare Gegenstände reservieren.</p>
+    </div>
+  {% endif %}
+{% endif %}
+
+{% if all_open is defined and user.role.value == "admin" %}
+  <h2 style="margin-top: var(--space-12);">Alle offenen Reservierungen (Admin)</h2>
+  {% if all_open %}
+    <div class="item-grid">
+      {% for r in all_open %}
+        <div class="item-card">
+          <div class="item-card-top">
+            <div>
+              <h3>{{ r.item.name if r.item else "?" }}</h3>
+              <span class="item-barcode">{{ r.item.barcode if r.item else "" }}</span>
+            </div>
+          </div>
+          <p class="item-meta">Für {{ r.worker.full_name if r.worker else "?" }} · {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</p>
+          <div class="item-card-actions">
+            <form method="post" action="/reservations/{{ r.id }}/cancel" onsubmit="return confirm('Reservierung stornieren?')">
+              <button type="submit" class="link-btn danger">Stornieren</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state"><p>Keine offenen Reservierungen.</p></div>
+  {% endif %}
+{% endif %}
+{% endblock %}

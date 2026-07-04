@@ -13,7 +13,7 @@
   <div class="tag-barcode" aria-hidden="true">
     {% for i in range(20) %}<span style="height:{{ (35 + (i * 41) % 65) }}%"></span>{% endfor %}
   </div>
-  <form method="post" action="/scan/lookup">
+  <form method="post" action="/scan/lookup" id="scan-form">
     <div class="field">
       <label for="barcode">Barcode</label>
       <input type="text" id="barcode" name="barcode" required autofocus autocomplete="off"
@@ -22,5 +22,74 @@
     </div>
     <button type="submit" class="btn btn-primary btn-block">Suchen</button>
   </form>
+
+  <div id="camera-scan-wrap" style="display:none; margin-top: var(--space-4);">
+    <video id="scan-video" style="width:100%; border-radius: var(--radius); background:#000; display:block;" playsinline muted></video>
+    <button type="button" id="camera-cancel-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">Kamera schließen</button>
+  </div>
+  <button type="button" id="camera-start-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">📷 Mit Kamera scannen</button>
+  <p id="camera-unsupported" class="form-error" style="display:none; margin-top: var(--space-2); margin-bottom: 0;"></p>
 </div>
+
+<script src="https://unpkg.com/@zxing/library@0.21.3"></script>
+<script>
+(function () {
+  var startBtn = document.getElementById('camera-start-btn');
+  var cancelBtn = document.getElementById('camera-cancel-btn');
+  var wrap = document.getElementById('camera-scan-wrap');
+  var video = document.getElementById('scan-video');
+  var unsupportedMsg = document.getElementById('camera-unsupported');
+  var barcodeInput = document.getElementById('barcode');
+  var form = document.getElementById('scan-form');
+  var codeReader = null;
+
+  function showUnsupported(msg) {
+    startBtn.style.display = 'none';
+    unsupportedMsg.textContent = msg;
+    unsupportedMsg.style.display = 'block';
+  }
+
+  function stopCamera() {
+    if (codeReader) {
+      try { codeReader.reset(); } catch (e) { /* bereits gestoppt */ }
+      codeReader = null;
+    }
+    wrap.style.display = 'none';
+    startBtn.style.display = 'block';
+  }
+
+  if (!window.isSecureContext) {
+    showUnsupported('Kamera-Scan benötigt eine sichere Verbindung (HTTPS). Barcode bitte per Scanner oder Tastatur eingeben.');
+  } else if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showUnsupported('Kamera-Zugriff wird von diesem Browser nicht unterstützt.');
+  } else if (typeof ZXing === 'undefined') {
+    showUnsupported('Kamera-Scan-Bibliothek konnte nicht geladen werden (kein Internetzugriff?).');
+  } else {
+    startBtn.addEventListener('click', function () {
+      codeReader = new ZXing.BrowserMultiFormatReader();
+      startBtn.style.display = 'none';
+      wrap.style.display = 'block';
+
+      ZXing.BrowserMultiFormatReader.listVideoInputDevices().then(function (devices) {
+        var rear = devices.find(function (d) { return /back|rear|environment/i.test(d.label); });
+        var deviceId = rear ? rear.deviceId : (devices.length ? devices[devices.length - 1].deviceId : undefined);
+
+        codeReader.decodeFromVideoDevice(deviceId, video, function (result, err) {
+          if (result) {
+            barcodeInput.value = result.getText();
+            stopCamera();
+            form.submit();
+          }
+          // err bei jedem Frame ohne erkannten Code - kein echter Fehler, wird ignoriert
+        });
+      }).catch(function (e) {
+        showUnsupported('Kamera konnte nicht gestartet werden: kein Zugriff erteilt oder keine Kamera gefunden.');
+        wrap.style.display = 'none';
+      });
+    });
+
+    cancelBtn.addEventListener('click', stopCamera);
+  }
+})();
+</script>
 {% endblock %}

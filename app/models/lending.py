@@ -40,6 +40,11 @@ class Lending(TimestampMixin, table=True):
     lent_at: datetime = Field(default_factory=utcnow, index=True)
     returned_at: datetime | None = Field(default=None, index=True)
 
+    # Digitale Unterschrift bei der Ausgabe (base64 Data-URL, PNG vom Canvas-Pad).
+    # Bewusst als Text in der Zeile statt separater Datei-Infrastruktur -
+    # Unterschriften sind klein (~5-20 KB) und gehören untrennbar zur Ausleihe.
+    signature: str | None = Field(default=None)
+
     @property
     def is_active(self) -> bool:
         return self.returned_at is None

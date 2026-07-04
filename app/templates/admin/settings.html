@@ -41,6 +41,59 @@
   </form>
 </div>
 
+<h2 style="margin-top: var(--space-12);">Benutzer</h2>
+<p style="color: var(--ink-soft); font-size: 0.875rem;">System-Logins. Für Self-Service-Reservierungen den Login anschließend beim jeweiligen Mitarbeiter verknüpfen (Mitarbeiter → Bearbeiten).</p>
+
+<div class="item-grid">
+  {% for u in users %}
+    <div class="item-card">
+      <div class="item-card-top">
+        <div>
+          <h3>{{ u.username }}</h3>
+          <span class="item-barcode">{{ u.role.value }}{% if u.auth_source.value != "local" %} · {{ u.auth_source.value }}{% endif %}</span>
+        </div>
+        {% if u.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
+      </div>
+      {% if u.id != user.id %}
+      <div class="item-card-actions">
+        <form method="post" action="/admin/users/{{ u.id }}/toggle">
+          <button type="submit" class="link-btn">{% if u.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</div>
+
+<div class="tag-card form-card" style="margin-top: var(--space-4);">
+  <h3>Neuer Benutzer</h3>
+  <form method="post" action="/admin/users/new">
+    <div class="field">
+      <label for="u-username">Benutzername</label>
+      <input type="text" id="u-username" name="username" required>
+    </div>
+    <div class="field">
+      <label for="u-password">Passwort (min. 8 Zeichen)</label>
+      <input type="password" id="u-password" name="password" minlength="8" required>
+    </div>
+    <div class="field">
+      <label for="u-role">Rolle</label>
+      <select id="u-role" name="role">
+        <option value="mitarbeiter" selected>Mitarbeiter</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="u-department">Abteilung</label>
+      <select id="u-department" name="department_id">
+        <option value="">— keine —</option>
+        {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Anlegen</button>
+  </form>
+</div>
+
 <h2 style="margin-top: var(--space-12);">Kategorien</h2>
 <p style="color: var(--ink-soft); font-size: 0.875rem;">Vorschläge fürs Kategorie-Feld bei Gegenständen/Verbrauchsmaterial - pro Abteilung.</p>
 

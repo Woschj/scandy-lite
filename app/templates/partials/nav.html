@@ -7,10 +7,11 @@
     <a href="/items" class="{% if request.url.path.startswith('/items') %}active{% endif %}">Gegenstände</a>
     <a href="/consumables" class="{% if request.url.path.startswith('/consumables') %}active{% endif %}">Verbrauchsmaterial</a>
     <a href="/workers" class="{% if request.url.path.startswith('/workers') %}active{% endif %}">Mitarbeiter</a>
+    <a href="/reservations" class="{% if request.url.path.startswith('/reservations') %}active{% endif %}">Reservierungen</a>
+    <a href="/history" class="{% if request.url.path.startswith('/history') %}active{% endif %}">Historie</a>
     {% if user and user.role.value == "admin" %}
       <a href="/admin/settings" class="{% if request.url.path.startswith('/admin') %}active{% endif %}">Einstellungen</a>
     {% endif %}
-    {# Historie kommt in Phase 5 dazu #}
   </nav>
 
   <div class="user-chip">

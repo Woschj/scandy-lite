@@ -24,6 +24,7 @@ from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
 from app.models.worker import Worker
+from app.routers.reservations import get_open_reservation
 
 router = APIRouter(prefix="/scan", tags=["scan"])
 
@@ -71,9 +72,13 @@ async def scan_lookup(
                 .options(selectinload(Lending.worker))
             )
             active_lending = lending_result.first()
+        reservation = await get_open_reservation(session, item.id)
         return templates.TemplateResponse(
             request, "scan/result.html",
-            {"user": user, "department": department, "kind": "item", "item": item, "lending": active_lending},
+            {
+                "user": user, "department": department, "kind": "item", "item": item,
+                "lending": active_lending, "reservation": reservation,
+            },
         )
 
     result = await session.exec(select(Consumable).where(Consumable.barcode == barcode, Consumable.deleted_at.is_(None)))
@@ -95,6 +100,7 @@ async def scan_lookup(
 async def scan_lend(
     item_id: uuid.UUID = Form(...),
     worker_barcode: str = Form(...),
+    signature: str = Form(""),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -106,6 +112,11 @@ async def scan_lend(
     if item.status != ItemStatus.VERFUEGBAR:
         return RedirectResponse(url="/scan?error=Gegenstand+ist+nicht+verfügbar.", status_code=303)
 
+    # Unterschrift ist Pflicht (JS erzwingt sie clientseitig, hier serverseitig absichern).
+    # Grobe Plausibilität: PNG-Data-URL, nicht absurd groß (Schutz vor Missbrauch als Datenspeicher).
+    if not signature.startswith("data:image/png;base64,") or len(signature) > 200_000:
+        return RedirectResponse(url="/scan?error=Unterschrift+fehlt+oder+ist+ungültig.", status_code=303)
+
     worker_result = await session.exec(
         select(Worker).where(Worker.barcode == worker_barcode.strip(), Worker.deleted_at.is_(None), Worker.is_active == True)  # noqa: E712
     )
@@ -114,8 +125,23 @@ async def scan_lend(
         return RedirectResponse(url="/scan?error=Mitarbeiter-Barcode+nicht+gefunden.", status_code=303)
     _check_department_access(user, worker.department_id)
 
-    lending = Lending(item_id=item.id, worker_id=worker.id, department_id=item.department_id)
+    # Reservierungs-Logik: ist der Gegenstand für jemand ANDEREN reserviert -> blockieren.
+    # Für DENSELBEN Worker reserviert -> Reservierung wird mit der Ausgabe erfüllt.
+    reservation = await get_open_reservation(session, item.id)
+    if reservation and reservation.worker_id != worker.id:
+        reserved_name = reservation.worker.full_name if reservation.worker else "jemand anderen"
+        return RedirectResponse(
+            url=f"/scan?error=Gegenstand+ist+für+{reserved_name}+reserviert.", status_code=303
+        )
+
+    lending = Lending(
+        item_id=item.id, worker_id=worker.id, department_id=item.department_id,
+        signature=signature,
+    )
     item.status = ItemStatus.AUSGELIEHEN
+    if reservation:
+        reservation.fulfilled_at = utcnow()
+        session.add(reservation)
     session.add(lending)
     session.add(item)
     try:

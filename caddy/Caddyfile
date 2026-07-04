@@ -1,0 +1,16 @@
+# Caddyfile - reiner Reverse-Proxy mit selbstsigniertem HTTPS fürs interne Netz.
+#
+# "tls internal" lässt Caddy eine eigene lokale CA + Zertifikat erzeugen -
+# kein Let's Encrypt, keine öffentliche Domain nötig. Browser zeigen beim
+# ersten Aufruf eine Zertifikatswarnung (unbekannte CA) - "Erweitert ->
+# Trotzdem fortfahren" einmalig pro Gerät bestätigen, danach funktioniert
+# die Seite wie gewohnt UND der Kamera-Zugriff (der zwingend HTTPS braucht).
+#
+# Port-basiert statt Hostname-basiert (":8443" statt "meinhost:8443"), damit
+# der Zugriff per nackter IP funktioniert (192.168.x.x) - kein interner
+# DNS-Eintrag nötig.
+:8443 {
+	tls internal
+
+	reverse_proxy app:8000
+}

@@ -10,6 +10,7 @@ from app.models.department import Department  # noqa: F401
 from app.models.item import Item  # noqa: F401
 from app.models.lending import Lending  # noqa: F401
 from app.models.preset import Category, Location  # noqa: F401
+from app.models.reservation import Reservation  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.worker import Worker  # noqa: F401
 
@@ -21,6 +22,7 @@ __all__ = [
     "Item",
     "Lending",
     "Location",
+    "Reservation",
     "User",
     "Worker",
 ]

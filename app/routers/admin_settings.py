@@ -16,7 +16,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
 from app.core.deps import require_admin
+from app.core.security import hash_password
 from app.core.templating import templates
+from app.models.common import UserRole
 from app.models.department import Department
 from app.models.preset import Category, Location
 from app.models.user import User
@@ -37,6 +39,7 @@ async def settings_page(
     locations = (await session.exec(
         select(Location).order_by(Location.department_id, Location.name)
     )).all()
+    users = (await session.exec(select(User).order_by(User.username))).all()
 
     return templates.TemplateResponse(
         request,
@@ -47,8 +50,47 @@ async def settings_page(
             "departments": departments,
             "categories": categories,
             "locations": locations,
+            "users": users,
         },
     )
+
+
+# --- Benutzer ----------------------------------------------------------
+
+@router.post("/users/new")
+async def create_user(
+    username: str = Form(...),
+    password: str = Form(...),
+    role: str = Form("mitarbeiter"),
+    department_id: str = Form(""),
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.exec(select(User).where(User.username == username.strip()))
+    if not result.first() and len(password) >= 8:
+        new_user = User(
+            username=username.strip(),
+            role=UserRole(role) if role in ("admin", "mitarbeiter") else UserRole.MITARBEITER,
+            hashed_password=hash_password(password),
+            department_id=uuid.UUID(department_id) if department_id else None,
+        )
+        session.add(new_user)
+        await session.commit()
+    return RedirectResponse(url="/admin/settings", status_code=303)
+
+
+@router.post("/users/{user_id}/toggle")
+async def toggle_user(
+    user_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    target = await session.get(User, user_id)
+    if target and target.id != user.id:  # sich selbst aussperren verhindern
+        target.is_active = not target.is_active
+        session.add(target)
+        await session.commit()
+    return RedirectResponse(url="/admin/settings", status_code=303)
 
 
 # --- Abteilungen -----------------------------------------------------------

@@ -22,6 +22,15 @@
       <input type="text" id="last_name" name="last_name" value="{{ worker.last_name if worker else '' }}" required>
     </div>
     {% if worker %}
+      <div class="field">
+        <label for="user_id">Verknüpfter Login (für Reservierungen)</label>
+        <select id="user_id" name="user_id">
+          <option value="">— kein Login verknüpft —</option>
+          {% for u in linkable_users %}
+            <option value="{{ u.id }}" {% if worker.user_id == u.id %}selected{% endif %}>{{ u.username }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="checkbox-field">
         <input type="checkbox" id="is_active" name="is_active" value="true" {% if worker.is_active %}checked{% endif %}>
         <label for="is_active">Aktiv</label>

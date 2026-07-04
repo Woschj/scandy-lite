@@ -103,10 +103,16 @@ async def edit_worker_form(
     if not worker or worker.deleted_at is not None or (department and worker.department_id != department.id):
         raise Forbidden()
 
+    # User zum Verknüpfen: noch nicht verknüpfte + der ggf. bereits verknüpfte
+    linked_ids_result = await session.exec(select(Worker.user_id).where(Worker.user_id.is_not(None)))
+    linked_ids = {uid for uid in linked_ids_result.all() if uid != worker.user_id}
+    users_result = await session.exec(select(User).where(User.is_active == True).order_by(User.username))  # noqa: E712
+    linkable_users = [u for u in users_result.all() if u.id not in linked_ids]
+
     return templates.TemplateResponse(
         request,
         "workers/form.html",
-        {"user": user, "department": department, "worker": worker, "error": None},
+        {"user": user, "department": department, "worker": worker, "error": None, "linkable_users": linkable_users},
     )
 
 
@@ -118,6 +124,7 @@ async def update_worker(
     first_name: str = Form(...),
     last_name: str = Form(...),
     is_active: str = Form(""),
+    user_id: str = Form(""),
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
@@ -144,6 +151,13 @@ async def update_worker(
     worker.first_name = first_name
     worker.last_name = last_name
     worker.is_active = bool(is_active)
+    if user_id:
+        try:
+            worker.user_id = uuid.UUID(user_id)
+        except ValueError:
+            raise Forbidden()
+    else:
+        worker.user_id = None
     session.add(worker)
     await session.commit()
     return RedirectResponse(url="/workers", status_code=303)

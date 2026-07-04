@@ -26,6 +26,11 @@ class Worker(TimestampMixin, SoftDeleteMixin, table=True):
     department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)
     department: Optional["Department"] = Relationship(back_populates="workers")
 
+    # Optionale Verknüpfung zu einem System-Login: erlaubt es dem eingeloggten
+    # Nutzer, für "seinen" Ausweis zu reservieren. Nicht jeder Worker braucht
+    # einen Login (Ausleihe per Barcode geht weiterhin ohne).
+    user_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", unique=True)
+
     is_active: bool = Field(default=True)
 
     lendings: list["Lending"] = Relationship(back_populates="worker")

@@ -51,10 +51,29 @@ async def list_items(
     result = await session.exec(stmt)
     items = result.all()
 
+    # Offene Reservierungen der angezeigten Items (für "Reserviert"-Chip + Button-Logik)
+    from app.models.reservation import Reservation
+    from app.routers.reservations import get_linked_worker
+    reserved_ids: set = set()
+    if items:
+        res_result = await session.exec(
+            select(Reservation.item_id).where(
+                Reservation.item_id.in_([i.id for i in items]),
+                Reservation.fulfilled_at.is_(None),
+                Reservation.cancelled_at.is_(None),
+            )
+        )
+        reserved_ids = set(res_result.all())
+
+    linked_worker = await get_linked_worker(session, user)
+
     return templates.TemplateResponse(
         request,
         "items/list.html",
-        {"user": user, "department": department, "items": items, "q": q},
+        {
+            "user": user, "department": department, "items": items, "q": q,
+            "reserved_ids": reserved_ids, "linked_worker": linked_worker,
+        },
     )
 
 

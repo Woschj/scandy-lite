@@ -1,8 +1,9 @@
 """
-Startseite nach dem Login. Phase 2 lieferte nur das Gerüst (Nav, Abteilungs-
-Kontext, Design-System). Phase 3 zeigt hier bereits echte Kennzahlen.
+Startseite nach dem Login: Kennzahlen + Kanban-Board der laufenden Vorgänge
+(offene Reservierungen -> aktive Ausleihen).
 """
 from fastapi import APIRouter, Depends, Request
+from sqlalchemy.orm import selectinload
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -12,6 +13,8 @@ from app.core.templating import templates
 from app.models.consumable import Consumable
 from app.models.department import Department
 from app.models.item import Item
+from app.models.lending import Lending
+from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.worker import Worker
 
@@ -55,6 +58,28 @@ async def dashboard(
         )
         worker_count = result.one()
 
+    # Kanban-Spalten: offene Reservierungen und aktive Ausleihen
+    res_stmt = (
+        select(Reservation)
+        .where(Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
+        .options(selectinload(Reservation.item), selectinload(Reservation.worker))
+        .order_by(Reservation.created_at.desc())
+        .limit(50)
+    )
+    lend_stmt = (
+        select(Lending)
+        .where(Lending.returned_at.is_(None))
+        .options(selectinload(Lending.item), selectinload(Lending.worker))
+        .order_by(Lending.lent_at.desc())
+        .limit(50)
+    )
+    if department:
+        res_stmt = res_stmt.where(Reservation.department_id == department.id)
+        lend_stmt = lend_stmt.where(Lending.department_id == department.id)
+
+    open_reservations = (await session.exec(res_stmt)).all()
+    active_lendings = (await session.exec(lend_stmt)).all()
+
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -65,5 +90,7 @@ async def dashboard(
             "item_count": item_count,
             "consumable_count": consumable_count,
             "worker_count": worker_count,
+            "open_reservations": open_reservations,
+            "active_lendings": active_lendings,
         },
     )

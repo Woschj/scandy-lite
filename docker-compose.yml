@@ -45,5 +45,23 @@ services:
     ports:
       - "${APP_PORT:-8000}:8000"
 
+  # Optional: HTTPS-Reverse-Proxy mit selbstsigniertem Zertifikat.
+  # Nötig für Kamera-basiertes Scannen (Browser verweigern Kamerazugriff
+  # über reines HTTP, außer auf localhost). Läuft parallel zum direkten
+  # HTTP-Zugriff über APP_PORT - beides bleibt nutzbar.
+  # Bei Nichtgebrauch: diesen Service + den caddy_data-Volume-Eintrag
+  # unten einfach aus der Stack-Konfiguration entfernen.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "${APP_HTTPS_PORT:-8443}:8443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+
 volumes:
   scandy_lite_db_data:
+  caddy_data:

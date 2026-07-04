@@ -19,16 +19,31 @@
     </div>
 
     {% if item.status.value == "verfuegbar" %}
+      {% if reservation and reservation.worker %}
+        <div class="chip chip-neutral" style="margin-bottom: var(--space-3);">Reserviert für {{ reservation.worker.full_name }}</div>
+        <p>Bei der Ausgabe an diese Person wird die Reservierung automatisch erfüllt. Ausgabe an andere ist blockiert.</p>
+      {% endif %}
       <p>Gegenstand ausleihen - Mitarbeiter-Barcode scannen oder eintippen:</p>
       <form method="post" action="/scan/lend">
         <input type="hidden" name="item_id" value="{{ item.id }}">
+        <input type="hidden" name="signature" id="signature-data" value="">
         <div class="field">
           <label for="worker_barcode">Mitarbeiter-Barcode</label>
           <input type="text" id="worker_barcode" name="worker_barcode" required autofocus autocomplete="off"
-                 style="font-family: var(--font-display); font-size: 1.125rem;">
+                 style="font-family: var(--font-display); font-size: 1.125rem;"
+                 {% if reservation and reservation.worker %}value="{{ reservation.worker.barcode }}"{% endif %}>
         </div>
-        <button type="submit" class="btn btn-primary btn-block">Ausleihen bestätigen</button>
+        <div class="field">
+          <label>Unterschrift</label>
+          <canvas id="signature-pad" class="signature-pad" aria-label="Unterschriftsfeld"></canvas>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top: var(--space-1);">
+            <span id="signature-hint" class="eyebrow">Mit Finger oder Maus unterschreiben</span>
+            <button type="button" id="signature-clear" class="link-btn">Löschen</button>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Ausgabe bestätigen</button>
       </form>
+      <script src="/static/js/signature.js" defer></script>
 
     {% elif item.status.value == "ausgeliehen" %}
       {% if lending and lending.worker %}

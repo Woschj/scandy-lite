@@ -5,6 +5,8 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 [scandy2](https://github.com/woschj/scandy2), reduziert auf den Kern-Workflow
 (kein Ticketsystem, kein Kantinenplan, keine Job-Verwaltung).
 
+**→ Schritt-für-Schritt-Installation via Portainer: [INSTALL.md](INSTALL.md)**
+
 ## Tech-Stack
 
 - **Backend:** FastAPI (async)
@@ -18,10 +20,28 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 - [x] **Phase 1 — Datenmodell + DB-Layer**
 - [x] **Phase 2 — Auth + Abteilungs-Scoping + Frontend-Fundament**
 - [x] **Phase 3 — CRUD für Gegenstände/Verbrauchsmaterial/Mitarbeiter**
-- [x] **Phase 4 — Quickscan: Ausleihe/Rückgabe/Entnahme** (dieser Stand)
-- [ ] Phase 5 — Historie-Ansicht
-- [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker, Kamera-Scan)
+- [x] **Phase 4 — Quickscan: Ausleihe/Rückgabe/Entnahme**
+- [x] **Phase 5 — Historie-Ansicht**
+- [x] **Reservierungs-Workflow (Kanban)** — Reservieren per App → Ausgabe per Scan + digitale Unterschrift → Rückgabe per Scan (dieser Stand)
+- [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker, Einstellungsseiten-Layout)
+
+## Reservierungs-Workflow
+
+1. **Reservieren:** Eingeloggte Nutzer mit verknüpftem Mitarbeiter-Ausweis (Verknüpfung: Mitarbeiter → Bearbeiten → Login zuordnen) sehen in der Gegenstands-Liste einen **Reservieren**-Button. Unter *Reservierungen* verwalten sie ihre Vormerkungen (inkl. Storno).
+2. **Ausgabe:** An der Ausgabe wird der Gegenstand gescannt. Ist er reserviert, wird der Mitarbeiter-Barcode vorausgefüllt und die Ausgabe an andere Personen blockiert. Die Ausgabe wird mit **digitaler Unterschrift** (Canvas, Finger/Maus) bestätigt — serverseitig Pflicht.
+3. **Rückgabe:** Gegenstand einfach erneut scannen → Rückgabe mit einem Klick.
+
+Die **Übersicht** ist ein Kanban-Board: Spalten *Reserviert* → *Ausgeliehen* zeigen alle laufenden Vorgänge (mit ✓-Kennzeichnung unterschriebener Ausgaben). Benutzer-Logins werden unter *Einstellungen → Benutzer* angelegt (nur Admin).
+  - [x] Kamera-basiertes Scannen (via optionalem Caddy-HTTPS-Proxy)
 - [x] **Phase 7 — Docker-Setup für Produktivbetrieb** (vorgezogen für Portainer-Deployment)
+
+## Historie
+
+Unter `/history`: eine gemeinsame, chronologische Zeitleiste aus Ausleihen,
+Rückgaben und Verbrauchsmaterial-Entnahmen (statt getrennter Historie-Seiten pro
+Gegenstand/Mitarbeiter wie im Original - für ein schlankes System reicht eine
+durchsuchbare Liste). Suche nach Gegenstand-/Material-/Mitarbeitername,
+einfache Seitenweise-Navigation.
 
 ## Admin-Einstellungen
 
@@ -71,7 +91,34 @@ Scan, das reicht zum Absenden des Formulars - kein JS nötig). Je nach Fund:
 - **Verbrauchsmaterial** → Menge + Mitarbeiter-Barcode → Bestand wird reduziert, Entnahme protokolliert
 - **Unbekannter Barcode** → direkter Link zum Neuanlegen mit vorausgefülltem Barcode
 
-Kamera-basiertes Scannen (statt externem Hardware-Scanner) folgt in Phase 6.
+Kamera-basiertes Scannen (statt externem Hardware-Scanner) ist ab diesem Stand
+implementiert - siehe Hinweis zu HTTPS unten, ohne das funktioniert es nicht.
+
+## Kamera-Scan & HTTPS
+
+Browser verweigern Kamerazugriff (`getUserMedia`) grundsätzlich über reines
+HTTP - Ausnahme ist nur `localhost`. Läuft die App wie bei euch über eine
+LAN-IP per HTTP, ist der "📷 Mit Kamera scannen"-Button auf `/scan` zwar
+sichtbar, zeigt aber automatisch einen Hinweis statt eines kaputten Buttons
+("benötigt HTTPS") - der externe Hardware-Scanner/manuelle Eingabe funktioniert
+davon unbenommen weiter.
+
+**Um Kamera-Scan nutzbar zu machen**, liegt dem Compose-Stack ein optionaler
+`caddy`-Service bei - ein Reverse-Proxy, der automatisch ein selbstsigniertes
+Zertifikat erzeugt (kein Domain-/Let's-Encrypt-Aufwand nötig):
+
+1. Stack wie gewohnt deployen (der `caddy`-Service startet automatisch mit)
+2. Statt `http://<ip>:8010` aufrufen: `https://<ip>:8443`
+3. Browser zeigt eine Zertifikatswarnung (unbekannte, selbstsignierte CA) -
+   einmalig pro Gerät "Erweitert -> Trotzdem fortfahren" bestätigen
+4. Danach funktioniert die Seite normal, inklusive Kamera-Zugriff
+
+Der bisherige HTTP-Zugriff über `APP_PORT` bleibt parallel nutzbar - falls ihr
+den `caddy`-Service nicht braucht, könnt ihr ihn und den `caddy_data`-Eintrag
+einfach aus der `docker-compose.yml` entfernen. `SESSION_COOKIE_SECURE` muss
+dafür **nicht** auf `true` gesetzt werden - nicht-sichere Cookies funktionieren
+über HTTP und HTTPS gleichermaßen, nur umgekehrt (sicheres Cookie über HTTP)
+wäre das Problem, das wir schon hatten.
 
 ## Begriff "Gegenstand" statt "Werkzeug"
 
@@ -147,7 +194,8 @@ Für den Einstieg ist **Methode 1** deutlich unkomplizierter.
 
 | Variable | Beschreibung | Default |
 | :--- | :--- | :--- |
-| `APP_PORT` | Port, unter dem die App erreichbar ist | `8000` |
+| `APP_PORT` | Port, unter dem die App per HTTP erreichbar ist | `8000` |
+| `APP_HTTPS_PORT` | Port für den optionalen Caddy-HTTPS-Zugriff (Kamera-Scan) | `8443` |
 | `POSTGRES_USER` | Datenbank-User | `scandy` |
 | `POSTGRES_PASSWORD` | Datenbank-Passwort (**ändern!**) | `change_me_immediately` |
 | `POSTGRES_DB` | Datenbankname | `scandy_lite` |

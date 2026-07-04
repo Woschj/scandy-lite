@@ -30,7 +30,9 @@
             <h3>{{ item.name }}</h3>
             <span class="item-barcode">{{ item.barcode }}</span>
           </div>
-          {% if item.status.value == "verfuegbar" %}
+          {% if item.id in reserved_ids %}
+            <span class="chip chip-neutral">Reserviert</span>
+          {% elif item.status.value == "verfuegbar" %}
             <span class="chip chip-success">Verfügbar</span>
           {% elif item.status.value == "ausgeliehen" %}
             <span class="chip chip-neutral">Ausgeliehen</span>
@@ -51,6 +53,11 @@
           <p class="item-meta" style="font-style: italic;">{{ item.notes }}</p>
         {% endif %}
         <div class="item-card-actions">
+          {% if linked_worker and item.status.value == "verfuegbar" and item.id not in reserved_ids %}
+            <form method="post" action="/reservations/items/{{ item.id }}">
+              <button type="submit" class="link-btn" style="color: var(--brand); font-weight: 700;">Reservieren</button>
+            </form>
+          {% endif %}
           <a href="/items/{{ item.id }}/edit" class="link-btn">Bearbeiten</a>
           <form method="post" action="/items/{{ item.id }}/delete" onsubmit="return confirm('{{ item.name }} wirklich entfernen?')">
             <button type="submit" class="link-btn danger">Entfernen</button>

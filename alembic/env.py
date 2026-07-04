@@ -19,6 +19,7 @@ from app.models import (  # noqa: E402,F401  (Import registriert alle Tabellen i
     Lending,
     Item,
     Location,
+    Reservation,
     User,
     Worker,
 )
