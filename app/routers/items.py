@@ -13,7 +13,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user
+from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
 from app.models.common import ItemStatus, utcnow
@@ -22,7 +22,7 @@ from app.models.item import Item
 from app.models.preset import Category, Location
 from app.models.user import User
 
-router = APIRouter(prefix="/items", tags=["items"])
+router = APIRouter(prefix="/items", tags=["items"], dependencies=[Depends(populate_switchable_departments)])
 
 
 async def _presets(session: AsyncSession, department_id):

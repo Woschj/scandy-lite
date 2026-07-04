@@ -8,7 +8,7 @@ from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import get_current_department, get_current_user
+from app.core.deps import get_current_department, get_current_user, populate_switchable_departments
 from app.core.templating import templates
 from app.models.consumable import Consumable
 from app.models.department import Department
@@ -18,7 +18,7 @@ from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(tags=["pages"])
+router = APIRouter(tags=["pages"], dependencies=[Depends(populate_switchable_departments)])
 
 
 @router.get("/")
@@ -28,11 +28,6 @@ async def dashboard(
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    all_departments = None
-    if user.role.value == "admin":
-        result = await session.exec(select(Department).where(Department.is_active == True))  # noqa: E712
-        all_departments = result.all()
-
     item_count = 0
     consumable_count = 0
     worker_count = 0
@@ -86,7 +81,6 @@ async def dashboard(
         {
             "user": user,
             "department": department,
-            "all_departments": all_departments,
             "item_count": item_count,
             "consumable_count": consumable_count,
             "worker_count": worker_count,

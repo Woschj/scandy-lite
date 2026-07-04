@@ -59,6 +59,23 @@ async def require_admin(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+async def populate_switchable_departments(
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """Schreibt die wechselbaren Abteilungen (nur für Admins) nach request.state,
+    von wo aus sie der Template-Context-Processor (app/core/templating.py)
+    automatisch für JEDES Rendering aufgreift. So als Router-weite `dependencies=`
+    eingebunden (nicht pro Route einzeln) - kann dadurch nicht mehr vergessen
+    werden, wenn eine neue Route dazukommt."""
+    if user.role == UserRole.ADMIN:
+        result = await session.exec(select(Department).where(Department.is_active == True))  # noqa: E712
+        request.state.all_departments = result.all()
+    else:
+        request.state.all_departments = None
+
+
 async def get_current_department(
     request: Request,
     user: User = Depends(get_current_user),

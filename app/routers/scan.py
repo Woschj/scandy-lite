@@ -15,7 +15,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user
+from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments
 from app.core.templating import templates
 from app.models.common import ItemStatus, UserRole, utcnow
 from app.models.consumable import Consumable, ConsumableUsage
@@ -26,7 +26,7 @@ from app.models.user import User
 from app.models.worker import Worker
 from app.routers.reservations import get_open_reservation
 
-router = APIRouter(prefix="/scan", tags=["scan"])
+router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_switchable_departments)])
 
 
 def _check_department_access(user: User, entity_department_id: uuid.UUID) -> None:

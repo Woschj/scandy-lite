@@ -15,7 +15,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import get_current_department, require_admin
+from app.core.deps import get_current_department, require_admin, populate_switchable_departments
 from app.core.security import hash_password
 from app.core.templating import templates
 from app.models.common import UserRole
@@ -23,7 +23,7 @@ from app.models.department import Department
 from app.models.preset import Category, Location
 from app.models.user import User
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(populate_switchable_departments)])
 
 
 @router.get("/settings")
@@ -48,7 +48,6 @@ async def settings_page(
         {
             "user": user,
             "department": department,
-            "all_departments": departments,
             "departments": departments,
             "categories": categories,
             "locations": locations,

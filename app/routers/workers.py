@@ -9,14 +9,14 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user
+from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments
 from app.core.templating import templates
 from app.models.common import utcnow
 from app.models.department import Department
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/workers", tags=["workers"])
+router = APIRouter(prefix="/workers", tags=["workers"], dependencies=[Depends(populate_switchable_departments)])
 
 
 @router.get("")
