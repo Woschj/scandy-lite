@@ -4,31 +4,37 @@
 {% block content %}
 <span class="eyebrow">Admin</span>
 <h1>Einstellungen</h1>
-<p>Abteilungen und die Vorschlagslisten für Kategorien/Standorte verwalten.</p>
 
-<h2 style="margin-top: var(--space-8);">Abteilungen</h2>
-<div class="item-grid">
-  {% for d in departments %}
-    <div class="item-card">
-      <div class="item-card-top">
-        <div>
-          <h3>{{ d.name }}</h3>
-          <span class="item-barcode">{{ d.code }}</span>
+<nav class="settings-tabs">
+  <a href="#departments">Abteilungen</a>
+  <a href="#users">Benutzer</a>
+  <a href="#categories">Kategorien</a>
+  <a href="#locations">Standorte</a>
+</nav>
+
+{# ================= Abteilungen ================= #}
+<section class="settings-section" id="departments">
+  <h2>Abteilungen <span class="count">({{ departments | length }})</span></h2>
+  <div class="settings-list">
+    {% for d in departments %}
+      <div class="settings-row">
+        <div class="main">
+          <span class="name">{{ d.name }}</span>
+          <span class="meta">{{ d.code }}</span>
+          {% if d.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
         </div>
-        {% if d.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
+        <div class="actions">
+          <form method="post" action="/admin/departments/{{ d.id }}/toggle">
+            <button type="submit" class="link-btn">{% if d.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
+          </form>
+        </div>
       </div>
-      <div class="item-card-actions">
-        <form method="post" action="/admin/departments/{{ d.id }}/toggle">
-          <button type="submit" class="link-btn">{% if d.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
-        </form>
-      </div>
-    </div>
-  {% endfor %}
-</div>
+    {% else %}
+      <div class="settings-empty">Noch keine Abteilungen.</div>
+    {% endfor %}
+  </div>
 
-<div class="tag-card form-card" style="margin-top: var(--space-4);">
-  <h3>Neue Abteilung</h3>
-  <form method="post" action="/admin/departments/new">
+  <form class="settings-add-inline" method="post" action="/admin/departments/new">
     <div class="field">
       <label for="dep-code">Kurzcode</label>
       <input type="text" id="dep-code" name="code" placeholder="z.B. buero" required>
@@ -37,37 +43,39 @@
       <label for="dep-name">Name</label>
       <input type="text" id="dep-name" name="name" placeholder="z.B. Büro" required>
     </div>
-    <button type="submit" class="btn btn-primary btn-block">Anlegen</button>
+    <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
-</div>
+</section>
 
-<h2 style="margin-top: var(--space-12);">Benutzer</h2>
-<p style="color: var(--ink-soft); font-size: 0.875rem;">System-Logins. Für Self-Service-Reservierungen den Login anschließend beim jeweiligen Mitarbeiter verknüpfen (Mitarbeiter → Bearbeiten).</p>
+{# ================= Benutzer ================= #}
+<section class="settings-section" id="users">
+  <h2>Benutzer <span class="count">({{ users | length }})</span></h2>
+  <p class="settings-hint">Für Self-Service-Reservierungen den Login anschließend beim jeweiligen Mitarbeiter verknüpfen (Mitarbeiter → Bearbeiten).</p>
 
-<div class="item-grid">
-  {% for u in users %}
-    <div class="item-card">
-      <div class="item-card-top">
-        <div>
-          <h3>{{ u.username }}</h3>
-          <span class="item-barcode">{{ u.role.value }}{% if u.auth_source.value != "local" %} · {{ u.auth_source.value }}{% endif %}</span>
+  <div class="settings-list">
+    {% for u in users %}
+      <div class="settings-row">
+        <div class="main">
+          <span class="name">{{ u.username }}</span>
+          <span class="meta">{{ u.role.value }}{% if u.auth_source.value != "local" %} · {{ u.auth_source.value }}{% endif %}</span>
+          {% if u.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
         </div>
-        {% if u.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
+        <div class="actions">
+          {% if u.id != user.id %}
+            <form method="post" action="/admin/users/{{ u.id }}/toggle">
+              <button type="submit" class="link-btn">{% if u.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
+            </form>
+          {% else %}
+            <span class="meta">(du)</span>
+          {% endif %}
+        </div>
       </div>
-      {% if u.id != user.id %}
-      <div class="item-card-actions">
-        <form method="post" action="/admin/users/{{ u.id }}/toggle">
-          <button type="submit" class="link-btn">{% if u.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
-        </form>
-      </div>
-      {% endif %}
-    </div>
-  {% endfor %}
-</div>
+    {% else %}
+      <div class="settings-empty">Noch keine Benutzer.</div>
+    {% endfor %}
+  </div>
 
-<div class="tag-card form-card" style="margin-top: var(--space-4);">
-  <h3>Neuer Benutzer</h3>
-  <form method="post" action="/admin/users/new">
+  <form class="settings-add-inline" method="post" action="/admin/users/new">
     <div class="field">
       <label for="u-username">Benutzername</label>
       <input type="text" id="u-username" name="username" required>
@@ -90,34 +98,38 @@
         {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn btn-primary btn-block">Anlegen</button>
+    <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
-</div>
+</section>
 
-<h2 style="margin-top: var(--space-12);">Kategorien</h2>
-<p style="color: var(--ink-soft); font-size: 0.875rem;">Vorschläge fürs Kategorie-Feld bei Gegenständen/Verbrauchsmaterial - pro Abteilung.</p>
+{# ================= Kategorien ================= #}
+<section class="settings-section" id="categories">
+  <h2>Kategorien <span class="count">({{ categories | length }})</span></h2>
+  <p class="settings-hint">Vorschläge fürs Kategorie-Feld bei Gegenständen/Verbrauchsmaterial - pro Abteilung.</p>
 
-<div class="item-grid">
-  {% for c in categories %}
-    <div class="item-card">
-      <div class="item-card-top">
-        <div>
-          <h3>{{ c.name }}</h3>
-          <span class="item-barcode">{{ c.department.name if c.department else "" }}</span>
-        </div>
-      </div>
-      <div class="item-card-actions">
-        <form method="post" action="/admin/categories/{{ c.id }}/delete" onsubmit="return confirm('{{ c.name }} wirklich entfernen?')">
-          <button type="submit" class="link-btn danger">Entfernen</button>
-        </form>
-      </div>
-    </div>
-  {% endfor %}
-</div>
+  <div class="settings-list">
+    {% for d in departments %}
+      {% set dept_categories = categories | selectattr("department_id", "equalto", d.id) | list %}
+      {% if dept_categories %}
+        <div class="settings-group-label">{{ d.name }}</div>
+        {% for c in dept_categories %}
+          <div class="settings-row">
+            <span class="name">{{ c.name }}</span>
+            <div class="actions">
+              <form method="post" action="/admin/categories/{{ c.id }}/delete" onsubmit="return confirm('{{ c.name }} wirklich entfernen?')">
+                <button type="submit" class="link-btn danger">Entfernen</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endfor %}
+    {% if not categories %}
+      <div class="settings-empty">Noch keine Kategorien.</div>
+    {% endif %}
+  </div>
 
-<div class="tag-card form-card" style="margin-top: var(--space-4);">
-  <h3>Neue Kategorie</h3>
-  <form method="post" action="/admin/categories/new">
+  <form class="settings-add-inline" method="post" action="/admin/categories/new">
     <div class="field">
       <label for="cat-department">Abteilung</label>
       <select id="cat-department" name="department_id" required>
@@ -128,34 +140,38 @@
       <label for="cat-name">Name</label>
       <input type="text" id="cat-name" name="name" placeholder="z.B. Elektrowerkzeug" required>
     </div>
-    <button type="submit" class="btn btn-primary btn-block">Anlegen</button>
+    <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
-</div>
+</section>
 
-<h2 style="margin-top: var(--space-12);">Standorte</h2>
-<p style="color: var(--ink-soft); font-size: 0.875rem;">Vorschläge fürs Standort-Feld - pro Abteilung.</p>
+{# ================= Standorte ================= #}
+<section class="settings-section" id="locations">
+  <h2>Standorte <span class="count">({{ locations | length }})</span></h2>
+  <p class="settings-hint">Vorschläge fürs Standort-Feld - pro Abteilung.</p>
 
-<div class="item-grid">
-  {% for l in locations %}
-    <div class="item-card">
-      <div class="item-card-top">
-        <div>
-          <h3>{{ l.name }}</h3>
-          <span class="item-barcode">{{ l.department.name if l.department else "" }}</span>
-        </div>
-      </div>
-      <div class="item-card-actions">
-        <form method="post" action="/admin/locations/{{ l.id }}/delete" onsubmit="return confirm('{{ l.name }} wirklich entfernen?')">
-          <button type="submit" class="link-btn danger">Entfernen</button>
-        </form>
-      </div>
-    </div>
-  {% endfor %}
-</div>
+  <div class="settings-list">
+    {% for d in departments %}
+      {% set dept_locations = locations | selectattr("department_id", "equalto", d.id) | list %}
+      {% if dept_locations %}
+        <div class="settings-group-label">{{ d.name }}</div>
+        {% for l in dept_locations %}
+          <div class="settings-row">
+            <span class="name">{{ l.name }}</span>
+            <div class="actions">
+              <form method="post" action="/admin/locations/{{ l.id }}/delete" onsubmit="return confirm('{{ l.name }} wirklich entfernen?')">
+                <button type="submit" class="link-btn danger">Entfernen</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endfor %}
+    {% if not locations %}
+      <div class="settings-empty">Noch keine Standorte.</div>
+    {% endif %}
+  </div>
 
-<div class="tag-card form-card" style="margin-top: var(--space-4);">
-  <h3>Neuer Standort</h3>
-  <form method="post" action="/admin/locations/new">
+  <form class="settings-add-inline" method="post" action="/admin/locations/new">
     <div class="field">
       <label for="loc-department">Abteilung</label>
       <select id="loc-department" name="department_id" required>
@@ -166,7 +182,7 @@
       <label for="loc-name">Name</label>
       <input type="text" id="loc-name" name="name" placeholder="z.B. Regal A1" required>
     </div>
-    <button type="submit" class="btn btn-primary btn-block">Anlegen</button>
+    <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
-</div>
+</section>
 {% endblock %}

@@ -55,7 +55,8 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     depends_on:
-      - app
+      app:
+        condition: service_started
     ports:
       - "${APP_HTTPS_PORT:-8443}:8443"
     volumes:

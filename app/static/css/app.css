@@ -759,3 +759,142 @@ button, input, select {
   font-size: 0.8125rem;
   padding: var(--space-6) var(--space-2);
 }
+
+/* -------------------------------------------------------------------------
+   Kompakte Listen für die Admin-Einstellungen (Kacheln sind hier zu viel
+   Overhead für simple Name+Aktion-Einträge)
+   ------------------------------------------------------------------------- */
+
+.settings-section {
+  margin-top: var(--space-8);
+}
+
+.settings-section h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.settings-section .count {
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.settings-hint {
+  color: var(--ink-soft);
+  font-size: 0.8125rem;
+  margin-top: calc(-1 * var(--space-2));
+  margin-bottom: var(--space-4);
+}
+
+.settings-list {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  overflow: hidden;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--line);
+}
+.settings-row:last-child { border-bottom: none; }
+
+.settings-row .main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.settings-row .name {
+  font-weight: 600;
+}
+
+.settings-row .meta {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+.settings-row .actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.settings-row form { margin: 0; }
+
+.settings-group-label {
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg);
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+}
+
+.settings-empty {
+  padding: var(--space-4);
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.settings-add-inline {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: var(--space-4);
+  background: var(--bg);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  margin-top: var(--space-3);
+}
+
+.settings-add-inline .field {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 160px;
+}
+
+.settings-add-inline select,
+.settings-add-inline input {
+  min-height: 40px;
+}
+
+.settings-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.settings-tabs a {
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  color: var(--ink-soft);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.settings-tabs a.active,
+.settings-tabs a:hover {
+  color: var(--ink);
+  border-bottom-color: var(--brand);
+}
