@@ -1,6 +1,6 @@
 # Caddyfile - reiner Reverse-Proxy mit selbstsigniertem HTTPS fürs interne Netz.
 #
-# "tls internal" lässt Caddy eine eigene lokale CA + Zertifikat erzeugen -
+# "tls internal" lässt Caddy eine eigene lokale CA + Zertifikate erzeugen -
 # kein Let's Encrypt, keine öffentliche Domain nötig. Browser zeigen beim
 # ersten Aufruf eine Zertifikatswarnung (unbekannte CA) - "Erweitert ->
 # Trotzdem fortfahren" einmalig pro Gerät bestätigen, danach funktioniert
@@ -9,8 +9,18 @@
 # Port-basiert statt Hostname-basiert (":8443" statt "meinhost:8443"), damit
 # der Zugriff per nackter IP funktioniert (192.168.x.x) - kein interner
 # DNS-Eintrag nötig.
+#
+# WICHTIG: "on_demand" ist hier notwendig, nicht optional. Ohne Hostnamen im
+# Adress-Feld weiß Caddy sonst beim Start nicht, für welchen Namen/welche IP
+# es überhaupt ein Zertifikat ausstellen soll - jede Verbindung mit einer
+# SNI, die Caddy nicht kennt (z.B. eure IP 192.168.x.x), wird dann mit
+# SSL_ERROR_INTERNAL_ERROR_ALERT abgelehnt. "on_demand" lässt Caddy beim
+# ERSTEN Kontakt mit einer neuen SNI/IP spontan (mit der internen CA, also
+# ohne Rate-Limit-Risiko) ein passendes Zertifikat ausstellen.
 :8443 {
-	tls internal
+	tls internal {
+		on_demand
+	}
 
 	reverse_proxy app:8000
 }

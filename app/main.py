@@ -40,6 +40,27 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.middleware("http")
+async def department_cookie_middleware(request: Request, call_next):
+    """Setzt das Abteilungs-Auswahl-Cookie auf die tatsächlich ausgehende Antwort.
+
+    Notwendig, weil unsere Routen fast durchweg eigene Response-Objekte
+    zurückgeben (TemplateResponse/RedirectResponse) - FastAPIs eingebauter
+    Mechanismus, Cookies über ein in eine Dependency injiziertes Response-
+    Objekt zu setzen, funktioniert dann NICHT (das injizierte Objekt wird
+    beim Zurückgeben verworfen). Middleware wirkt dagegen auf die Antwort,
+    die tatsächlich rausgeht, unabhängig davon, wie der Endpunkt sie gebaut hat.
+    Der Wert kommt aus get_current_department (app/core/deps.py), die ihn nur
+    in request.state vormerkt statt selbst zu setzen.
+    """
+    response = await call_next(request)
+    value = getattr(request.state, "department_cookie_value", None)
+    if value is not None:
+        from app.core.deps import DEPARTMENT_COOKIE_MAX_AGE, DEPARTMENT_COOKIE_NAME
+        response.set_cookie(DEPARTMENT_COOKIE_NAME, value, max_age=DEPARTMENT_COOKIE_MAX_AGE, samesite="lax")
+    return response
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Eigener Mount für Uploads (Bilder) - bewusst getrennt von /static, weil

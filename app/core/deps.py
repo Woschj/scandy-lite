@@ -20,6 +20,15 @@ from app.models.user import User
 
 settings = get_settings()
 
+# Sentinel statt leerem String: ein Cookie mit leerem Value ist technisch
+# erlaubt, aber unnötig fragil (manche Proxys/Browser normalisieren das weg).
+# Damit "Alle Abteilungen" als bewusste Wahl über Seitenwechsel hinweg
+# bestehen bleibt (nicht nur "kein Cookie" = Fallback auf Default), braucht
+# es einen eigenen erkennbaren Wert.
+ALL_DEPARTMENTS_SENTINEL = "__all__"
+DEPARTMENT_COOKIE_NAME = "scandy_active_department"
+DEPARTMENT_COOKIE_MAX_AGE = 60 * 60 * 24 * 30
+
 
 class RedirectToLogin(Exception):
     """Wird geworfen, wenn kein gültiger User ermittelt werden kann."""
@@ -82,21 +91,49 @@ async def get_current_department(
     session: AsyncSession = Depends(get_session),
 ) -> Department | None:
     """Mitarbeiter sind fest auf ihre Abteilung gescoped.
-    Admins sehen standardmäßig ihre eigene (falls gesetzt) und können
-    über ?department=<code> in eine andere wechseln (Abteilungs-Switcher im UI)."""
-    if user.role == UserRole.ADMIN:
-        if "department" in request.query_params:
-            code = request.query_params["department"]
-            if not code:
-                return None  # Admin hat bewusst "Alle Abteilungen" gewählt
-            result = await session.exec(select(Department).where(Department.code == code))
-            dept = result.first()
-            if dept:
-                return dept
-        if user.department_id:
-            return await session.get(Department, user.department_id)
-        return None  # Admin ohne Default-Abteilung -> Übersicht über alle
+    Admins sehen standardmäßig ihre eigene (falls gesetzt) und können über
+    den Nav-Dropdown (?department=<code>) in eine andere wechseln. Die Wahl
+    wird zusätzlich in einem Cookie gemerkt, damit sie über normale
+    Navigations-Links (die den Query-Param nicht mitschleppen) hinweg
+    bestehen bleibt, statt bei jeder neuen Seite auf den Default zurückzufallen.
 
-    if not user.department_id:
-        raise Forbidden()  # Mitarbeiter ohne Abteilung ist ein Datenfehler, kein Edge-Case zum Stillschweigen
-    return await session.get(Department, user.department_id)
+    Wichtig: das Cookie wird HIER nur in request.state vorgemerkt, nicht
+    direkt gesetzt - unsere Routen geben fast durchweg eigene Response-Objekte
+    zurück (TemplateResponse/RedirectResponse), wodurch ein hier injiziertes
+    Response-Objekt beim Zurückgeben verworfen würde. Die Middleware
+    (department_cookie_middleware in app/main.py) setzt das Cookie danach auf
+    die tatsächlich ausgehende Antwort, unabhängig davon, wie sie gebaut wurde.
+    """
+    if user.role != UserRole.ADMIN:
+        if not user.department_id:
+            raise Forbidden()  # Mitarbeiter ohne Abteilung ist ein Datenfehler, kein Edge-Case zum Stillschweigen
+        return await session.get(Department, user.department_id)
+
+    # 1) Explizite Wahl über den Dropdown in diesem Request?
+    if "department" in request.query_params:
+        code = request.query_params["department"]
+        if not code:
+            request.state.department_cookie_value = ALL_DEPARTMENTS_SENTINEL
+            return None  # Admin hat bewusst "Alle Abteilungen" gewählt
+
+        result = await session.exec(select(Department).where(Department.code == code))
+        dept = result.first()
+        if dept:
+            request.state.department_cookie_value = code
+            return dept
+        # Unbekannter Code im Query-Param -> ignorieren, unten weiter mit Cookie/Default
+
+    # 2) Keine explizite Wahl in DIESEM Request -> vorherige Wahl aus dem Cookie übernehmen
+    cookie_value = request.cookies.get(DEPARTMENT_COOKIE_NAME)
+    if cookie_value == ALL_DEPARTMENTS_SENTINEL:
+        return None
+    if cookie_value:
+        result = await session.exec(select(Department).where(Department.code == cookie_value))
+        dept = result.first()
+        if dept:
+            return dept
+
+    # 3) Kein Cookie (erster Besuch) -> eigene Abteilung, sonst "Alle"
+    if user.department_id:
+        return await session.get(Department, user.department_id)
+    return None
