@@ -113,6 +113,9 @@ async def get_current_department(
     (department_cookie_middleware in app/main.py) setzt das Cookie danach auf
     die tatsächlich ausgehende Antwort, unabhängig davon, wie sie gebaut wurde.
     """
+    if user.role == UserRole.NUTZER:
+        return None  # Nutzer haben keine einzelne "aktuelle Abteilung" - Sichtbarkeit läuft über Gruppen-Berechtigungen (app/core/access.py)
+
     if user.role != UserRole.ADMIN:
         if not user.department_id:
             raise Forbidden()  # Mitarbeiter ohne Abteilung ist ein Datenfehler, kein Edge-Case zum Stillschweigen

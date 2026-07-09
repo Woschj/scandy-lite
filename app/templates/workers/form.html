@@ -8,7 +8,7 @@
 <div class="tag-card form-card">
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
-  <form method="post" action="{% if worker %}/workers/{{ worker.id }}/edit{% else %}/workers/new{% endif %}">
+  <form data-guard method="post" action="{% if worker %}/workers/{{ worker.id }}/edit{% else %}/workers/new{% endif %}">
     <div class="field">
       <label for="barcode">Barcode (Ausweis)</label>
       <input type="text" id="barcode" name="barcode" value="{{ worker.barcode if worker else '' }}" required autofocus>
@@ -30,6 +30,16 @@
             <option value="{{ u.id }}" {% if worker.user_id == u.id %}selected{% endif %}>{{ u.username }}</option>
           {% endfor %}
         </select>
+      </div>
+      <div class="field">
+        <label for="group_id">Gruppe (bestimmt, aus welchen Abteilungen ausgeliehen werden darf)</label>
+        <select id="group_id" name="group_id">
+          <option value="">— keine, eigene Abteilung gilt —</option>
+          {% for g in groups %}
+            <option value="{{ g.id }}" {% if worker.group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+          {% endfor %}
+        </select>
+        {% if not groups %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Gruppen angelegt — Admin: Einstellungen → Gruppen.</p>{% endif %}
       </div>
       <div class="checkbox-field">
         <input type="checkbox" id="is_active" name="is_active" value="true" {% if worker.is_active %}checked{% endif %}>

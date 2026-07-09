@@ -9,6 +9,7 @@ import uuid
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -16,7 +17,7 @@ from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user, require_staff, populate_switchable_departments
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
-from app.models.common import ItemStatus, utcnow
+from app.models.common import ItemStatus, UserRole, utcnow
 from app.models.department import Department
 from app.models.item import Item
 from app.models.preset import Category, Location
@@ -45,19 +46,35 @@ async def list_items(
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
+    from app.core.access import get_visible_department_ids
+    from app.models.reservation import Reservation
+    from app.routers.reservations import get_linked_worker
+
+    linked_worker = await get_linked_worker(session, user)
+
     stmt = select(Item).where(Item.deleted_at.is_(None)).order_by(Item.name)
-    if department:
+    show_department_badge = False
+
+    if user.role == UserRole.NUTZER:
+        visible_ids = await get_visible_department_ids(session, linked_worker)
+        stmt = stmt.where(Item.department_id.in_(visible_ids))
+        show_department_badge = True  # Nutzer sehen ggf. mehrere Abteilungen gemischt -> Kontext pro Karte nötig
+    elif department:
         stmt = stmt.where(Item.department_id == department.id)
+    else:
+        show_department_badge = True  # Admin "Alle Abteilungen"
+
     if q:
         like = f"%{q}%"
         stmt = stmt.where((Item.name.ilike(like)) | (Item.barcode.ilike(like)))
+
+    if show_department_badge:
+        stmt = stmt.options(selectinload(Item.department))
 
     result = await session.exec(stmt)
     items = result.all()
 
     # Offene Reservierungen der angezeigten Items (für "Reserviert"-Chip + Button-Logik)
-    from app.models.reservation import Reservation
-    from app.routers.reservations import get_linked_worker
     reserved_ids: set = set()
     if items:
         res_result = await session.exec(
@@ -69,14 +86,13 @@ async def list_items(
         )
         reserved_ids = set(res_result.all())
 
-    linked_worker = await get_linked_worker(session, user)
-
     return templates.TemplateResponse(
         request,
         "items/list.html",
         {
             "user": user, "department": department, "items": items, "q": q, "ok": ok, "error": error,
             "reserved_ids": reserved_ids, "linked_worker": linked_worker,
+            "show_department_badge": show_department_badge,
         },
     )
 

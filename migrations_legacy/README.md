@@ -1,30 +1,69 @@
 # Legacy-Migration (Scandy2 / MongoDB → Scandy-Lite / PostgreSQL)
 
-**Status: nicht priorisiert, noch nicht implementiert.**
+Migriert Bestandsdaten aus der alten MongoDB-Instanz (Scandy2) nach Scandy-Lite.
+Read-only auf MongoDB-Seite - es wird dort nichts verändert oder gelöscht.
 
-Dieser Ordner ist ein Platzhalter für ein späteres Migrationsskript, das
-Bestandsdaten aus der alten MongoDB-Instanz (Scandy2) in dieses PostgreSQL-Schema
-überführt.
+## Was migriert wird
 
-## Geplanter Ansatz (grob, wenn es soweit ist)
+| Scandy2 (MongoDB) | Scandy-Lite (PostgreSQL) | Hinweise |
+|---|---|---|
+| `department`-Freitextfeld (+ `settings.departments`) | `Department` | Namen dedupliziert, Code automatisch generiert (Umlaute transkribiert) |
+| `settings.categories` / `settings.locations` | `Category` / `Location` | Abteilungsbezogen, wo im Original vorhanden |
+| `tools` | `Item` | `status` wird NICHT blind übernommen - echter Status wird aus offenen `lendings` neu abgeleitet |
+| `consumables` | `Consumable` | `unit` gab's im Original nicht → Default "Stück" |
+| `workers` | `Worker` | Verknüpfung zum migrierten `User` über `username`, falls vorhanden |
+| `lendings` | `Lending` | Referenzierung im Original über Barcode, nicht ID - wird aufgelöst |
+| `consumable_usages` | `ConsumableUsage` | Nur echte Entnahmen (negative Menge, echter Mitarbeiter) - Nachschub-Buchungen haben in Scandy-Lite kein Log-Äquivalent |
+| `users` | `User` | Rollen-Mapping: `admin`→Admin, `anwender`→Mitarbeiter, `teilnehmer`→Nutzer. **Passwörter können nicht migriert werden** (anderes Hash-Verfahren) - jeder User bekommt ein neues Zufallspasswort |
 
-1. Read-only-Export aus MongoDB pro Collection (`tools`, `workers`, `consumables`,
-   `lendings`, `users`) als JSON/BSON-Dump.
-2. Mapping-Tabelle alte Mongo-`ObjectId` → neue Postgres-`UUID` pro Entität,
-   damit Fremdschlüssel-Beziehungen (z.B. Lending → Tool/Worker) korrekt
-   übersetzt werden.
-3. Abteilungen (`department`-Freitext-Feld in Scandy2) zunächst einmalig zu
-   sauberen `Department`-Datensätzen normalisieren (Scandy2 hatte keine eigene
-   Department-Tabelle, nur ein String-Feld auf jedem Dokument).
-4. Datenqualitäts-Checks vor dem Import: Scandy2 hatte offenbar bekannte
-   Inkonsistenzen zwischen Tool-Status und offenen Lendings
-   (`validate_lending_consistency` / `fix_lending_inconsistencies` existierten
-   dort als Reparatur-Funktionen) - diese Fälle müssen beim Import erkannt und
-   bereinigt werden, nicht 1:1 übernommen.
-5. Idempotentes Import-Skript (mehrfach ausführbar ohne Duplikate), inkl.
-   Trockenlauf-Modus (`--dry-run`) vor dem eigentlichen Import.
+**Nicht migriert** (bewusst, deckt sich mit dem ursprünglichen Scope-Schnitt von
+Scandy-Lite): Tickets, Kantinenplan, Jobs, Custom Fields, Feature-Flags,
+Notification-Center, `user_groups`-Software-Zuordnung.
 
-## Nicht jetzt bauen
+## Nutzung
 
-Das ergibt erst Sinn, wenn das neue Schema (Phase 1-4) stabil ist und Scandy-Lite
-tatsächlich produktiv abgelöst werden soll. Bis dahin bleibt dieser Ordner leer.
+```bash
+pip install -r migrations_legacy/requirements.txt
+
+# 1. Trockenlauf - zeigt nur einen Report, schreibt nichts
+python -m migrations_legacy.migrate_from_mongodb \
+  --mongo-uri "mongodb://user:passwort@host:27017" --mongo-db scandy
+
+# 2. Report plausibel? Dann wirklich schreiben:
+python -m migrations_legacy.migrate_from_mongodb \
+  --mongo-uri "mongodb://user:passwort@host:27017" --mongo-db scandy --apply
+```
+
+Danach liegt eine `migration_passwords.txt` mit den neu generierten Passwörtern
+für alle migrierten Benutzer im aktuellen Verzeichnis - sicher verteilen und
+**danach löschen**.
+
+**Idempotent:** Das Skript lässt sich gefahrlos mehrfach mit `--apply` ausführen
+(z.B. nach einem Abbruch oder um neue Daten aus Mongo nachzuziehen) - bereits
+migrierte Datensätze werden über Barcode bzw. Kombination erkannt und
+übersprungen, nichts wird doppelt angelegt.
+
+## Architektur des Skripts
+
+Bewusst in zwei Schichten getrennt:
+
+- **`transform.py`** - reine Übersetzungsfunktionen (Mongo-dict → Scandy-Lite-Felder),
+  ohne jeden DB-Zugriff. Vollständig isoliert testbar.
+- **`migrate_core.py`** - die eigentliche Schreiblogik (Duplikat-Erkennung,
+  Referenzauflösung, Statusableitung), nimmt bereits gelesene Python-Daten
+  entgegen statt selbst mit MongoDB zu sprechen. Dadurch mit synthetischen
+  Testdaten gegen eine echte (SQLite-)Datenbank durchspielbar.
+- **`migrate_from_mongodb.py`** - dünner CLI-Wrapper: verbindet zu MongoDB,
+  liest die Collections roh ein, reicht sie an `migrate_core.migrate()` weiter.
+
+Getestet (`python migrations_legacy/test_*.py`, kein Mongo/Postgres nötig):
+- `test_transform.py` - 32 Checks der reinen Übersetzungslogik
+- `test_migrate.py` - kompletter Schreib-Durchlauf inkl. Duplikat-/Referenz-
+  Behandlung gegen SQLite, inkl. zweitem Lauf zur Idempotenz-Prüfung
+- `test_fetch_mongo.py` - MongoDB-Lese-Schicht gegen `mongomock` (In-Memory-Mongo)
+
+**Nicht getestet werden konnte:** eine echte Verbindung zu eurer tatsächlichen
+Scandy2-MongoDB-Instanz (in der Sandbox-Umgebung nicht erreichbar) - die
+Feldnamen/Strukturen basieren auf Analyse des Scandy2-Quellcodes, nicht auf
+einem Live-Datenabgleich. **Bitte zuerst den Trockenlauf gegen eure echten
+Daten laufen lassen und den Report genau prüfen, bevor `--apply` verwendet wird.**

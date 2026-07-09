@@ -7,6 +7,7 @@ bzw. beim Alembic-Autogenerate). Deshalb hier bündeln statt verstreut importier
 """
 from app.models.consumable import Consumable, ConsumableUsage  # noqa: F401
 from app.models.department import Department  # noqa: F401
+from app.models.group import GroupDepartmentAccess, WorkerGroup  # noqa: F401
 from app.models.item import Item  # noqa: F401
 from app.models.lending import Lending  # noqa: F401
 from app.models.preset import Category, Location  # noqa: F401
@@ -19,10 +20,12 @@ __all__ = [
     "Consumable",
     "ConsumableUsage",
     "Department",
+    "GroupDepartmentAccess",
     "Item",
     "Lending",
     "Location",
     "Reservation",
     "User",
     "Worker",
+    "WorkerGroup",
 ]

@@ -12,6 +12,7 @@ from app.models.common import SoftDeleteMixin, TimestampMixin, new_uuid
 
 if TYPE_CHECKING:
     from app.models.department import Department
+    from app.models.group import WorkerGroup
     from app.models.lending import Lending
 
 
@@ -23,8 +24,18 @@ class Worker(TimestampMixin, SoftDeleteMixin, table=True):
     first_name: str = Field(max_length=100)
     last_name: str = Field(max_length=100)
 
+    # "Heimat"-Abteilung: organisatorische Zuordnung (z.B. wer diesen Mitarbeiter-
+    # Datensatz verwaltet). Bestimmt NICHT mehr, welche Gegenstände ein Nutzer
+    # sehen/reservieren darf, wenn eine Gruppe zugewiesen ist (siehe group_id).
     department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)
     department: Optional["Department"] = Relationship(back_populates="workers")
+
+    # Bestimmt bei Nutzer-Workern, AUS WELCHEN ABTEILUNGEN sie ausleihen dürfen
+    # (über GroupDepartmentAccess) - unabhängig von department_id. Optional:
+    # ohne Gruppe fällt die Berechtigung auf die eigene department_id zurück
+    # (Rückwärtskompatibilität für bestehende Mitarbeiter-Datensätze).
+    group_id: uuid.UUID | None = Field(default=None, foreign_key="worker_groups.id")
+    group: Optional["WorkerGroup"] = Relationship(back_populates="workers")
 
     # Optionale Verknüpfung zu einem System-Login: erlaubt es dem eingeloggten
     # Nutzer, für "seinen" Ausweis zu reservieren. Nicht jeder Worker braucht

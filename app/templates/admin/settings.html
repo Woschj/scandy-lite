@@ -17,6 +17,7 @@
   <a href="#users" @click.prevent="tab = 'users'" :class="{active: tab === 'users'}">Benutzer <span class="count">{{ users | length }}</span></a>
   <a href="#categories" @click.prevent="tab = 'categories'" :class="{active: tab === 'categories'}">Kategorien <span class="count">{{ categories | length }}</span></a>
   <a href="#locations" @click.prevent="tab = 'locations'" :class="{active: tab === 'locations'}">Standorte <span class="count">{{ locations | length }}</span></a>
+  <a href="#groups" @click.prevent="tab = 'groups'" :class="{active: tab === 'groups'}">Gruppen <span class="count">{{ groups | length }}</span></a>
 </nav>
 
 {% if department %}
@@ -75,6 +76,9 @@
           {% if u.id != user.id %}
             <form method="post" action="/admin/users/{{ u.id }}/toggle">
               <button type="submit" class="link-btn">{% if u.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
+            </form>
+            <form method="post" action="/admin/users/{{ u.id }}/delete" onsubmit="return confirm('{{ u.username }} endgültig löschen? Das kann nicht rückgängig gemacht werden.')">
+              <button type="submit" class="link-btn danger">Löschen</button>
             </form>
           {% else %}
             <span class="meta">(du)</span>
@@ -191,6 +195,51 @@
     <div class="field">
       <label for="loc-name">Name</label>
       <input type="text" id="loc-name" name="name" placeholder="z.B. Regal A1" required>
+    </div>
+    <button type="submit" class="btn btn-primary">+ Anlegen</button>
+  </form>
+</section>
+
+{# ================= Gruppen ================= #}
+<section class="settings-section" x-show="tab === 'groups'" x-cloak>
+  <p class="settings-hint">
+    Legt fest, aus welchen Abteilungen eine Gruppe (z.B. "Studierende Informatik")
+    ausleihen darf - unabhängig davon, welcher Abteilung ihre Mitglieder organisatorisch
+    angehören. Mitarbeiter/Nutzer werden unter "Mitarbeiter → Bearbeiten" einer Gruppe zugeordnet.
+    Ohne Gruppe gilt weiterhin die eigene Abteilung.
+  </p>
+
+  <div class="settings-list">
+    {% for g in groups %}
+      <div class="settings-row" style="align-items: flex-start;">
+        <div class="main" style="flex-direction: column; align-items: flex-start; gap: var(--space-2);">
+          <span class="name">{{ g.name }}</span>
+          <form method="post" action="/admin/groups/{{ g.id }}/access" style="display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0;">
+            {% for d in departments %}
+              <label style="display:flex; align-items:center; gap:4px; font-size:0.8125rem; font-weight:400; text-transform:none; letter-spacing:normal; font-family:var(--font-body);">
+                <input type="checkbox" name="department_ids" value="{{ d.id }}"
+                       {% if d.id in group_dept_ids.get(g.id, []) %}checked{% endif %}
+                       onchange="this.form.requestSubmit()">
+                {{ d.name }}
+              </label>
+            {% endfor %}
+          </form>
+        </div>
+        <div class="actions">
+          <form method="post" action="/admin/groups/{{ g.id }}/delete" onsubmit="return confirm('{{ g.name }} wirklich entfernen? Mitglieder verlieren die Gruppen-Zuordnung.')">
+            <button type="submit" class="link-btn danger">Entfernen</button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <div class="settings-empty">Noch keine Gruppen.</div>
+    {% endfor %}
+  </div>
+
+  <form class="settings-add-inline" method="post" action="/admin/groups/new">
+    <div class="field">
+      <label for="grp-name">Neue Gruppe</label>
+      <input type="text" id="grp-name" name="name" placeholder="z.B. Studierende Informatik" required>
     </div>
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>

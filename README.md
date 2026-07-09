@@ -24,8 +24,72 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 - [x] **Phase 5 — Historie-Ansicht**
 - [x] **Reservierungs-Workflow (Kanban)** — Reservieren per App → Ausgabe per Scan + digitale Unterschrift → Rückgabe per Scan
 - [x] **Bild-Upload für Gegenstände/Verbrauchsmaterial** + **Einstellungen als Tabs statt Scroll-Seite**
-- [x] **Rollenmodell: Admin / Mitarbeiter / Nutzer** (dieser Stand)
+- [x] **Rollenmodell: Admin / Mitarbeiter / Nutzer**
+- [x] **Nutzergruppen: Ausleihberechtigung entkoppelt von der Abteilungs-Zugehörigkeit**
+- [x] **Legacy-Migration Scandy2 (MongoDB) → Scandy-Lite (PostgreSQL)**
+- [x] **Ausleih-Workflow + Mobile-UX-Feinschliff** (dieser Stand)
 - [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker, Einstellungsseiten-Layout)
+
+## Mobile-UX-Verbesserungen (Scan-Workflow)
+
+- **Kamera-Scan jetzt auch für den Mitarbeiter-/Ausweis-Barcode** (nicht nur für
+  den Gegenstand am Anfang) - direkt in den Ausgabe-/Entnahme-Formularen.
+  Gemeinsames JS-Modul (`barcode-camera.js`), unterstützt mehrere Scan-Buttons
+  pro Seite.
+- **Haptisches Feedback** (Vibration) bei erfolgreichem Kamera-Scan und bei
+  Erfolg/Fehler nach einer Aktion (`navigator.vibrate`, wo vom Gerät unterstützt).
+- **Doppel-Submit-Schutz** (`data-guard`-Attribut, `form-guard.js`): Formulare mit
+  Seiteneffekten (Ausleihe, Rückgabe, Entnahme, Reservieren, Anlegen/Bearbeiten)
+  deaktivieren ihren Button nach dem ersten Tap - verhindert versehentliche
+  Doppel-Buchungen bei langsamem Mobilfunknetz.
+- **Mengen-Stepper** (–/+-Buttons, `qty-stepper.js`) statt Zahlenfeld-Tippen bei
+  Verbrauchsmaterial-Entnahme und -Nachschub.
+- **Touch-Targets vergrößert**: Karten-Aktionen (Bearbeiten/Entfernen/Reservieren)
+  waren mit 32px unter der empfohlenen 44px-Mindestgröße für Touch-Bedienung -
+  jetzt überall konsistent 44px.
+
+Nicht mit einem echten Gerät testbar in dieser Umgebung (kein Browser mit
+Kamera/Touch verfügbar) - bitte insbesondere den Kamera-Scan für den
+Mitarbeiter-Barcode und die Stepper-Buttons einmal live ausprobieren.
+
+## Umstieg von Scandy2
+
+Ein eigenständiges Migrationsskript übernimmt Bestandsdaten (Gegenstände,
+Verbrauchsmaterial, Mitarbeiter, Ausleih-Historie, Benutzer) aus der alten
+MongoDB-Instanz. Details, Nutzung und wichtige Hinweise (Passwörter können
+nicht 1:1 übernommen werden!) in [`migrations_legacy/README.md`](migrations_legacy/README.md).
+
+## Nutzergruppen (Ausleihberechtigung)
+
+Ursprünglich war "welche Abteilung ein Worker hat" gleichzeitig "welche Gegenstände
+er sehen darf" - unpraktisch, sobald Nutzer (z.B. Studierende) Geräte aus einer
+ANDEREN Abteilung ausleihen sollen als der, zu der sie organisatorisch gehören.
+
+Jetzt getrennt:
+- **Abteilung** eines Gegenstands = wo er inventarisiert ist (unverändert)
+- **Gruppe** eines Workers (*Einstellungen → Gruppen*, Zuweisung bei
+  *Mitarbeiter → Bearbeiten*) = aus welchen Abteilungen er ausleihen/reservieren
+  darf - unabhängig von seiner eigenen `department_id`
+
+Eine Gruppe kann Zugriff auf mehrere Abteilungen bekommen (Checkboxen in den
+Einstellungen). Ohne zugewiesene Gruppe gilt weiterhin die alte Logik (eigene
+Abteilung) - bestehende Setups funktionieren unverändert weiter.
+
+Betrifft nur Nutzer/Reservierungen. Mitarbeiter und Admin verwalten weiterhin
+strikt eine Abteilung nach der anderen (Nav-Switcher), das war schon immer
+getrennt von der Ausleih-Berechtigung der Studierenden gedacht.
+
+## Löschen vs. Deaktivieren
+
+Benutzer lassen sich jetzt **echt löschen** (*Einstellungen → Benutzer*), nicht nur
+deaktivieren - unproblematisch, weil keine Ausleih-/Historien-Daten direkt an
+einem User hängen (die referenzieren Worker, nicht User; eine Worker-Verknüpfung
+wird beim Löschen sauber aufgelöst statt zu verwaisen).
+
+Gegenstände, Verbrauchsmaterial und Mitarbeiter bleiben bewusst beim **Soft-Delete**
+(nur "entfernt"-Markierung) - sie hängen an Ausleih-/Reservierungs-Historie, ein
+echtes Löschen würde diese Historie zerreißen. Kategorien/Standorte/Abteilungen/
+Gruppen sind hingegen unkritisch und lassen sich echt löschen.
 
 ## Rollenmodell
 

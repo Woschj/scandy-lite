@@ -27,7 +27,7 @@
         <p>Bei der Ausgabe an diese Person wird die Reservierung automatisch erfüllt. Ausgabe an andere ist blockiert.</p>
       {% endif %}
       <p>Gegenstand ausleihen - Mitarbeiter-Barcode scannen oder eintippen:</p>
-      <form method="post" action="/scan/lend">
+      <form method="post" action="/scan/lend" data-guard>
         <input type="hidden" name="item_id" value="{{ item.id }}">
         <input type="hidden" name="signature" id="signature-data" value="">
         <div class="field">
@@ -36,6 +36,14 @@
                  style="font-family: var(--font-display); font-size: 1.125rem;"
                  {% if reservation and reservation.worker %}value="{{ reservation.worker.barcode }}"{% endif %}>
         </div>
+
+        <div id="worker-camera-wrap" style="display:none; margin-bottom: var(--space-3);">
+          <video id="worker-scan-video" style="width:100%; border-radius: var(--radius); background:#000; display:block;" playsinline muted></video>
+          <button type="button" id="worker-camera-cancel-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">Kamera schließen</button>
+        </div>
+        <button type="button" id="worker-camera-start-btn" class="btn btn-ghost btn-block" style="margin-bottom: var(--space-4);">📷 Mitarbeiter-Ausweis scannen</button>
+        <p id="worker-camera-unsupported" class="form-error" style="display:none;"></p>
+
         <div class="field">
           <label>Unterschrift</label>
           <canvas id="signature-pad" class="signature-pad" aria-label="Unterschriftsfeld"></canvas>
@@ -47,6 +55,19 @@
         <button type="submit" class="btn btn-primary btn-block">Ausgabe bestätigen</button>
       </form>
       <script src="/static/js/signature.js" defer></script>
+      <script src="https://unpkg.com/@zxing/library@0.21.3"></script>
+      <script src="/static/js/barcode-camera.js"></script>
+      <script>
+        ScandyCamera.attach({
+          startBtn: document.getElementById('worker-camera-start-btn'),
+          cancelBtn: document.getElementById('worker-camera-cancel-btn'),
+          wrap: document.getElementById('worker-camera-wrap'),
+          video: document.getElementById('worker-scan-video'),
+          unsupportedMsg: document.getElementById('worker-camera-unsupported'),
+          input: document.getElementById('worker_barcode'),
+          onScan: function () { /* nicht automatisch absenden - Unterschrift fehlt noch */ }
+        });
+      </script>
 
     {% elif item.status.value == "ausgeliehen" %}
       {% if lending and lending.worker %}
@@ -54,7 +75,7 @@
       {% else %}
         <p>Als ausgeliehen markiert, aber keine offene Ausleihe gefunden - bitte manuell prüfen.</p>
       {% endif %}
-      <form method="post" action="/scan/return">
+      <form method="post" action="/scan/return" data-guard>
         <input type="hidden" name="item_id" value="{{ item.id }}">
         <button type="submit" class="btn btn-primary btn-block">Rückgabe bestätigen</button>
       </form>
@@ -79,19 +100,44 @@
     </div>
 
     <p>Entnahme protokollieren - Menge und Mitarbeiter-Barcode angeben:</p>
-    <form method="post" action="/scan/consume">
+    <form method="post" action="/scan/consume" data-guard>
       <input type="hidden" name="consumable_id" value="{{ consumable.id }}">
       <div class="field">
         <label for="quantity">Menge</label>
-        <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ consumable.quantity }}" required>
+        <div class="qty-stepper">
+          <button type="button" data-step="-1" aria-label="Menge verringern">–</button>
+          <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ consumable.quantity }}" required inputmode="numeric">
+          <button type="button" data-step="1" aria-label="Menge erhöhen">+</button>
+        </div>
       </div>
       <div class="field">
         <label for="worker_barcode">Mitarbeiter-Barcode</label>
-        <input type="text" id="worker_barcode" name="worker_barcode" required autocomplete="off"
+        <input type="text" id="worker_barcode" name="worker_barcode" required autofocus autocomplete="off"
                style="font-family: var(--font-display); font-size: 1.125rem;">
       </div>
+
+      <div id="worker-camera-wrap" style="display:none; margin-bottom: var(--space-3);">
+        <video id="worker-scan-video" style="width:100%; border-radius: var(--radius); background:#000; display:block;" playsinline muted></video>
+        <button type="button" id="worker-camera-cancel-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">Kamera schließen</button>
+      </div>
+      <button type="button" id="worker-camera-start-btn" class="btn btn-ghost btn-block" style="margin-bottom: var(--space-4);">📷 Mitarbeiter-Ausweis scannen</button>
+      <p id="worker-camera-unsupported" class="form-error" style="display:none;"></p>
+
       <button type="submit" class="btn btn-primary btn-block">Entnahme bestätigen</button>
     </form>
+    <script src="https://unpkg.com/@zxing/library@0.21.3"></script>
+    <script src="/static/js/barcode-camera.js"></script>
+    <script>
+      ScandyCamera.attach({
+        startBtn: document.getElementById('worker-camera-start-btn'),
+        cancelBtn: document.getElementById('worker-camera-cancel-btn'),
+        wrap: document.getElementById('worker-camera-wrap'),
+        video: document.getElementById('worker-scan-video'),
+        unsupportedMsg: document.getElementById('worker-camera-unsupported'),
+        input: document.getElementById('worker_barcode'),
+        onScan: function () { /* nicht automatisch absenden - Menge nochmal prüfen lassen */ }
+      });
+    </script>
   </div>
 
 {% else %}

@@ -110,9 +110,15 @@ async def reserve_item(
     item = await session.get(Item, item_id)
     if not item or item.deleted_at is not None:
         raise Forbidden()
-    # Mitarbeiter dürfen nur in der eigenen Abteilung reservieren
-    if user.role != UserRole.ADMIN and item.department_id != user.department_id:
-        raise Forbidden()
+
+    # Berechtigung: Admin darf immer. Sonst muss die Abteilung des Gegenstands
+    # zu den für DIESEN Worker sichtbaren Abteilungen gehören (Gruppen-basiert
+    # bei Nutzern, sonst die eigene department_id - siehe app/core/access.py).
+    if user.role != UserRole.ADMIN:
+        from app.core.access import get_visible_department_ids
+        visible_ids = await get_visible_department_ids(session, worker)
+        if item.department_id not in visible_ids:
+            raise Forbidden()
 
     if item.status != ItemStatus.VERFUEGBAR:
         return RedirectResponse(url="/reservations?error=Gegenstand+ist+aktuell+nicht+verfügbar.", status_code=303)

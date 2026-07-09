@@ -1,0 +1,5 @@
+# Nur für migrations_legacy/migrate_from_mongodb.py - bewusst NICHT in der
+# Haupt-requirements.txt, damit die eigentliche App nicht dauerhaft eine
+# MongoDB-Abhängigkeit mit sich herumträgt (die Migration ist ein einmaliger,
+# manuell ausgeführter Schritt).
+pymongo==4.9.2

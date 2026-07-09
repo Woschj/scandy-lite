@@ -32,64 +32,17 @@
 </div>
 
 <script src="https://unpkg.com/@zxing/library@0.21.3"></script>
+<script src="/static/js/barcode-camera.js"></script>
 <script>
-(function () {
-  var startBtn = document.getElementById('camera-start-btn');
-  var cancelBtn = document.getElementById('camera-cancel-btn');
-  var wrap = document.getElementById('camera-scan-wrap');
-  var video = document.getElementById('scan-video');
-  var unsupportedMsg = document.getElementById('camera-unsupported');
-  var barcodeInput = document.getElementById('barcode');
-  var form = document.getElementById('scan-form');
-  var codeReader = null;
-
-  function showUnsupported(msg) {
-    startBtn.style.display = 'none';
-    unsupportedMsg.textContent = msg;
-    unsupportedMsg.style.display = 'block';
-  }
-
-  function stopCamera() {
-    if (codeReader) {
-      try { codeReader.reset(); } catch (e) { /* bereits gestoppt */ }
-      codeReader = null;
-    }
-    wrap.style.display = 'none';
-    startBtn.style.display = 'block';
-  }
-
-  if (!window.isSecureContext) {
-    showUnsupported('Kamera-Scan benötigt eine sichere Verbindung (HTTPS). Barcode bitte per Scanner oder Tastatur eingeben.');
-  } else if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    showUnsupported('Kamera-Zugriff wird von diesem Browser nicht unterstützt.');
-  } else if (typeof ZXing === 'undefined') {
-    showUnsupported('Kamera-Scan-Bibliothek konnte nicht geladen werden (kein Internetzugriff?).');
-  } else {
-    startBtn.addEventListener('click', function () {
-      codeReader = new ZXing.BrowserMultiFormatReader();
-      startBtn.style.display = 'none';
-      wrap.style.display = 'block';
-
-      ZXing.BrowserMultiFormatReader.listVideoInputDevices().then(function (devices) {
-        var rear = devices.find(function (d) { return /back|rear|environment/i.test(d.label); });
-        var deviceId = rear ? rear.deviceId : (devices.length ? devices[devices.length - 1].deviceId : undefined);
-
-        codeReader.decodeFromVideoDevice(deviceId, video, function (result, err) {
-          if (result) {
-            barcodeInput.value = result.getText();
-            stopCamera();
-            form.submit();
-          }
-          // err bei jedem Frame ohne erkannten Code - kein echter Fehler, wird ignoriert
-        });
-      }).catch(function (e) {
-        showUnsupported('Kamera konnte nicht gestartet werden: kein Zugriff erteilt oder keine Kamera gefunden.');
-        wrap.style.display = 'none';
-      });
-    });
-
-    cancelBtn.addEventListener('click', stopCamera);
-  }
-})();
+  ScandyCamera.attach({
+    startBtn: document.getElementById('camera-start-btn'),
+    cancelBtn: document.getElementById('camera-cancel-btn'),
+    wrap: document.getElementById('camera-scan-wrap'),
+    video: document.getElementById('scan-video'),
+    unsupportedMsg: document.getElementById('camera-unsupported'),
+    input: document.getElementById('barcode')
+  });
+  {% if ok %}ScandyCamera.vibrate(80);{% endif %}
+  {% if error %}ScandyCamera.vibrate([60, 60, 60]);{% endif %}
 </script>
 {% endblock %}

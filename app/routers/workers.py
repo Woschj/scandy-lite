@@ -5,6 +5,7 @@ import uuid
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -29,7 +30,7 @@ async def list_workers(
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    stmt = select(Worker).where(Worker.deleted_at.is_(None)).order_by(Worker.last_name)
+    stmt = select(Worker).where(Worker.deleted_at.is_(None)).order_by(Worker.last_name).options(selectinload(Worker.group))
     if department:
         stmt = stmt.where(Worker.department_id == department.id)
     if q:
@@ -116,10 +117,16 @@ async def edit_worker_form(
     users_result = await session.exec(select(User).where(User.is_active == True).order_by(User.username))  # noqa: E712
     linkable_users = [u for u in users_result.all() if u.id not in linked_ids]
 
+    from app.models.group import WorkerGroup
+    groups = (await session.exec(select(WorkerGroup).order_by(WorkerGroup.name))).all()
+
     return templates.TemplateResponse(
         request,
         "workers/form.html",
-        {"user": user, "department": department, "worker": worker, "error": None, "linkable_users": linkable_users},
+        {
+            "user": user, "department": department, "worker": worker, "error": None,
+            "linkable_users": linkable_users, "groups": groups,
+        },
     )
 
 
@@ -132,6 +139,7 @@ async def update_worker(
     last_name: str = Form(...),
     is_active: str = Form(""),
     user_id: str = Form(""),
+    group_id: str = Form(""),
     user: User = Depends(get_current_user),
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
@@ -144,12 +152,19 @@ async def update_worker(
         select(Worker).where(Worker.barcode == barcode, Worker.id != worker_id, Worker.deleted_at.is_(None))
     )
     if result.first():
+        from app.models.group import WorkerGroup
+        linked_ids_result = await session.exec(select(Worker.user_id).where(Worker.user_id.is_not(None)))
+        linked_ids = {uid for uid in linked_ids_result.all() if uid != worker.user_id}
+        users_result = await session.exec(select(User).where(User.is_active == True).order_by(User.username))  # noqa: E712
+        linkable_users = [u for u in users_result.all() if u.id not in linked_ids]
+        groups = (await session.exec(select(WorkerGroup).order_by(WorkerGroup.name))).all()
         return templates.TemplateResponse(
             request,
             "workers/form.html",
             {
                 "user": user, "department": department, "worker": worker,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
+                "linkable_users": linkable_users, "groups": groups,
             },
             status_code=409,
         )
@@ -165,6 +180,13 @@ async def update_worker(
             raise Forbidden()
     else:
         worker.user_id = None
+    if group_id:
+        try:
+            worker.group_id = uuid.UUID(group_id)
+        except ValueError:
+            raise Forbidden()
+    else:
+        worker.group_id = None
     session.add(worker)
     try:
         await session.commit()

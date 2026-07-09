@@ -9,6 +9,7 @@ import uuid
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -16,7 +17,7 @@ from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user, require_staff, populate_switchable_departments
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
-from app.models.common import utcnow
+from app.models.common import UserRole, utcnow
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.department import Department
 from app.models.preset import Category, Location
@@ -46,12 +47,28 @@ async def list_consumables(
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
+    from app.core.access import get_visible_department_ids
+    from app.routers.reservations import get_linked_worker
+
     stmt = select(Consumable).where(Consumable.deleted_at.is_(None)).order_by(Consumable.name)
-    if department:
+    show_department_badge = False
+
+    if user.role == UserRole.NUTZER:
+        linked_worker = await get_linked_worker(session, user)
+        visible_ids = await get_visible_department_ids(session, linked_worker)
+        stmt = stmt.where(Consumable.department_id.in_(visible_ids))
+        show_department_badge = True
+    elif department:
         stmt = stmt.where(Consumable.department_id == department.id)
+    else:
+        show_department_badge = True
+
     if q:
         like = f"%{q}%"
         stmt = stmt.where((Consumable.name.ilike(like)) | (Consumable.barcode.ilike(like)))
+
+    if show_department_badge:
+        stmt = stmt.options(selectinload(Consumable.department))
 
     result = await session.exec(stmt)
     consumables = result.all()
@@ -59,7 +76,10 @@ async def list_consumables(
     return templates.TemplateResponse(
         request,
         "consumables/list.html",
-        {"user": user, "department": department, "consumables": consumables, "q": q, "ok": ok, "error": error},
+        {
+            "user": user, "department": department, "consumables": consumables, "q": q, "ok": ok, "error": error,
+            "show_department_badge": show_department_badge,
+        },
     )
 
 

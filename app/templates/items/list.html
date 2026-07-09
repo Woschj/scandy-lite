@@ -62,12 +62,15 @@
             {% if item.location %}{{ item.location }}{% endif %}
           </p>
         {% endif %}
+        {% if show_department_badge and item.department %}
+          <span class="chip chip-neutral" style="margin-top: var(--space-1);">{{ item.department.name }}</span>
+        {% endif %}
         {% if item.notes %}
           <p class="item-meta" style="font-style: italic;">{{ item.notes }}</p>
         {% endif %}
         <div class="item-card-actions">
           {% if linked_worker and item.status.value == "verfuegbar" and item.id not in reserved_ids %}
-            <form method="post" action="/reservations/items/{{ item.id }}">
+            <form method="post" action="/reservations/items/{{ item.id }}" data-guard>
               <button type="submit" class="link-btn" style="color: var(--brand); font-weight: 700;">Reservieren</button>
             </form>
           {% endif %}

@@ -35,6 +35,7 @@
           </div>
           {% if not w.is_active %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
         </div>
+        {% if w.group %}<span class="chip chip-neutral">Gruppe: {{ w.group.name }}</span>{% endif %}
         <div class="item-card-actions">
           <a href="/workers/{{ w.id }}/edit" class="link-btn">Bearbeiten</a>
           <form method="post" action="/workers/{{ w.id }}/delete" onsubmit="return confirm('{{ w.full_name }} wirklich entfernen?')">

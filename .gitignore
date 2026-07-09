@@ -39,5 +39,8 @@ htmlcov/
 # Uploads (lokal - in Produktion liegt das auf einem Docker-Volume)
 /uploads/
 
+# Migrations-Passwörter (enthalten Klartext-Passwörter, niemals committen)
+migration_passwords*.txt
+
 # Docker
 *.log

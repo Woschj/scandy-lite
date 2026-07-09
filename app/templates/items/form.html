@@ -30,7 +30,7 @@
 <div class="tag-card form-card">
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
-  <form method="post" action="{% if item %}/items/{{ item.id }}/edit{% else %}/items/new{% endif %}">
+  <form data-guard method="post" action="{% if item %}/items/{{ item.id }}/edit{% else %}/items/new{% endif %}">
     <div class="field">
       <label for="barcode">Barcode</label>
       <input type="text" id="barcode" name="barcode" value="{{ item.barcode if item else '' }}" required autofocus>

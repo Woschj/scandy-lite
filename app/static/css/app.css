@@ -507,6 +507,7 @@ button, input, select {
 
 .item-card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-2);
   margin-top: var(--space-3);
   padding-top: var(--space-3);
@@ -522,16 +523,19 @@ button, input, select {
   text-transform: uppercase;
   background: none;
   border: none;
-  padding: var(--space-1) 0;
+  padding: var(--space-2) var(--space-2);
   color: var(--ink-soft);
   cursor: pointer;
   text-decoration: none;
-  min-height: 32px;
+  min-height: 44px;
+  min-width: 44px;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
 }
 .link-btn:hover { color: var(--brand-ink); }
 .link-btn.danger:hover { color: var(--danger); }
+.link-btn:disabled { opacity: 0.6; cursor: default; }
 
 .empty-state {
   text-align: center;
@@ -945,3 +949,49 @@ button, input, select {
 
 /* Alpine: verhindert kurzes Aufblitzen aller Tab-Inhalte vor der Initialisierung */
 [x-cloak] { display: none !important; }
+
+/* -------------------------------------------------------------------------
+   Mengen-Stepper (Verbrauchsmaterial) - Daumen-Buttons statt Tippen
+   ------------------------------------------------------------------------- */
+
+.qty-stepper {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.qty-stepper button {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #fff;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qty-stepper button:active { background: var(--bg); }
+
+.qty-stepper input {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  min-height: 44px;
+  -moz-appearance: textfield;
+}
+.qty-stepper input::-webkit-outer-spin-button,
+.qty-stepper input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
