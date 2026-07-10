@@ -38,7 +38,7 @@
         </div>
 
         <div id="worker-camera-wrap" style="display:none; margin-bottom: var(--space-3);">
-          <video id="worker-scan-video" style="width:100%; border-radius: var(--radius); background:#000; display:block;" playsinline muted></video>
+          <div id="worker-scan-video-container" style="width:100%; border-radius: var(--radius); overflow:hidden; background:#000;"></div>
           <button type="button" id="worker-camera-cancel-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">Kamera schließen</button>
         </div>
         <button type="button" id="worker-camera-start-btn" class="btn btn-ghost btn-block" style="margin-bottom: var(--space-4);">📷 Mitarbeiter-Ausweis scannen</button>
@@ -55,14 +55,14 @@
         <button type="submit" class="btn btn-primary btn-block">Ausgabe bestätigen</button>
       </form>
       <script src="/static/js/signature.js" defer></script>
-      <script src="https://unpkg.com/@zxing/library@0.21.3"></script>
+      <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
       <script src="/static/js/barcode-camera.js"></script>
       <script>
         ScandyCamera.attach({
           startBtn: document.getElementById('worker-camera-start-btn'),
           cancelBtn: document.getElementById('worker-camera-cancel-btn'),
           wrap: document.getElementById('worker-camera-wrap'),
-          video: document.getElementById('worker-scan-video'),
+          videoContainerId: 'worker-scan-video-container',
           unsupportedMsg: document.getElementById('worker-camera-unsupported'),
           input: document.getElementById('worker_barcode'),
           onScan: function () { /* nicht automatisch absenden - Unterschrift fehlt noch */ }
@@ -117,7 +117,7 @@
       </div>
 
       <div id="worker-camera-wrap" style="display:none; margin-bottom: var(--space-3);">
-        <video id="worker-scan-video" style="width:100%; border-radius: var(--radius); background:#000; display:block;" playsinline muted></video>
+        <div id="worker-scan-video-container" style="width:100%; border-radius: var(--radius); overflow:hidden; background:#000;"></div>
         <button type="button" id="worker-camera-cancel-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">Kamera schließen</button>
       </div>
       <button type="button" id="worker-camera-start-btn" class="btn btn-ghost btn-block" style="margin-bottom: var(--space-4);">📷 Mitarbeiter-Ausweis scannen</button>
@@ -125,14 +125,14 @@
 
       <button type="submit" class="btn btn-primary btn-block">Entnahme bestätigen</button>
     </form>
-    <script src="https://unpkg.com/@zxing/library@0.21.3"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="/static/js/barcode-camera.js"></script>
     <script>
       ScandyCamera.attach({
         startBtn: document.getElementById('worker-camera-start-btn'),
         cancelBtn: document.getElementById('worker-camera-cancel-btn'),
         wrap: document.getElementById('worker-camera-wrap'),
-        video: document.getElementById('worker-scan-video'),
+        videoContainerId: 'worker-scan-video-container',
         unsupportedMsg: document.getElementById('worker-camera-unsupported'),
         input: document.getElementById('worker_barcode'),
         onScan: function () { /* nicht automatisch absenden - Menge nochmal prüfen lassen */ }

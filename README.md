@@ -79,6 +79,31 @@ Nicht mit einem echten Gerät testbar in dieser Umgebung (kein Browser mit
 Kamera/Touch verfügbar) - bitte insbesondere den Kamera-Scan für den
 Mitarbeiter-Barcode und die Stepper-Buttons einmal live ausprobieren.
 
+### Bugfix: Kamera lud nicht
+
+`@zxing/library` ist primär für Bundler gedacht - beim Einbinden per einfachem
+`<script>`-Tag (unser Anwendungsfall) stand kein zuverlässiges globales
+`ZXing`-Objekt zur Verfügung (das Paket hat kein `"browser"`-Feld, `"main"`
+zeigt auf einen CommonJS-Build). Umgestellt auf **html5-qrcode** - eine
+Bibliothek, die genau für Kamera-Scan per Script-Tag ohne Bundler gebaut und
+offiziell dafür dokumentiert ist. API-technisch: statt eines fertigen
+`<video>`-Elements erwartet sie ein leeres Container-`<div>`, in das sie ihr
+eigenes Video-/Canvas-Element einhängt.
+
+### Bugfix: Button blieb nach Unterschrift auf "Wird verarbeitet" hängen
+
+Der Doppel-Submit-Schutz (`form-guard.js`) lief in der Capture-Phase - er
+deaktivierte den Button, BEVOR der Unterschrift-Handler (`signature.js`, der
+bei fehlender Unterschrift die Übermittlung per `preventDefault()` abbricht)
+überhaupt zum Zug kam. Bricht dieser die Übermittlung ab, blieb der Button
+dauerhaft deaktiviert, weil `form-guard.js` seine Sperre schon vorher gesetzt
+hatte. Fix: Bubble-Phase (läuft NACH Handlern direkt am Formular) +
+`e.defaultPrevented`-Prüfung, sodass nur wirklich abgesendete Formulare den
+Button sperren. Per echter DOM-Simulation (jsdom) verifiziert, inkl. Nachbau
+des alten (fehlerhaften) Verhaltens zur Bestätigung. Zusätzlich als
+Sicherheitsnetz: automatische Freigabe nach 15s, falls aus einem anderen
+Grund keine Weiterleitung erfolgt.
+
 ## Umstieg von Scandy2
 
 Ein eigenständiges Migrationsskript übernimmt Bestandsdaten (Gegenstände,

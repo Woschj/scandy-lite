@@ -87,7 +87,19 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            # Jede Migration in ihrer EIGENEN Transaktion statt alle
+            # ausstehenden zusammen in einer. Notwendig, weil Postgres neu per
+            # "ALTER TYPE ... ADD VALUE" hinzugefügte Enum-Werte erst nach dem
+            # COMMIT der Transaktion verwenden lässt, in der sie hinzugefügt
+            # wurden ("unsafe use of new value"). Bei einem frischen Deployment
+            # laufen oft mehrere Migrationen in einem Rutsch (z.B. "NUTZER"-
+            # Enum-Wert hinzufügen in einer Migration, dann in einer späteren
+            # Migration dafür Daten migrieren) - ohne diese Einstellung wären
+            # das sonst eine gemeinsame Transaktion und der zweite Schritt
+            # würde fehlschlagen.
+            transaction_per_migration=True,
         )
 
         with context.begin_transaction():
