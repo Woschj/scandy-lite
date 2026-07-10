@@ -87,6 +87,24 @@ MongoDB-Instanz. Details, Nutzung und wichtige Hinweise (Passwörter können
 nicht 1:1 übernommen werden!) in [`migrations_legacy/README.md`](migrations_legacy/README.md).
 
 
+## Benutzer = Mitarbeiter
+
+Jeder Login bekommt beim Anlegen automatisch einen verknüpften Mitarbeiter-Ausweis
+(Barcode) - kein manuelles Verknüpfen mehr nötig. Wer sich einloggen kann, kann
+sich damit auch selbst etwas ausleihen/reservieren (passend zur Rolle, die er in
+der jeweiligen Abteilung hat).
+
+Ausnahme: der allererste Admin-Account (`scripts/seed_admin.py`, Bootstrap beim
+Deployment) bekommt keinen automatischen Ausweis, da das Skript keine
+Namens-/Barcode-Angaben abfragt. Bei Bedarf lässt sich das nachträglich manuell
+nachholen (*Mitarbeiter → Neu anlegen*, dann *Bearbeiten → Verknüpfter Login*)
+- diese manuelle Verknüpfung bleibt als Fallback erhalten, für genau solche
+  Altfälle und für Mitarbeiter-Datensätze, die schon vor einem Login bestanden.
+
+Deaktivieren/Löschen eines Logins wirkt sich auf den verknüpften Ausweis aus:
+deaktivieren deaktiviert auch den Ausweis, löschen löscht ihn mit (Soft-Delete -
+die Ausleih-Historie bleibt erhalten, der Barcode wird wieder frei).
+
 ## Löschen vs. Deaktivieren
 
 Benutzer lassen sich jetzt **echt löschen** (*Einstellungen → Benutzer*), nicht nur

@@ -19,7 +19,7 @@ from app.core.database import get_session
 from app.core.deps import get_current_department, require_admin, populate_switchable_departments
 from app.core.security import hash_password
 from app.core.templating import templates
-from app.models.common import UserRole
+from app.models.common import UserRole, utcnow
 from app.models.department import Department
 from app.models.preset import Category, Location
 from app.models.user import User
@@ -56,6 +56,9 @@ async def settings_page(
     for entry in all_access:
         access_by_user.setdefault(entry.user_id, []).append(entry)
 
+    worker_result = await session.exec(select(Worker).where(Worker.user_id.is_not(None), Worker.deleted_at.is_(None)))
+    worker_by_user = {w.user_id: w for w in worker_result.all()}
+
     return templates.TemplateResponse(
         request,
         "admin/settings.html",
@@ -68,6 +71,7 @@ async def settings_page(
             "users": users,
             "access_by_user": access_by_user,
             "all_access": all_access,
+            "worker_by_user": worker_by_user,
         },
     )
 
@@ -78,19 +82,50 @@ async def settings_page(
 async def create_user(
     username: str = Form(...),
     password: str = Form(...),
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    barcode: str = Form(...),
+    home_department_id: uuid.UUID = Form(...),
     is_admin: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    result = await session.exec(select(User).where(User.username == username.strip()))
-    if not result.first() and len(password) >= 8:
-        new_user = User(
-            username=username.strip(),
-            is_admin=bool(is_admin),
-            hashed_password=hash_password(password),
-        )
-        session.add(new_user)
-        await session.commit()
+    """Legt Login UND den zugehörigen Mitarbeiter-Ausweis (Worker) in einem
+    Schritt an - jeder Benutzer IST auch ein Mitarbeiter, der selbst
+    ausleihen/reservieren kann. Kein manuelles Verknüpfen mehr nötig (anders
+    als vorher, wo beides getrennte Schritte waren, obwohl praktisch jeder
+    Login auch einen Ausweis brauchte).
+
+    home_department_id ist NUR die organisatorische Heimat des Ausweises
+    (wo der Datensatz verwaltet wird) - für die eigentliche Zugriffsrolle
+    (was diese Person sehen/bearbeiten darf) weiterhin der 'Zugriff'-Tab."""
+    username = username.strip()
+    barcode = barcode.strip()
+
+    existing_user = await session.exec(select(User).where(User.username == username))
+    if existing_user.first():
+        return RedirectResponse(url="/admin/settings?error=Benutzername+bereits+vergeben.#users", status_code=303)
+    if len(password) < 8:
+        return RedirectResponse(url="/admin/settings?error=Passwort+zu+kurz+(min.+8+Zeichen).#users", status_code=303)
+
+    existing_worker = await session.exec(select(Worker).where(Worker.barcode == barcode, Worker.deleted_at.is_(None)))
+    if existing_worker.first():
+        return RedirectResponse(url="/admin/settings?error=Barcode+ist+bereits+vergeben.#users", status_code=303)
+
+    new_user = User(
+        username=username,
+        is_admin=bool(is_admin),
+        hashed_password=hash_password(password),
+    )
+    session.add(new_user)
+    await session.flush()  # user.id wird gebraucht, bevor der Worker angelegt wird
+
+    worker = Worker(
+        barcode=barcode, first_name=first_name.strip(), last_name=last_name.strip(),
+        department_id=home_department_id, user_id=new_user.id,
+    )
+    session.add(worker)
+    await session.commit()
     return RedirectResponse(url="/admin/settings#users", status_code=303)
 
 
@@ -104,6 +139,15 @@ async def toggle_user(
     if target and target.id != user.id:  # sich selbst aussperren verhindern
         target.is_active = not target.is_active
         session.add(target)
+
+        # Verknüpften Mitarbeiter-Ausweis synchron halten - ein deaktivierter
+        # Login soll nicht über den Ausweis weiter ausleihen/reservieren können
+        linked_result = await session.exec(select(Worker).where(Worker.user_id == user_id))
+        linked_worker = linked_result.first()
+        if linked_worker:
+            linked_worker.is_active = target.is_active
+            session.add(linked_worker)
+
         await session.commit()
     return RedirectResponse(url="/admin/settings#users", status_code=303)
 
@@ -123,10 +167,14 @@ async def delete_user(
 
     target = await session.get(User, user_id)
     if target:
-        # Verknüpften Worker-Datensatz nicht mitlöschen, nur die Verknüpfung lösen
+        # Verknüpfter Mitarbeiter-Ausweis gehört zur selben Identität (wird
+        # beim Anlegen automatisch mit erzeugt) - wird beim Löschen des Logins
+        # mit soft-gelöscht, nicht nur entkoppelt. Ausleih-/Reservierungs-
+        # Historie bleibt dadurch erhalten (Soft-Delete), verwaist aber nicht
+        # als eigenständiger, nutzloser Worker-Datensatz ohne Login.
         linked_result = await session.exec(select(Worker).where(Worker.user_id == user_id))
         for worker in linked_result.all():
-            worker.user_id = None
+            worker.deleted_at = utcnow()
             session.add(worker)
         # Abteilungs-Rollen-Zuordnungen gehen mit (sonst verwaiste Einträge)
         access_result = await session.exec(select(UserDepartmentRole).where(UserDepartmentRole.user_id == user_id))

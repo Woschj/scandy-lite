@@ -74,6 +74,12 @@
       <div class="settings-row">
         <div class="main">
           <span class="name">{{ u.username }}</span>
+          {% set linked_worker = worker_by_user.get(u.id) %}
+          {% if linked_worker %}
+            <span class="meta">{{ linked_worker.full_name }} · {{ linked_worker.barcode }}</span>
+          {% else %}
+            <span class="chip chip-danger">Kein Ausweis</span>
+          {% endif %}
           {% if u.is_admin %}<span class="chip chip-success">Admin</span>{% endif %}
           {% if u.auth_source.value != "local" %}<span class="meta">{{ u.auth_source.value }}</span>{% endif %}
           {% if u.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
@@ -105,12 +111,30 @@
 
   <form class="settings-add-inline" method="post" action="/admin/users/new">
     <div class="field">
-      <label for="u-username">Benutzername</label>
+      <label for="u-username">Benutzername (Login)</label>
       <input type="text" id="u-username" name="username" required>
     </div>
     <div class="field">
       <label for="u-password">Passwort (min. 8 Zeichen)</label>
       <input type="password" id="u-password" name="password" minlength="8" required>
+    </div>
+    <div class="field">
+      <label for="u-first-name">Vorname</label>
+      <input type="text" id="u-first-name" name="first_name" required>
+    </div>
+    <div class="field">
+      <label for="u-last-name">Nachname</label>
+      <input type="text" id="u-last-name" name="last_name" required>
+    </div>
+    <div class="field">
+      <label for="u-barcode">Barcode (Ausweis)</label>
+      <input type="text" id="u-barcode" name="barcode" required>
+    </div>
+    <div class="field">
+      <label for="u-home-department">Heimat-Abteilung (organisatorisch)</label>
+      <select id="u-home-department" name="home_department_id" required>
+        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
     </div>
     <div class="checkbox-field" style="margin-bottom: 0;">
       <input type="checkbox" id="u-is-admin" name="is_admin" value="true">
@@ -118,7 +142,10 @@
     </div>
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
-  <p class="settings-hint" style="margin-top: var(--space-2);">Ohne Admin-Häkchen: Abteilungs-Rolle danach im Tab "Zugriff" zuweisen.</p>
+  <p class="settings-hint" style="margin-top: var(--space-2);">
+    Legt Login UND Mitarbeiter-Ausweis (Barcode zum Scannen/Reservieren) in einem Schritt an - jeder Benutzer kann selbst ausleihen/reservieren.
+    Ohne Admin-Häkchen: Abteilungs-Rolle danach im Tab "Zugriff" zuweisen.
+  </p>
 </section>
 
 {# ================= Zugriff (Rolle pro Benutzer und Abteilung) ================= #}
