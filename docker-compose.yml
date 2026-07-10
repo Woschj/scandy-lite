@@ -6,6 +6,11 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-scandy}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_immediately}
       POSTGRES_DB: ${POSTGRES_DB:-scandy_lite}
+    ports:
+      # Nur für den Migrationstest vom Host aus - auf 127.0.0.1 gebunden
+      # (nicht 0.0.0.0), damit die DB nicht versehentlich im ganzen Netz
+      # erreichbar wird. Nach dem Testen der Migration wieder entfernen.
+      - "127.0.0.1:5432:5432"
     volumes:
       - scandy_lite_db_data:/var/lib/postgresql/data
     healthcheck:

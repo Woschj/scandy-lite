@@ -25,7 +25,7 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 - [x] **Reservierungs-Workflow (Kanban)** — Reservieren per App → Ausgabe per Scan + digitale Unterschrift → Rückgabe per Scan
 - [x] **Bild-Upload für Gegenstände/Verbrauchsmaterial** + **Einstellungen als Tabs statt Scroll-Seite**
 - [x] **Rollenmodell: Admin (global) + Rolle pro Abteilung (Mitarbeiter/Nutzer)** (überarbeitet, dieser Stand)
-- [x] **Legacy-Migration Scandy2 (MongoDB) → Scandy-Lite (PostgreSQL)**
+- [x] **Legacy-Migration Scandy2 (MongoDB) → Scandy-Lite (PostgreSQL)** + **Import direkt in der Weboberfläche** (dieser Stand)
 - [x] **Ausleih-Workflow + Mobile-UX-Feinschliff**
 - [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker, Einstellungsseiten-Layout)
 
@@ -425,5 +425,25 @@ alembic downgrade -1
 
 ## Legacy-Datenmigration (Scandy2 → Scandy-Lite)
 
-Nicht priorisiert, siehe [`migrations_legacy/README.md`](migrations_legacy/README.md)
-für den geplanten Ansatz, sobald das relevant wird.
+Zwei Wege, je nach Bedarf:
+
+- **In der Weboberfläche** (*Einstellungen → 📥 Import aus Scandy2*): Scandy2-Backup-ZIP
+  hochladen (Scandy2: *Einstellungen → Backup → "Backup erstellen"*), Vorschau ansehen,
+  bestätigen. Kein Kommandozeilen-/Datenbankzugriff nötig - der empfohlene Weg für den
+  normalen Umstieg.
+- **Kommandozeilenskript** (`migrations_legacy/migrate_from_mongodb.py`): für Fälle, in
+  denen direkter MongoDB-Zugriff einfacher ist als ein Backup zu erstellen (z.B. sehr
+  große Bestände, oder wenn man selektiv nur einzelne Collections migrieren will).
+  Details in [`migrations_legacy/README.md`](migrations_legacy/README.md).
+
+**Wichtige Einschränkung des Weboberflächen-Wegs:** Scandy2s eigenes Backup exportiert die
+`users`-Collection aus Sicherheitsgründen nie (weder beim mongodump- noch beim JSON-Fallback-
+Pfad - eine bewusste Entscheidung im Scandy2-Code selbst). Über den Import kommen deshalb
+immer Gegenstände/Material/Mitarbeiter-Ausweise/Historie, aber nie Benutzer-Logins mit -
+die müssen danach separat unter *Einstellungen → Benutzer* angelegt und den importierten
+Mitarbeiter-Ausweisen zugeordnet werden (*Mitarbeiter → Bearbeiten → Verknüpfter Login*).
+Das Kommandozeilenskript hat diese Einschränkung nicht (liest direkt aus der Datenbank,
+wo `users` natürlich vorhanden ist).
+
+Beide Wege sind idempotent (mehrfach ausführbar ohne Duplikate) und starten standardmäßig
+als Trockenlauf, der nur einen Report zeigt, bevor wirklich geschrieben wird.

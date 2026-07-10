@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import get_settings
 from app.core.deps import Forbidden, RedirectToLogin
 from app.core.templating import templates
-from app.routers import admin_settings, auth, consumables, history, items, pages, reservations, scan, workers
+from app.routers import admin_import, admin_settings, auth, consumables, history, items, pages, reservations, scan, workers
 
 settings = get_settings()
 logger = logging.getLogger("scandy-lite")
@@ -78,6 +78,7 @@ app.include_router(consumables.router)
 app.include_router(workers.router)
 app.include_router(history.router)
 app.include_router(admin_settings.router)
+app.include_router(admin_import.router)
 
 
 @app.get("/favicon.ico", include_in_schema=False)

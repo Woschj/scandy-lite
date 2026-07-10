@@ -10,7 +10,6 @@ __pycache__/
 *.sqlite
 
 tests/
-migrations_legacy/
 scandy2/
 
 .pytest_cache/

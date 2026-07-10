@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Scandy2-Import — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">Admin</span>
+<h1>Import aus Scandy2</h1>
+<p>
+  Übernimmt Gegenstände, Verbrauchsmaterial, Mitarbeiter-Ausweise und
+  Ausleih-/Entnahme-Historie aus einem Scandy2-Backup - direkt hochgeladen,
+  ohne Kommandozeile.
+</p>
+
+<div class="tag-card form-card" style="margin-bottom: var(--space-6);">
+  <p style="margin-top:0;">
+    <strong>Backup in Scandy2 erstellen:</strong> Einstellungen → Backup → "Backup erstellen".
+    Die heruntergeladene <code>.zip</code>-Datei (oder die darin enthaltene <code>.json</code>) hier hochladen.
+  </p>
+  <p class="form-error" style="background:none; border:none; color:var(--ink-soft); padding:0; font-size:0.8125rem;">
+    ⚠️ Scandy2-Backups enthalten aus Sicherheitsgründen <strong>nie Benutzer-Logins</strong> -
+    nur Gegenstände/Material/Mitarbeiter-Ausweise/Historie werden übernommen. Logins danach
+    separat unter <a href="/admin/settings#users">Einstellungen → Benutzer</a> anlegen und mit den
+    importierten Mitarbeiter-Ausweisen verknüpfen (<a href="/workers">Mitarbeiter → Bearbeiten</a>).
+  </p>
+</div>
+
+{% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+{% if not result %}
+  <form class="tag-card form-card" method="post" action="/admin/import/preview" enctype="multipart/form-data" data-guard>
+    <div class="field">
+      <label for="import-file">Backup-Datei (.zip oder .json)</label>
+      <input type="file" id="import-file" name="file" accept=".zip,.json" required>
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Vorschau anzeigen (schreibt noch nichts)</button>
+  </form>
+{% endif %}
+
+{% if result %}
+  {% set r = result.report %}
+  <div class="tag-card form-card" style="margin-bottom: var(--space-6);">
+    {% if mode == "preview" %}
+      <span class="chip chip-neutral">Trockenlauf — nichts wurde geschrieben</span>
+    {% else %}
+      <span class="chip chip-success">Import abgeschlossen — Daten wurden übernommen</span>
+    {% endif %}
+    <h2 style="margin-top: var(--space-3);">Report{% if filename %}: {{ filename }}{% endif %}</h2>
+
+    <div class="settings-list" style="margin-top: var(--space-3);">
+      {% for key, value in r.items() | sort %}
+        <div class="settings-row">
+          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">{{ key }}</span>
+          <span class="meta">{{ value }}</span>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if result.warnings %}
+      <h3 style="margin-top: var(--space-4);">Warnungen</h3>
+      <ul>
+        {% for w in result.warnings %}<li>{{ w }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+
+    {% if mode == "applied" and result.generated_passwords %}
+      <h3 style="margin-top: var(--space-4);">Neue Passwörter</h3>
+      <p>{{ result.generated_passwords | length }} Benutzer-Logins wurden mit neuen Zufallspasswörtern angelegt:</p>
+      <div class="settings-list">
+        {% for username, password in result.generated_passwords %}
+          <div class="settings-row">
+            <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-display);">{{ username }}</span>
+            <span class="meta" style="font-family:var(--font-display);">{{ password }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <p class="form-error">Bitte jetzt notieren/sicher weitergeben - wird nicht nochmal angezeigt.</p>
+    {% endif %}
+  </div>
+
+  {% if mode == "preview" %}
+    <form class="tag-card form-card" method="post" action="/admin/import/apply" enctype="multipart/form-data" data-guard onsubmit="return confirm('Jetzt WIRKLICH schreiben? Das kann nicht rückgängig gemacht werden.')">
+      <p style="margin-top:0;">Sieht der Report plausibel aus? Dann dieselbe Datei nochmal auswählen und wirklich importieren:</p>
+      <div class="field">
+        <label for="import-file-apply">Backup-Datei (.zip oder .json)</label>
+        <input type="file" id="import-file-apply" name="file" accept=".zip,.json" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Jetzt importieren</button>
+    </form>
+  {% else %}
+    <a href="/admin/import" class="btn btn-ghost">Weiteres Backup importieren</a>
+  {% endif %}
+{% endif %}
+{% endblock %}

@@ -12,6 +12,11 @@ asyncpg==0.30.0
 psycopg2-binary==2.9.10
 alembic==1.14.0
 
+# Nur für den eingebauten Scandy2-Import (Admin -> Import): bson.json_util zum
+# Parsen der von Scandy2 exportierten Backup-JSON (MongoDB Extended JSON -
+# Daten/ObjectId-Typen). Kein laufender MongoDB-Server nötig.
+pymongo==4.9.2
+
 # Settings / Konfiguration
 pydantic-settings==2.7.0
 python-dotenv==1.0.1
