@@ -27,8 +27,38 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 - [x] **Rollenmodell: Admin / Mitarbeiter / Nutzer**
 - [x] **Nutzergruppen: Ausleihberechtigung entkoppelt von der Abteilungs-Zugehörigkeit**
 - [x] **Legacy-Migration Scandy2 (MongoDB) → Scandy-Lite (PostgreSQL)**
-- [x] **Ausleih-Workflow + Mobile-UX-Feinschliff** (dieser Stand)
+- [x] **Ausleih-Workflow + Mobile-UX-Feinschliff**
+- [x] **Bugfix: Gegenstände unsichtbar für Nutzer in frisch angelegten Gruppen** (dieser Stand)
 - [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker, Einstellungsseiten-Layout)
+
+## Bugfix: "Gegenstände tauchen für Nutzer teilweise nicht auf"
+
+Ursache gefunden: Das Gruppen-Anlegen-Formular (*Einstellungen → Gruppen*) hatte
+keine Abteilungs-Checkboxen - eine frisch angelegte Gruppe bekam dadurch
+**null** Abteilungs-Zugriffe. Ordnete man ihr sofort Studierende zu (naheliegender
+Workflow), sahen die betroffenen Nutzer plötzlich gar nichts, ohne dass ersichtlich
+war, warum - andere, längst korrekt konfigurierte Gruppen funktionierten weiter
+normal. Genau das erzeugt das gemeldete "teilweise"-Muster.
+
+Behoben:
+- Abteilungs-Checkboxen sind jetzt direkt im Anlegen-Formular dabei (ein Schritt
+  statt zwei)
+- Gruppen ganz ohne Abteilungs-Zugriff zeigen in der Liste einen unübersehbaren
+  Warn-Chip
+- Empty-States bei Gegenstände/Verbrauchsmaterial erklären jetzt konkret,
+  *warum* nichts sichtbar ist (keine Worker-Verknüpfung vs. keine Freigabe),
+  statt generisch "nichts vorhanden" zu suggerieren
+
+Nebenbei bei der Vollprüfung der gesamten Berechtigungslogik gefunden und
+behoben: Der Abteilungs-Auswahl-Cookie war nicht an den jeweiligen Admin
+gebunden - auf einem geteilten Rechner (z.B. Empfang) hätte ein zweiter
+Admin-Login die Abteilungswahl des vorherigen geerbt. Cookie ist jetzt
+user-gebunden.
+
+Mitarbeiter-Rolle, Abteilungs-Wechsel für Admins, und die Grund-Sichtbarkeitslogik
+selbst liefen bei der Prüfung durchgehend korrekt (per E2E-Matrix über alle
+Rollen-Kombinationen verifiziert) - der Fehler lag im Setup-Workflow, nicht in
+der Kernlogik.
 
 ## Mobile-UX-Verbesserungen (Scan-Workflow)
 

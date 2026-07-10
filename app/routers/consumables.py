@@ -50,11 +50,12 @@ async def list_consumables(
     from app.core.access import get_visible_department_ids
     from app.routers.reservations import get_linked_worker
 
+    linked_worker = await get_linked_worker(session, user)
+
     stmt = select(Consumable).where(Consumable.deleted_at.is_(None)).order_by(Consumable.name)
     show_department_badge = False
 
     if user.role == UserRole.NUTZER:
-        linked_worker = await get_linked_worker(session, user)
         visible_ids = await get_visible_department_ids(session, linked_worker)
         stmt = stmt.where(Consumable.department_id.in_(visible_ids))
         show_department_badge = True
@@ -78,7 +79,7 @@ async def list_consumables(
         "consumables/list.html",
         {
             "user": user, "department": department, "consumables": consumables, "q": q, "ok": ok, "error": error,
-            "show_department_badge": show_department_badge,
+            "show_department_badge": show_department_badge, "linked_worker": linked_worker,
         },
     )
 

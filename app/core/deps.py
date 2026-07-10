@@ -125,18 +125,26 @@ async def get_current_department(
     if "department" in request.query_params:
         code = request.query_params["department"]
         if not code:
-            request.state.department_cookie_value = ALL_DEPARTMENTS_SENTINEL
+            request.state.department_cookie_value = f"{user.id}:{ALL_DEPARTMENTS_SENTINEL}"
             return None  # Admin hat bewusst "Alle Abteilungen" gewählt
 
         result = await session.exec(select(Department).where(Department.code == code))
         dept = result.first()
         if dept:
-            request.state.department_cookie_value = code
+            request.state.department_cookie_value = f"{user.id}:{code}"
             return dept
         # Unbekannter Code im Query-Param -> ignorieren, unten weiter mit Cookie/Default
 
-    # 2) Keine explizite Wahl in DIESEM Request -> vorherige Wahl aus dem Cookie übernehmen
-    cookie_value = request.cookies.get(DEPARTMENT_COOKIE_NAME)
+    # 2) Keine explizite Wahl in DIESEM Request -> vorherige Wahl aus dem Cookie übernehmen.
+    # Cookie ist an die User-ID gebunden (Format "user_id:wert") - auf einem geteilten
+    # Rechner soll ein zweiter Admin-Login nicht die Abteilungswahl des vorherigen erben.
+    cookie_raw = request.cookies.get(DEPARTMENT_COOKIE_NAME)
+    cookie_value = None
+    if cookie_raw and ":" in cookie_raw:
+        cookie_user_id, _, cookie_rest = cookie_raw.partition(":")
+        if cookie_user_id == str(user.id):
+            cookie_value = cookie_rest
+
     if cookie_value == ALL_DEPARTMENTS_SENTINEL:
         return None
     if cookie_value:

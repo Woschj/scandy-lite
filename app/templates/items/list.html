@@ -86,7 +86,15 @@
   </div>
 {% else %}
   <div class="empty-state">
-    <p>{% if q %}Keine Gegenstände gefunden für "{{ q }}".{% else %}Noch keine Gegenstände angelegt.{% endif %}</p>
+    {% if q %}
+      <p>Keine Gegenstände gefunden für "{{ q }}".</p>
+    {% elif user.role.value == "nutzer" and not linked_worker %}
+      <p>Dein Login ist mit keinem Mitarbeiter-Ausweis verknüpft, deshalb sind hier keine Gegenstände sichtbar. Bitte an eine Administratorin oder einen Administrator wenden.</p>
+    {% elif user.role.value == "nutzer" %}
+      <p>Für dich sind aktuell keine Gegenstände freigeschaltet. Falls das nicht stimmen sollte: bitte an eine Administratorin oder einen Administrator wenden (Einstellungen → Gruppen).</p>
+    {% else %}
+      <p>Noch keine Gegenstände angelegt.</p>
+    {% endif %}
   </div>
 {% endif %}
 {% endblock %}

@@ -213,7 +213,12 @@
     {% for g in groups %}
       <div class="settings-row" style="align-items: flex-start;">
         <div class="main" style="flex-direction: column; align-items: flex-start; gap: var(--space-2);">
-          <span class="name">{{ g.name }}</span>
+          <div style="display:flex; align-items:center; gap: var(--space-2);">
+            <span class="name">{{ g.name }}</span>
+            {% if not group_dept_ids.get(g.id) %}
+              <span class="chip chip-danger">Keine Abteilung freigeschaltet - Mitglieder sehen nichts!</span>
+            {% endif %}
+          </div>
           <form method="post" action="/admin/groups/{{ g.id }}/access" style="display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0;">
             {% for d in departments %}
               <label style="display:flex; align-items:center; gap:4px; font-size:0.8125rem; font-weight:400; text-transform:none; letter-spacing:normal; font-family:var(--font-body);">
@@ -236,10 +241,22 @@
     {% endfor %}
   </div>
 
-  <form class="settings-add-inline" method="post" action="/admin/groups/new">
+  <form class="settings-add-inline" method="post" action="/admin/groups/new" style="flex-direction: column; align-items: stretch;">
     <div class="field">
       <label for="grp-name">Neue Gruppe</label>
       <input type="text" id="grp-name" name="name" placeholder="z.B. Studierende Informatik" required>
+    </div>
+    <div class="field">
+      <label>Zugriff auf Abteilungen (später jederzeit änderbar)</label>
+      <div style="display: flex; flex-wrap: wrap; gap: var(--space-3);">
+        {% for d in departments %}
+          <label style="display:flex; align-items:center; gap:4px; font-size:0.8125rem; font-weight:400; text-transform:none; letter-spacing:normal; font-family:var(--font-body);">
+            <input type="checkbox" name="department_ids" value="{{ d.id }}">
+            {{ d.name }}
+          </label>
+        {% endfor %}
+      </div>
+      {% if not departments %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Abteilungen angelegt.</p>{% endif %}
     </div>
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
