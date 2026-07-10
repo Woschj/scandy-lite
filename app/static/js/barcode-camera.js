@@ -33,6 +33,7 @@ window.ScandyCamera = (function () {
     function stopCamera() {
       cfg.wrap.style.display = "none";
       cfg.startBtn.style.display = "block";
+      if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = ""; }
       if (scanner) {
         var s = scanner;
         scanner = null;
@@ -58,6 +59,8 @@ window.ScandyCamera = (function () {
     cfg.startBtn.addEventListener("click", function () {
       cfg.startBtn.style.display = "none";
       cfg.wrap.style.display = "block";
+      if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = "none"; }
+      cfg.wrap.scrollIntoView({ behavior: "smooth", block: "start" });
 
       scanner = new Html5Qrcode(cfg.videoContainerId);
       scanner.start(
@@ -78,6 +81,7 @@ window.ScandyCamera = (function () {
         showUnsupported("Kamera konnte nicht gestartet werden: kein Zugriff erteilt oder keine Kamera gefunden.");
         cfg.wrap.style.display = "none";
         cfg.startBtn.style.display = "block";
+        if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = ""; }
         scanner = null;
       });
     });

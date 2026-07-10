@@ -324,6 +324,30 @@ button, input, select {
 @media (max-width: 720px) {
   .topnav-links { display: none; }
 
+  /* Top-Leiste lief bisher über den rechten Rand hinaus (Abteilungs-Select +
+     Username + Abmelden zusammen zu breit für schmale Viewports, kein
+     Umbruch/Schrumpfen vorgesehen) - jetzt kompakt: Username weg (wenig
+     Mehrwert, steht eh im Konto), Select schmaler mit Ellipsis, Abmelden
+     bleibt als einziger Text sichtbar und erreichbar. */
+  .topnav { padding: 0 var(--space-3); gap: var(--space-2); }
+  .wordmark { font-size: 0.8125rem; flex-shrink: 0; }
+  .wordmark .dot { display: none; }
+
+  .user-chip { gap: var(--space-1); min-width: 0; flex-shrink: 1; }
+  .user-chip .username-text { display: none; }
+  .user-chip .eyebrow { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user-chip select {
+    max-width: 96px;
+    font-size: 0.6875rem !important;
+    padding: 0.375rem 1.25rem 0.375rem 0.5rem !important;
+    text-overflow: ellipsis;
+  }
+  .user-chip .btn-ghost {
+    flex-shrink: 0;
+    padding: 0.375rem 0.625rem !important;
+    font-size: 0.75rem;
+  }
+
   .tab-bar {
     display: flex;
     position: fixed;

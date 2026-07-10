@@ -9,15 +9,17 @@
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
 <div class="tag-card form-card" style="margin-bottom: var(--space-6);">
-  <form method="post" action="/scan/pickup/{{ worker.id }}/scan">
-    <input type="hidden" name="checked" value="{{ checked_param }}">
-    <div class="field">
-      <label for="barcode">Gegenstand-Barcode</label>
-      <input type="text" id="barcode" name="barcode" required autofocus autocomplete="off"
-             class="scan-input-large" placeholder="Scannen oder eintippen…">
-    </div>
-    <button type="submit" class="btn btn-primary btn-block">Abhaken</button>
-  </form>
+  <div id="scan-form-area">
+    <form method="post" action="/scan/pickup/{{ worker.id }}/scan">
+      <input type="hidden" name="checked" value="{{ checked_param }}">
+      <div class="field">
+        <label for="barcode">Gegenstand-Barcode</label>
+        <input type="text" id="barcode" name="barcode" required autofocus autocomplete="off"
+               class="scan-input-large" placeholder="Scannen oder eintippen…">
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Abhaken</button>
+    </form>
+  </div>
 
   <div id="camera-scan-wrap" style="display:none; margin-top: var(--space-4);">
     <div id="scan-video-container" style="width:100%; border-radius: var(--radius); overflow:hidden; background:#000;"></div>
@@ -95,7 +97,8 @@
     wrap: document.getElementById('camera-scan-wrap'),
     videoContainerId: 'scan-video-container',
     unsupportedMsg: document.getElementById('camera-unsupported'),
-    input: document.getElementById('barcode')
+    input: document.getElementById('barcode'),
+    hideWhileActive: document.getElementById('scan-form-area')
   });
   {% if error %}ScandyCamera.vibrate([60, 60, 60]);{% elif checked_param %}ScandyCamera.vibrate(80);{% endif %}
 </script>

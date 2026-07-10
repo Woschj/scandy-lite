@@ -59,6 +59,30 @@ Deploy geht nichts verloren.
 
 ## Mobile-UX-Verbesserungen (Scan-Workflow)
 
+### Fixes nach echtem Geräte-Test (iPhone-Screenshot, dieser Stand)
+
+Zwei konkrete, per Screenshot gemeldete Probleme behoben:
+
+- **Top-Leiste lief über den rechten Rand hinaus** ("Abmelden" abgeschnitten):
+  Abteilungs-Dropdown + Username + Abmelden waren zusammen zu breit für schmale
+  Viewports, ohne dass irgendwas geschrumpft/versteckt wurde. Jetzt auf Mobilgeräten:
+  Username-Text ausgeblendet (steht eh im Konto), Abteilungs-Select schmaler mit
+  Ellipsis bei langen Namen, Abmelden bleibt immer erreichbar. Wichtig dabei: nicht
+  einfach "das erste `<span>`" versteckt, sondern gezielt nur den Username - sonst
+  wäre versehentlich auch die Abteilungs-Anzeige für Mitarbeiter ohne Umschalter
+  mit verschwunden.
+- **Kamera erforderte Scrollen:** Das Formular (Barcode-Feld, Suchen-Button)
+  blieb bisher über der Kamera-Vorschau stehen, wenn die Kamera aktiv war - man
+  musste erst herunterscrollen, um sie zu sehen. Jetzt blendet sich das Formular
+  aus, sobald die Kamera startet (und wieder ein, wenn man sie schließt oder ein
+  Scan erfolgreich war) - die Kamera erscheint direkt im sichtbaren Bereich.
+  Zusätzlich scrollt die Seite automatisch sanft zur Kamera, als Sicherheitsnetz
+  falls trotzdem noch Inhalt darüber steht. Betrifft alle drei Scan-Kontexte
+  (Hauptscan, Ausgabe/Entnahme-Bestätigung, Sammel-Ausgabe).
+
+Danke an dieser Stelle für den echten Screenshot vom Gerät - deutlich präziser
+als jede Design-Durchsicht ohne echtes Gerät.
+
 ### Warenkorb + Sammel-Ausgabe (dieser Stand)
 
 Ziel: beide Perspektiven (Nutzer reservieren, Personal gibt aus) sollen sich auf

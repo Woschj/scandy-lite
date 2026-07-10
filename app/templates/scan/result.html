@@ -30,7 +30,7 @@
       <form method="post" action="/scan/lend" data-guard>
         <input type="hidden" name="item_id" value="{{ item.id }}">
         <input type="hidden" name="signature" id="signature-data" value="">
-        <div class="field">
+        <div class="field" id="worker-barcode-field">
           <label for="worker_barcode">Mitarbeiter-Barcode</label>
           <input type="text" id="worker_barcode" name="worker_barcode" required autofocus autocomplete="off"
                  class="scan-input-large"
@@ -65,6 +65,7 @@
           videoContainerId: 'worker-scan-video-container',
           unsupportedMsg: document.getElementById('worker-camera-unsupported'),
           input: document.getElementById('worker_barcode'),
+          hideWhileActive: document.getElementById('worker-barcode-field'),
           onScan: function () { /* nicht automatisch absenden - Unterschrift fehlt noch */ }
         });
       </script>
@@ -102,18 +103,20 @@
     <p>Entnahme protokollieren - Menge und Mitarbeiter-Barcode angeben:</p>
     <form method="post" action="/scan/consume" data-guard>
       <input type="hidden" name="consumable_id" value="{{ consumable.id }}">
-      <div class="field">
-        <label for="quantity">Menge</label>
-        <div class="qty-stepper">
-          <button type="button" data-step="-1" aria-label="Menge verringern">–</button>
-          <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ consumable.quantity }}" required inputmode="numeric">
-          <button type="button" data-step="1" aria-label="Menge erhöhen">+</button>
+      <div id="consume-fields">
+        <div class="field">
+          <label for="quantity">Menge</label>
+          <div class="qty-stepper">
+            <button type="button" data-step="-1" aria-label="Menge verringern">–</button>
+            <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ consumable.quantity }}" required inputmode="numeric">
+            <button type="button" data-step="1" aria-label="Menge erhöhen">+</button>
+          </div>
         </div>
-      </div>
-      <div class="field">
-        <label for="worker_barcode">Mitarbeiter-Barcode</label>
-        <input type="text" id="worker_barcode" name="worker_barcode" required autofocus autocomplete="off"
-               class="scan-input-large">
+        <div class="field">
+          <label for="worker_barcode">Mitarbeiter-Barcode</label>
+          <input type="text" id="worker_barcode" name="worker_barcode" required autofocus autocomplete="off"
+                 class="scan-input-large">
+        </div>
       </div>
 
       <div id="worker-camera-wrap" style="display:none; margin-bottom: var(--space-3);">
@@ -135,6 +138,7 @@
         videoContainerId: 'worker-scan-video-container',
         unsupportedMsg: document.getElementById('worker-camera-unsupported'),
         input: document.getElementById('worker_barcode'),
+        hideWhileActive: document.getElementById('consume-fields'),
         onScan: function () { /* nicht automatisch absenden - Menge nochmal prüfen lassen */ }
       });
     </script>
