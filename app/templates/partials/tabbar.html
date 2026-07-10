@@ -15,8 +15,9 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6v4l3 12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2l3-12V2Z"/><path d="M9 12h6"/></svg>
     Material
   </a>
-  <a href="/reservations" class="{% if request.url.path.startswith('/reservations') %}active{% endif %}">
+  <a href="/reservations" class="{% if request.url.path.startswith('/reservations') %}active{% endif %}" style="position:relative;">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+    <span data-cart-badge style="display:none; position:absolute; top:2px; right:calc(50% - 22px); min-width:16px; height:16px; padding:0 3px; border-radius:8px; background:var(--brand); color:#fff; font-size:0.625rem; font-weight:700; line-height:16px; text-align:center;">0</span>
     Reserviert
   </a>
   {% if user and has_any_staff_role %}

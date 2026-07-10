@@ -995,3 +995,18 @@ button, input, select {
   -webkit-appearance: none;
   margin: 0;
 }
+
+/* -------------------------------------------------------------------------
+   Warenkorb (Reservierungen)
+   ------------------------------------------------------------------------- */
+
+.cart-toggle-btn.in-cart {
+  color: var(--ink-soft) !important;
+  text-decoration: line-through;
+}
+
+.cart-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}

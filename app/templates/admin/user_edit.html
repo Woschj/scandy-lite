@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Benutzer bearbeiten — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">Admin</span>
+<h1>Benutzer bearbeiten: {{ target.username }}</h1>
+
+{% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+<form class="tag-card form-card" method="post" action="/admin/users/{{ target.id }}/edit" data-guard>
+  <div class="field">
+    <label for="edit-username">Benutzername</label>
+    <input type="text" id="edit-username" name="username" value="{{ target.username }}" required>
+  </div>
+  <div class="field">
+    <label for="edit-password">Neues Passwort (leer lassen = unverändert)</label>
+    <input type="password" id="edit-password" name="new_password" minlength="8" placeholder="min. 8 Zeichen, nur ausfüllen um zu ändern">
+  </div>
+  <div class="checkbox-field">
+    <input type="checkbox" id="edit-is-admin" name="is_admin" value="true" {% if target.is_admin %}checked{% endif %} {% if target.id == user.id %}disabled{% endif %}>
+    <label for="edit-is-admin">Admin (voller Zugriff überall)</label>
+  </div>
+  {% if target.id == user.id %}
+    <input type="hidden" name="is_admin" value="true">
+    <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:calc(-1 * var(--space-2)); margin-bottom: var(--space-4);">Eigene Admin-Rechte können nicht selbst entzogen werden.</p>
+  {% endif %}
+
+  {% if linked_worker %}
+    <div class="chip chip-neutral" style="margin-bottom: var(--space-4);">
+      Verknüpfter Ausweis: {{ linked_worker.full_name }} · {{ linked_worker.barcode }}
+      — <a href="/workers/{{ linked_worker.id }}/edit">dort bearbeiten</a>
+    </div>
+  {% endif %}
+
+  <button type="submit" class="btn btn-primary btn-block">Speichern</button>
+</form>
+
+<p style="margin-top: var(--space-4);">
+  <a href="/admin/settings#users" class="link-btn">← Zurück zu Benutzer</a>
+  <a href="/admin/settings#access" class="link-btn">Zugriffsrollen verwalten →</a>
+</p>
+{% endblock %}

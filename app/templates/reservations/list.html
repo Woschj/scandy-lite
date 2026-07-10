@@ -8,6 +8,12 @@
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
+{% if worker %}
+  <a href="/reservations/cart" class="btn btn-primary" style="margin-bottom: var(--space-4);">
+    🛒 Warenkorb öffnen <span data-cart-badge style="display:none;">0</span>
+  </a>
+{% endif %}
+
 {% if not worker %}
   <div class="tag-card form-card">
     <p>Dein Login ist noch mit keinem Mitarbeiter-Ausweis verknüpft - deshalb kannst du aktuell nichts reservieren.

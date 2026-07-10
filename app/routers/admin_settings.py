@@ -86,6 +86,7 @@ async def create_user(
     last_name: str = Form(...),
     barcode: str = Form(...),
     home_department_id: uuid.UUID = Form(...),
+    initial_role: str = Form(""),
     is_admin: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
@@ -96,9 +97,15 @@ async def create_user(
     als vorher, wo beides getrennte Schritte waren, obwohl praktisch jeder
     Login auch einen Ausweis brauchte).
 
-    home_department_id ist NUR die organisatorische Heimat des Ausweises
-    (wo der Datensatz verwaltet wird) - für die eigentliche Zugriffsrolle
-    (was diese Person sehen/bearbeiten darf) weiterhin der 'Zugriff'-Tab."""
+    home_department_id ist NUR die organisatorische Heimat des Ausweises (wo
+    der Datensatz verwaltet wird) - das gewährt für sich genommen KEINEN
+    Zugriff. Deshalb zusätzlich initial_role: optional wird direkt eine
+    UserDepartmentRole für dieselbe Abteilung mit angelegt, damit der neue
+    Login sofort etwas sehen kann, statt danach scheinbar wirkungslos zu sein
+    (genau das führte zu Verwirrung: eine Abteilung auszuwählen sah nach
+    Zugriff aus, war aber nur der Ausweis - jetzt macht die Auswahl auch
+    tatsächlich etwas, wenn eine Rolle mit angegeben wird). Weitere
+    Abteilungen/Rollen bleiben über den 'Zugriff'-Tab verwaltbar."""
     username = username.strip()
     barcode = barcode.strip()
 
@@ -119,6 +126,9 @@ async def create_user(
     )
     session.add(new_user)
     await session.flush()  # user.id wird gebraucht, bevor der Worker angelegt wird
+
+    if initial_role in ("mitarbeiter", "nutzer") and not new_user.is_admin:
+        session.add(UserDepartmentRole(user_id=new_user.id, department_id=home_department_id, role=UserRole(initial_role)))
 
     worker = Worker(
         barcode=barcode, first_name=first_name.strip(), last_name=last_name.strip(),
@@ -152,6 +162,66 @@ async def toggle_user(
     return RedirectResponse(url="/admin/settings#users", status_code=303)
 
 
+@router.get("/users/{user_id}/edit")
+async def edit_user_form(
+    request: Request,
+    user_id: uuid.UUID,
+    error: str = "",
+    user: User = Depends(require_admin),
+    department: Department | None = Depends(get_current_department),
+    session: AsyncSession = Depends(get_session),
+):
+    target = await session.get(User, user_id)
+    if not target:
+        return RedirectResponse(url="/admin/settings#users", status_code=303)
+
+    worker_result = await session.exec(select(Worker).where(Worker.user_id == user_id, Worker.deleted_at.is_(None)))
+    linked_worker = worker_result.first()
+
+    return templates.TemplateResponse(
+        request, "admin/user_edit.html",
+        {"user": user, "department": department, "target": target, "linked_worker": linked_worker, "error": error},
+    )
+
+
+@router.post("/users/{user_id}/edit")
+async def update_user(
+    user_id: uuid.UUID,
+    username: str = Form(...),
+    new_password: str = Form(""),
+    is_admin: str = Form(""),
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    target = await session.get(User, user_id)
+    if not target:
+        return RedirectResponse(url="/admin/settings#users", status_code=303)
+
+    username = username.strip()
+    if not username:
+        return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Benutzername+darf+nicht+leer+sein.", status_code=303)
+
+    existing = await session.exec(select(User).where(User.username == username, User.id != user_id))
+    if existing.first():
+        return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Benutzername+bereits+vergeben.", status_code=303)
+
+    if new_password and len(new_password) < 8:
+        return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Neues+Passwort+zu+kurz+(min.+8+Zeichen).", status_code=303)
+
+    # Sich selbst die Admin-Rechte zu entziehen wäre eine Selbstaussperrung -
+    # verhindern, genau wie beim Deaktivieren/Löschen des eigenen Kontos.
+    if user_id == user.id and not bool(is_admin):
+        return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Eigene+Admin-Rechte+können+nicht+selbst+entzogen+werden.", status_code=303)
+
+    target.username = username
+    target.is_admin = bool(is_admin)
+    if new_password:
+        target.hashed_password = hash_password(new_password)
+    session.add(target)
+    await session.commit()
+    return RedirectResponse(url="/admin/settings#users", status_code=303)
+
+
 @router.post("/users/{user_id}/delete")
 async def delete_user(
     user_id: uuid.UUID,
@@ -172,9 +242,17 @@ async def delete_user(
         # mit soft-gelöscht, nicht nur entkoppelt. Ausleih-/Reservierungs-
         # Historie bleibt dadurch erhalten (Soft-Delete), verwaist aber nicht
         # als eigenständiger, nutzloser Worker-Datensatz ohne Login.
+        #
+        # WICHTIG: user_id muss hier explizit auf None gesetzt werden, NICHT
+        # nur deleted_at. Sonst verweigert Postgres das anschließende DELETE
+        # auf users mit einer Fremdschlüssel-Verletzung (fk_workers_user_id) -
+        # ein Soft-Delete ändert nichts an der Spalte selbst, der Worker-
+        # Datensatz zeigt weiterhin auf den User, auch wenn er als gelöscht
+        # markiert ist.
         linked_result = await session.exec(select(Worker).where(Worker.user_id == user_id))
         for worker in linked_result.all():
             worker.deleted_at = utcnow()
+            worker.user_id = None
             session.add(worker)
         # Abteilungs-Rollen-Zuordnungen gehen mit (sonst verwaiste Einträge)
         access_result = await session.exec(select(UserDepartmentRole).where(UserDepartmentRole.user_id == user_id))

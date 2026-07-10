@@ -11,7 +11,12 @@
     {% if user and has_any_staff_role %}
       <a href="/workers" class="{% if request.url.path.startswith('/workers') %}active{% endif %}">Mitarbeiter</a>
     {% endif %}
-    <a href="/reservations" class="{% if request.url.path.startswith('/reservations') %}active{% endif %}">Reservierungen</a>
+    <a href="/reservations" class="{% if request.url.path.startswith('/reservations') and not request.url.path.startswith('/reservations/cart') %}active{% endif %}">Reservierungen</a>
+    {% if user %}
+      <a href="/reservations/cart" class="cart-link {% if request.url.path.startswith('/reservations/cart') %}active{% endif %}">
+        Warenkorb <span data-cart-badge class="chip chip-success" style="display:none; padding:0 6px; font-size:0.6875rem;">0</span>
+      </a>
+    {% endif %}
     {% if user and has_any_staff_role %}
       <a href="/history" class="{% if request.url.path.startswith('/history') %}active{% endif %}">Historie</a>
     {% endif %}

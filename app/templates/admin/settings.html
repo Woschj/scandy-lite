@@ -94,6 +94,7 @@
           {% endif %}
         </div>
         <div class="actions">
+          <a href="/admin/users/{{ u.id }}/edit" class="link-btn">Bearbeiten</a>
           {% if u.id != user.id %}
             <form method="post" action="/admin/users/{{ u.id }}/toggle">
               <button type="submit" class="link-btn">{% if u.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
@@ -133,20 +134,28 @@
       <input type="text" id="u-barcode" name="barcode" required>
     </div>
     <div class="field">
-      <label for="u-home-department">Heimat-Abteilung (organisatorisch)</label>
+      <label for="u-home-department">Heimat-Abteilung (Ausweis)</label>
       <select id="u-home-department" name="home_department_id" required>
         {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
       </select>
     </div>
+    <div class="field">
+      <label for="u-initial-role">Zugriffsrolle in dieser Abteilung</label>
+      <select id="u-initial-role" name="initial_role">
+        <option value="nutzer" selected>Nutzer (ansehen + reservieren)</option>
+        <option value="mitarbeiter">Mitarbeiter (verwalten + ausgeben)</option>
+        <option value="">Keine (später im Tab "Zugriff" zuweisen)</option>
+      </select>
+    </div>
     <div class="checkbox-field" style="margin-bottom: 0;">
       <input type="checkbox" id="u-is-admin" name="is_admin" value="true">
-      <label for="u-is-admin">Admin (voller Zugriff überall)</label>
+      <label for="u-is-admin">Admin (voller Zugriff überall - Zugriffsrolle oben dann wirkungslos)</label>
     </div>
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
   <p class="settings-hint" style="margin-top: var(--space-2);">
-    Legt Login UND Mitarbeiter-Ausweis (Barcode zum Scannen/Reservieren) in einem Schritt an - jeder Benutzer kann selbst ausleihen/reservieren.
-    Ohne Admin-Häkchen: Abteilungs-Rolle danach im Tab "Zugriff" zuweisen.
+    Legt Login, Mitarbeiter-Ausweis UND (falls eine Zugriffsrolle gewählt ist) direkt Zugriff auf die Heimat-Abteilung an - alles in einem Schritt.
+    Zugriff auf WEITERE Abteilungen oder eine andere Rolle danach im Tab "Zugriff" ändern.
   </p>
 </section>
 

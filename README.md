@@ -146,6 +146,26 @@ Deaktivieren/Löschen eines Logins wirkt sich auf den verknüpften Ausweis aus:
 deaktivieren deaktiviert auch den Ausweis, löschen löscht ihn mit (Soft-Delete -
 die Ausleih-Historie bleibt erhalten, der Barcode wird wieder frei).
 
+Beim Anlegen kann direkt eine Zugriffsrolle (Nutzer/Mitarbeiter) für die
+Heimat-Abteilung mitgegeben werden - sonst sieht der neue Login trotz
+Abteilungsauswahl zunächst nichts (Heimat-Abteilung = nur der Ausweis, nicht
+automatisch Zugriff). Weitere Abteilungen/Rollen danach im Tab "Zugriff".
+Benutzer lassen sich außerdem nachträglich bearbeiten (Name, Passwort,
+Admin-Status) - *Einstellungen → Benutzer → Bearbeiten*.
+
+### Bugfix: Benutzer löschen schlug mit 500 fehl (Fremdschlüssel-Verletzung)
+
+`update or delete on table "users" violates foreign key constraint
+"fk_workers_user_id"` - der verknüpfte Mitarbeiter-Ausweis wurde beim Löschen
+zwar als gelöscht markiert (Soft-Delete), behielt aber `user_id` weiterhin
+gesetzt. Postgres verweigert dann zu Recht das Löschen des Logins, weil noch
+ein Datensatz darauf zeigt - ein Soft-Delete ändert nichts an der Spalte
+selbst. Fix: `user_id` wird jetzt explizit auf `None` gesetzt, nicht nur
+`deleted_at`. In der eigenen Testumgebung nie aufgefallen, weil SQLite (dort
+verwendet) Fremdschlüssel standardmäßig gar nicht prüft, anders als Postgres -
+dieselbe Klasse Lücke wie beim Enum-Bug zuvor, jetzt mit `PRAGMA
+foreign_keys=ON` in den eigenen Tests behoben.
+
 ## Löschen vs. Deaktivieren
 
 Benutzer lassen sich jetzt **echt löschen** (*Einstellungen → Benutzer*), nicht nur
@@ -189,8 +209,18 @@ sichtbar und wird beim Anlegen neuer Kategorien/Standorte automatisch vorausgew�
 
 ## Reservierungs-Workflow
 
-1. **Reservieren:** Eingeloggte Nutzer mit verknüpftem Mitarbeiter-Ausweis (Verknüpfung: Mitarbeiter → Bearbeiten → Login zuordnen) sehen in der Gegenstands-Liste einen **Reservieren**-Button. Unter *Reservierungen* verwalten sie ihre Vormerkungen (inkl. Storno).
-2. **Ausgabe:** An der Ausgabe wird der Gegenstand gescannt. Ist er reserviert, wird der Mitarbeiter-Barcode vorausgefüllt und die Ausgabe an andere Personen blockiert. Die Ausgabe wird mit **digitaler Unterschrift** (Canvas, Finger/Maus) bestätigt — serverseitig Pflicht.
+1. **Reservieren (Warenkorb):** Eingeloggte Nutzer mit verknüpftem Mitarbeiter-Ausweis
+   (Verknüpfung: Mitarbeiter → Bearbeiten → Login zuordnen, oder direkt beim Anlegen über
+   das "Zugriffsrolle"-Feld) sehen in der Gegenstands-Liste einen **"In den Warenkorb"**-Button.
+   Der Warenkorb ist rein clientseitig (localStorage, `app/static/js/cart.js`) - Gegenstände
+   sammeln, seitenübergreifend (auch nach Abteilungswechsel), ohne dass beim Hinzufügen
+   ein Seitenwechsel oder Server-Roundtrip passiert. Erst unter *Reservierungen → 🛒 Warenkorb
+   öffnen* wird der Inhalt geprüft (Verfügbarkeit kann sich zwischenzeitlich geändert haben)
+   und gesammelt abgeschickt - dort verwalten Nutzer auch ihre bestätigten Reservierungen
+   (inkl. Storno).
+2. **Ausgabe:** An der Ausgabe wird der Gegenstand gescannt. Ist er reserviert, wird der
+   Mitarbeiter-Barcode vorausgefüllt und die Ausgabe an andere Personen blockiert. Die Ausgabe
+   wird mit **digitaler Unterschrift** (Canvas, Finger/Maus) bestätigt — serverseitig Pflicht.
 3. **Rückgabe:** Gegenstand einfach erneut scannen → Rückgabe mit einem Klick.
 
 Die **Übersicht** ist ein Kanban-Board: Spalten *Reserviert* → *Ausgeliehen* zeigen alle laufenden Vorgänge (mit ✓-Kennzeichnung unterschriebener Ausgaben). Benutzer-Logins werden unter *Einstellungen → Benutzer* angelegt (nur Admin).

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Warenkorb — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">Reservierungen</span>
+<h1>Warenkorb</h1>
+<p>Gegenstände hier sammeln und gesammelt abschicken - die eigentliche Reservierung passiert erst beim Absenden.</p>
+
+<div id="cart-empty" class="empty-state" style="display:none;">
+  <p>Dein Warenkorb ist leer. <a href="/items">Gegenstände durchsuchen</a> und "In den Warenkorb" antippen.</p>
+</div>
+
+<div id="cart-loading" class="empty-state">
+  <p>Lade Warenkorb…</p>
+</div>
+
+<form id="cart-form" method="post" action="/reservations/cart/submit" data-guard style="display:none;">
+  <div id="cart-items" class="settings-list" style="margin-bottom: var(--space-4);"></div>
+  <button type="submit" class="btn btn-primary btn-block" id="cart-submit-btn">Warenkorb absenden</button>
+</form>
+
+<script>
+(function () {
+  var ids = ScandyCart.getIds();
+  var emptyEl = document.getElementById("cart-empty");
+  var loadingEl = document.getElementById("cart-loading");
+  var formEl = document.getElementById("cart-form");
+  var itemsEl = document.getElementById("cart-items");
+  var submitBtn = document.getElementById("cart-submit-btn");
+
+  if (ids.length === 0) {
+    loadingEl.style.display = "none";
+    emptyEl.style.display = "block";
+    return;
+  }
+
+  fetch("/reservations/cart/items?ids=" + encodeURIComponent(ids.join(",")))
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      loadingEl.style.display = "none";
+
+      var validCount = 0;
+      data.items.forEach(function (item) {
+        var row = document.createElement("div");
+        row.className = "settings-row";
+
+        if (!item.found) {
+          row.innerHTML =
+            '<span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400; color:var(--ink-soft);">' +
+            'Gegenstand nicht mehr verfügbar (entfernt)</span>';
+          ScandyCart.remove(item.id);
+        } else {
+          var statusChip = item.available
+            ? '<span class="chip chip-success">' + item.status_label + '</span>'
+            : '<span class="chip chip-danger">' + item.status_label + '</span>';
+          row.innerHTML =
+            '<div class="main">' +
+            '<span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">' + item.name + '</span>' +
+            '<span class="meta">' + item.department + ' · ' + item.barcode + '</span>' +
+            statusChip +
+            '</div>';
+          if (item.available) {
+            validCount++;
+            var hidden = document.createElement("input");
+            hidden.type = "hidden";
+            hidden.name = "item_ids";
+            hidden.value = item.id;
+            row.appendChild(hidden);
+          }
+          var removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "link-btn danger";
+          removeBtn.textContent = "Entfernen";
+          removeBtn.addEventListener("click", function () {
+            ScandyCart.remove(item.id);
+            row.remove();
+          });
+          var actions = document.createElement("div");
+          actions.className = "actions";
+          actions.appendChild(removeBtn);
+          row.appendChild(actions);
+        }
+        itemsEl.appendChild(row);
+      });
+
+      if (validCount === 0) {
+        emptyEl.querySelector("p").textContent = "Keine der vorgemerkten Gegenstände ist noch verfügbar.";
+        emptyEl.style.display = "block";
+      } else {
+        formEl.style.display = "block";
+        submitBtn.textContent = "Warenkorb absenden (" + validCount + ")";
+      }
+    });
+
+  formEl.addEventListener("submit", function () {
+    // Warenkorb wird erst nach erfolgreichem Absenden geleert (nicht vorher) -
+    // bei einem Fehler/Abbruch bleiben die Einträge sonst verloren.
+    setTimeout(function () { ScandyCart.clear(); }, 100);
+  });
+})();
+</script>
+{% endblock %}
