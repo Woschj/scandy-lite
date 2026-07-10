@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 import sqlmodel
 
 
@@ -17,6 +18,17 @@ revision: str = '980f814ad082'
 down_revision: Union[str, None] = '2b535eba418c'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
+
+# Der Enum-Typ 'userrole' existiert schon (angelegt von der allerersten
+# Migration 66ba7c1819b7 beim Erstellen der users-Tabelle). create_type=False
+# ist hier zwingend nötig - ohne das versucht SQLAlchemy beim Anlegen dieser
+# NEUEN Tabelle, den Typ ERNEUT zu erstellen (eigene Enum-Objektinstanz, auch
+# bei identischem Namen kein automatisches "kenn ich schon"), was gegen
+# Postgres mit "type already exists" fehlschlägt. Trat in der eigenen
+# Testumgebung nie auf, weil dort immer nur einzelne Migrationen gegen SQLite
+# getestet wurden (kennt keine nativen Enum-Typen) - nur bei einem
+# vollständigen Durchlauf gegen echtes Postgres sichtbar.
+_USERROLE_ENUM = postgresql.ENUM('ADMIN', 'MITARBEITER', 'NUTZER', name='userrole', create_type=False)
 
 
 def upgrade() -> None:
@@ -27,7 +39,7 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.Column('user_id', sa.Uuid(), nullable=False),
         sa.Column('department_id', sa.Uuid(), nullable=False),
-        sa.Column('role', sa.Enum('ADMIN', 'MITARBEITER', 'NUTZER', name='userrole'), nullable=False),
+        sa.Column('role', _USERROLE_ENUM, nullable=False),
         sa.ForeignKeyConstraint(['user_id'], ['users.id']),
         sa.ForeignKeyConstraint(['department_id'], ['departments.id']),
         sa.PrimaryKeyConstraint('user_id', 'department_id'),
@@ -91,7 +103,7 @@ def downgrade() -> None:
         batch_op.create_foreign_key('fk_workers_group_id', 'worker_groups', ['group_id'], ['id'])
 
     with op.batch_alter_table('users') as batch_op:
-        batch_op.add_column(sa.Column('role', sa.Enum('ADMIN', 'MITARBEITER', 'NUTZER', name='userrole'), nullable=True))
+        batch_op.add_column(sa.Column('role', _USERROLE_ENUM, nullable=True))
         batch_op.add_column(sa.Column('department_id', sa.Uuid(), nullable=True))
 
     op.execute("UPDATE users SET role = 'ADMIN' WHERE is_admin = true")
