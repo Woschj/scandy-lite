@@ -1,16 +1,17 @@
 """
 Admin-Einstellungen: Abteilungen anlegen/umbenennen/deaktivieren,
-Kategorien- und Standort-Vorschläge pro Abteilung pflegen.
+Kategorien-/Standort-Vorschläge pflegen, Benutzer verwalten, und die
+Abteilungs-Rollen-Zuordnung (wer darf was in welcher Abteilung).
 
 Bewusst schlank gehalten (ggü. dem Original-Scandy2-Systembereich): keine
 Feature-Flags, kein Custom-Fields-System, kein Notification-Center - nur die
-Presets, die die Formulare in Phase 3 tatsächlich brauchen.
+Presets, die die Formulare tatsächlich brauchen.
 """
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -20,9 +21,9 @@ from app.core.security import hash_password
 from app.core.templating import templates
 from app.models.common import UserRole
 from app.models.department import Department
-from app.models.group import GroupDepartmentAccess, WorkerGroup
 from app.models.preset import Category, Location
 from app.models.user import User
+from app.models.user_department_role import UserDepartmentRole
 from app.models.worker import Worker
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(populate_switchable_departments)])
@@ -44,12 +45,16 @@ async def settings_page(
     )).all()
     users = (await session.exec(select(User).order_by(User.username))).all()
 
-    groups = (await session.exec(select(WorkerGroup).order_by(WorkerGroup.name))).all()
-    group_access = (await session.exec(select(GroupDepartmentAccess))).all()
-    # department_ids je Gruppe für die Anzeige/Checkboxen aufbereiten
-    group_dept_ids: dict = {}
-    for link in group_access:
-        group_dept_ids.setdefault(link.group_id, set()).add(link.department_id)
+    access_result = await session.exec(
+        select(UserDepartmentRole)
+        .options(selectinload(UserDepartmentRole.user), selectinload(UserDepartmentRole.department))
+        .order_by(UserDepartmentRole.department_id)
+    )
+    all_access = access_result.all()
+    # je User gruppiert, damit die Oberfläche "Login X: Rolle in Abteilung Y, Z" anzeigen kann
+    access_by_user: dict = {}
+    for entry in all_access:
+        access_by_user.setdefault(entry.user_id, []).append(entry)
 
     return templates.TemplateResponse(
         request,
@@ -61,8 +66,8 @@ async def settings_page(
             "categories": categories,
             "locations": locations,
             "users": users,
-            "groups": groups,
-            "group_dept_ids": group_dept_ids,
+            "access_by_user": access_by_user,
+            "all_access": all_access,
         },
     )
 
@@ -73,8 +78,7 @@ async def settings_page(
 async def create_user(
     username: str = Form(...),
     password: str = Form(...),
-    role: str = Form("mitarbeiter"),
-    department_id: str = Form(""),
+    is_admin: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -82,9 +86,8 @@ async def create_user(
     if not result.first() and len(password) >= 8:
         new_user = User(
             username=username.strip(),
-            role=UserRole(role) if role in ("admin", "mitarbeiter", "nutzer") else UserRole.NUTZER,
+            is_admin=bool(is_admin),
             hashed_password=hash_password(password),
-            department_id=uuid.UUID(department_id) if department_id else None,
         )
         session.add(new_user)
         await session.commit()
@@ -125,6 +128,10 @@ async def delete_user(
         for worker in linked_result.all():
             worker.user_id = None
             session.add(worker)
+        # Abteilungs-Rollen-Zuordnungen gehen mit (sonst verwaiste Einträge)
+        access_result = await session.exec(select(UserDepartmentRole).where(UserDepartmentRole.user_id == user_id))
+        for entry in access_result.all():
+            await session.delete(entry)
         await session.delete(target)
         await session.commit()
     return RedirectResponse(url="/admin/settings#users", status_code=303)
@@ -222,80 +229,39 @@ async def delete_location(
     return RedirectResponse(url="/admin/settings#locations", status_code=303)
 
 
-# --- Nutzergruppen (Ausleihberechtigung, entkoppelt von der Heimat-Abteilung) ----
+# --- Zugriff: Rolle pro Benutzer und Abteilung --------------------------
 
-@router.post("/groups/new")
-async def create_group(
-    name: str = Form(...),
-    department_ids: list[str] = Form(default=[]),
+@router.post("/access/new")
+async def create_access(
+    user_id: uuid.UUID = Form(...),
+    department_id: uuid.UUID = Form(...),
+    role: str = Form(...),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    name = name.strip()
-    result = await session.exec(select(WorkerGroup).where(WorkerGroup.name == name))
-    if not name or result.first():
-        return RedirectResponse(url="/admin/settings#groups", status_code=303)
+    if role not in ("mitarbeiter", "nutzer"):
+        return RedirectResponse(url="/admin/settings#access", status_code=303)
 
-    group = WorkerGroup(name=name)
-    session.add(group)
+    existing = await session.get(UserDepartmentRole, (user_id, department_id))
+    if existing:
+        # Schon ein Eintrag für diese Kombination -> Rolle aktualisieren statt Duplikat
+        existing.role = UserRole(role)
+        session.add(existing)
+    else:
+        session.add(UserDepartmentRole(user_id=user_id, department_id=department_id, role=UserRole(role)))
     await session.commit()
-    await session.refresh(group)
-
-    for dept_id in department_ids:
-        try:
-            session.add(GroupDepartmentAccess(group_id=group.id, department_id=uuid.UUID(dept_id)))
-        except ValueError:
-            continue
-    await session.commit()
-    return RedirectResponse(url="/admin/settings#groups", status_code=303)
+    return RedirectResponse(url="/admin/settings#access", status_code=303)
 
 
-@router.post("/groups/{group_id}/access")
-async def update_group_access(
-    group_id: uuid.UUID,
-    department_ids: list[str] = Form(default=[]),
+@router.post("/access/{user_id}/{department_id}/delete")
+async def delete_access(
+    user_id: uuid.UUID,
+    department_id: uuid.UUID,
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    """Setzt die Abteilungs-Zugriffe einer Gruppe komplett neu (einfacher als
-    Diffs zu berechnen - bei überschaubarer Abteilungs-/Gruppenzahl unproblematisch)."""
-    group = await session.get(WorkerGroup, group_id)
-    if not group:
-        return RedirectResponse(url="/admin/settings#groups", status_code=303)
-
-    existing = (await session.exec(
-        select(GroupDepartmentAccess).where(GroupDepartmentAccess.group_id == group_id)
-    )).all()
-    for link in existing:
-        await session.delete(link)
-
-    for dept_id in department_ids:
-        try:
-            session.add(GroupDepartmentAccess(group_id=group_id, department_id=uuid.UUID(dept_id)))
-        except ValueError:
-            continue
-    await session.commit()
-    return RedirectResponse(url="/admin/settings#groups", status_code=303)
-
-
-@router.post("/groups/{group_id}/delete")
-async def delete_group(
-    group_id: uuid.UUID,
-    user: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_session),
-):
-    group = await session.get(WorkerGroup, group_id)
-    if group:
-        # Verknüpfte Worker verlieren die Gruppe (fallen auf ihre department_id
-        # zurück statt kaputte Referenzen zu behalten), Zugriffs-Verknüpfungen
-        # werden mitgelöscht.
-        workers_result = await session.exec(select(Worker).where(Worker.group_id == group_id))
-        for w in workers_result.all():
-            w.group_id = None
-            session.add(w)
-        access_result = await session.exec(select(GroupDepartmentAccess).where(GroupDepartmentAccess.group_id == group_id))
-        for link in access_result.all():
-            await session.delete(link)
-        await session.delete(group)
+    entry = await session.get(UserDepartmentRole, (user_id, department_id))
+    if entry:
+        await session.delete(entry)
         await session.commit()
-    return RedirectResponse(url="/admin/settings#groups", status_code=303)
+    return RedirectResponse(url="/admin/settings#access", status_code=303)

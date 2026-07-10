@@ -1,10 +1,10 @@
 """
-CRUD für Gegenstände (Items). Abteilungsgescoped: Mitarbeiter sehen/bearbeiten
-nur ihre eigene Abteilung, Admins können zwischen Abteilungen wechseln oder
-alle sehen (Anlegen/Bearbeiten erfordert dann aber eine gewählte Abteilung).
+CRUD für Gegenstände (Items). Abteilungsgescoped über UserDepartmentRole:
+Sichtbarkeit richtet sich danach, in welchen Abteilungen ein User überhaupt
+eine Rolle hat; Verwalten (Anlegen/Bearbeiten/Löschen) erfordert zusätzlich
+die Mitarbeiter-Rolle SPEZIFISCH in der jeweiligen Abteilung.
 """
 import uuid
-
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -13,11 +13,12 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.access import is_staff_in_department, get_visible_department_ids, get_department_roles
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user, require_staff, populate_switchable_departments
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
-from app.models.common import ItemStatus, UserRole, utcnow
+from app.models.common import ItemStatus, utcnow
 from app.models.department import Department
 from app.models.item import Item
 from app.models.preset import Category, Location
@@ -46,7 +47,6 @@ async def list_items(
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    from app.core.access import get_visible_department_ids
     from app.models.reservation import Reservation
     from app.routers.reservations import get_linked_worker
 
@@ -54,15 +54,25 @@ async def list_items(
 
     stmt = select(Item).where(Item.deleted_at.is_(None)).order_by(Item.name)
     show_department_badge = False
+    is_staff_here = False
+    staff_department_ids: set = set()
 
-    if user.role == UserRole.NUTZER:
-        visible_ids = await get_visible_department_ids(session, linked_worker)
-        stmt = stmt.where(Item.department_id.in_(visible_ids))
-        show_department_badge = True  # Nutzer sehen ggf. mehrere Abteilungen gemischt -> Kontext pro Karte nötig
-    elif department:
+    if not user.is_admin:
+        roles = await get_department_roles(session, user)
+        staff_department_ids = {r.department_id for r in roles if r.role.value == "mitarbeiter"}
+
+    if department:
         stmt = stmt.where(Item.department_id == department.id)
+        is_staff_here = await is_staff_in_department(session, user, department.id)
     else:
-        show_department_badge = True  # Admin "Alle Abteilungen"
+        # Keine einzelne Abteilung gewählt: Admin sieht wirklich alles, alle
+        # anderen nur ihre eigenen (zugänglichen) Abteilungen gemischt.
+        visible_ids = await get_visible_department_ids(session, user)
+        if visible_ids is not None:
+            stmt = stmt.where(Item.department_id.in_(visible_ids))
+        show_department_badge = True
+        # "+ Neu" etc. machen ohne konkrete Abteilung keinen Sinn - dafür muss
+        # erst eine gewählt werden (gilt auch für Admins mit "Alle Abteilungen").
 
     if q:
         like = f"%{q}%"
@@ -92,7 +102,8 @@ async def list_items(
         {
             "user": user, "department": department, "items": items, "q": q, "ok": ok, "error": error,
             "reserved_ids": reserved_ids, "linked_worker": linked_worker,
-            "show_department_badge": show_department_badge,
+            "show_department_badge": show_department_badge, "is_staff_here": is_staff_here,
+            "staff_department_ids": staff_department_ids,
         },
     )
 
@@ -105,7 +116,10 @@ async def new_item_form(
     session: AsyncSession = Depends(get_session),
 ):
     if not department:
-        raise Forbidden()  # Admin ohne gewählte Abteilung kann nichts anlegen - Zielabteilung ist nicht eindeutig
+        raise Forbidden()  # keine gewählte Abteilung - Zielabteilung ist nicht eindeutig
+    if not await is_staff_in_department(session, user, department.id):
+        raise Forbidden()  # Mitarbeiter-Rolle woanders reicht nicht - diese Abteilung fehlt
+
     categories, locations = await _presets(session, department.id)
     return templates.TemplateResponse(
         request,
@@ -130,6 +144,8 @@ async def create_item(
     session: AsyncSession = Depends(get_session),
 ):
     if not department:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, department.id):
         raise Forbidden()
 
     result = await session.exec(select(Item).where(Item.barcode == barcode, Item.deleted_at.is_(None)))
@@ -171,7 +187,9 @@ async def edit_item_form(
     session: AsyncSession = Depends(get_session),
 ):
     item = await session.get(Item, item_id)
-    if not item or item.deleted_at is not None or (department and item.department_id != department.id):
+    if not item or item.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
 
     categories, locations = await _presets(session, item.department_id)
@@ -180,7 +198,7 @@ async def edit_item_form(
         "items/form.html",
         {
             "ok": ok, "error": error,
-            "user": user, "department": department, "item": item, "error": None,
+            "user": user, "department": department, "item": item,
             "categories": categories, "locations": locations,
         },
     )
@@ -201,7 +219,9 @@ async def update_item(
     session: AsyncSession = Depends(get_session),
 ):
     item = await session.get(Item, item_id)
-    if not item or item.deleted_at is not None or (department and item.department_id != department.id):
+    if not item or item.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
 
     result = await session.exec(
@@ -239,20 +259,17 @@ async def update_item(
 async def delete_item(
     item_id: uuid.UUID,
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     item = await session.get(Item, item_id)
-    if not item or item.deleted_at is not None or (department and item.department_id != department.id):
+    if not item or item.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
 
     item.deleted_at = utcnow()
     session.add(item)
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
+    await session.commit()
     return RedirectResponse(url="/items", status_code=303)
 
 
@@ -261,11 +278,12 @@ async def upload_item_image(
     item_id: uuid.UUID,
     image: UploadFile,
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     item = await session.get(Item, item_id)
-    if not item or item.deleted_at is not None or (department and item.department_id != department.id):
+    if not item or item.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
 
     try:
@@ -280,11 +298,12 @@ async def upload_item_image(
 async def delete_item_image(
     item_id: uuid.UUID,
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     item = await session.get(Item, item_id)
-    if not item or item.deleted_at is not None or (department and item.department_id != department.id):
+    if not item or item.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
 
     delete_image("items", item.id)

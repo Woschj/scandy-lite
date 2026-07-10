@@ -42,7 +42,7 @@
   {% endif %}
 {% endif %}
 
-{% if all_open is defined and user.role.value == "admin" %}
+{% if all_open is defined and user.is_admin %}
   <h2 style="margin-top: var(--space-12);">Alle offenen Reservierungen (Admin)</h2>
   {% if all_open %}
     <div class="item-grid">

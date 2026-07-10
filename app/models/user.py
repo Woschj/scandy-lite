@@ -1,5 +1,12 @@
 """
-User = jemand mit einem Login (Admin oder Mitarbeiter-Account).
+User = jemand mit einem Login.
+
+Berechtigungsmodell: Admin ist ein globales Flag (is_admin) - Admins haben
+vollen Zugriff auf alles, keine expliziten Abteilungs-Einträge nötig. Für
+alle anderen bestimmt sich die Rolle PRO ABTEILUNG über UserDepartmentRole
+(z.B. Mitarbeiter in Werkstatt, gleichzeitig Nutzer in Büro) - es gibt
+bewusst KEINE globale Rolle und KEINE einzelne "Heimat-Abteilung" mehr auf
+diesem Modell.
 
 Wichtig für die spätere LDAP/SSO-Anbindung:
 - `auth_source` unterscheidet, woher der User verwaltet wird.
@@ -9,14 +16,11 @@ Dadurch lässt sich LDAP/SSO andocken, ohne dieses Modell nochmal umzubauen -
 es kommt nur ein neuer Auth-Provider hinzu, der User mit auth_source="ldap"/"sso" erzeugt/synct.
 """
 import uuid
-from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship
 
-from app.models.common import AuthSource, TimestampMixin, UserRole, new_uuid
-
-if TYPE_CHECKING:
-    from app.models.department import Department
+from app.models.common import AuthSource, TimestampMixin, new_uuid
+from app.models.user_department_role import UserDepartmentRole
 
 
 class User(TimestampMixin, table=True):
@@ -26,7 +30,7 @@ class User(TimestampMixin, table=True):
     username: str = Field(index=True, unique=True, max_length=100)
     email: str | None = Field(default=None, max_length=255)
 
-    role: UserRole = Field(default=UserRole.MITARBEITER)
+    is_admin: bool = Field(default=False)
     auth_source: AuthSource = Field(default=AuthSource.LOCAL)
 
     # Nur gesetzt wenn auth_source == LOCAL
@@ -35,8 +39,6 @@ class User(TimestampMixin, table=True):
     # Für LDAP/SSO: eindeutige externe Kennung (LDAP-DN, SSO-Subject/sAMAccountName, ...)
     external_id: str | None = Field(default=None, index=True, unique=True)
 
-    # Admins dürfen department_id = None haben -> sehen alle Abteilungen
-    department_id: uuid.UUID | None = Field(default=None, foreign_key="departments.id")
-    department: Optional["Department"] = Relationship(back_populates="users")
-
     is_active: bool = Field(default=True)
+
+    department_roles: list["UserDepartmentRole"] = Relationship(back_populates="user")

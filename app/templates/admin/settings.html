@@ -15,9 +15,9 @@
 <nav class="settings-tabs">
   <a href="#departments" @click.prevent="tab = 'departments'" :class="{active: tab === 'departments'}">Abteilungen <span class="count">{{ departments | length }}</span></a>
   <a href="#users" @click.prevent="tab = 'users'" :class="{active: tab === 'users'}">Benutzer <span class="count">{{ users | length }}</span></a>
+  <a href="#access" @click.prevent="tab = 'access'" :class="{active: tab === 'access'}">Zugriff</a>
   <a href="#categories" @click.prevent="tab = 'categories'" :class="{active: tab === 'categories'}">Kategorien <span class="count">{{ categories | length }}</span></a>
   <a href="#locations" @click.prevent="tab = 'locations'" :class="{active: tab === 'locations'}">Standorte <span class="count">{{ locations | length }}</span></a>
-  <a href="#groups" @click.prevent="tab = 'groups'" :class="{active: tab === 'groups'}">Gruppen <span class="count">{{ groups | length }}</span></a>
 </nav>
 
 {% if department %}
@@ -62,15 +62,28 @@
 
 {# ================= Benutzer ================= #}
 <section class="settings-section" x-show="tab === 'users'" x-cloak>
-  <p class="settings-hint">Für Self-Service-Reservierungen den Login anschließend beim jeweiligen Mitarbeiter verknüpfen (Mitarbeiter → Bearbeiten).</p>
+  <p class="settings-hint">
+    Admin hat vollen Zugriff überall. Alle anderen bekommen ihre Rolle PRO
+    Abteilung im Tab "Zugriff" zugewiesen (z.B. Mitarbeiter in Werkstatt,
+    gleichzeitig Nutzer in Büro). Für Self-Service-Reservierungen den Login
+    zusätzlich beim jeweiligen Mitarbeiter verknüpfen (Mitarbeiter → Bearbeiten).
+  </p>
 
   <div class="settings-list">
     {% for u in users %}
       <div class="settings-row">
         <div class="main">
           <span class="name">{{ u.username }}</span>
-          <span class="meta">{{ u.role.value }}{% if u.auth_source.value != "local" %} · {{ u.auth_source.value }}{% endif %}</span>
+          {% if u.is_admin %}<span class="chip chip-success">Admin</span>{% endif %}
+          {% if u.auth_source.value != "local" %}<span class="meta">{{ u.auth_source.value }}</span>{% endif %}
           {% if u.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
+          {% if not u.is_admin %}
+            {% for entry in access_by_user.get(u.id, []) %}
+              <span class="chip chip-neutral">{{ entry.department.name if entry.department else "?" }}: {{ entry.role.value }}</span>
+            {% else %}
+              <span class="chip chip-danger">Keine Abteilung zugewiesen</span>
+            {% endfor %}
+          {% endif %}
         </div>
         <div class="actions">
           {% if u.id != user.id %}
@@ -99,22 +112,69 @@
       <label for="u-password">Passwort (min. 8 Zeichen)</label>
       <input type="password" id="u-password" name="password" minlength="8" required>
     </div>
+    <div class="checkbox-field" style="margin-bottom: 0;">
+      <input type="checkbox" id="u-is-admin" name="is_admin" value="true">
+      <label for="u-is-admin">Admin (voller Zugriff überall)</label>
+    </div>
+    <button type="submit" class="btn btn-primary">+ Anlegen</button>
+  </form>
+  <p class="settings-hint" style="margin-top: var(--space-2);">Ohne Admin-Häkchen: Abteilungs-Rolle danach im Tab "Zugriff" zuweisen.</p>
+</section>
+
+{# ================= Zugriff (Rolle pro Benutzer und Abteilung) ================= #}
+<section class="settings-section" x-show="tab === 'access'" x-cloak>
+  <p class="settings-hint">
+    Wer darf was in welcher Abteilung? Eine Person kann in mehreren Abteilungen
+    unterschiedliche Rollen haben (z.B. Mitarbeiter in Werkstatt, Nutzer in Büro).
+    Admin-Logins brauchen hier keinen Eintrag - die haben überall vollen Zugriff.
+  </p>
+
+  <div class="settings-list">
+    {% for d in ordered_departments %}
+      {% set dept_entries = all_access | selectattr("department_id", "equalto", d.id) | list %}
+      {% if dept_entries %}
+        <div class="settings-group-label">{{ d.name }}</div>
+        {% for entry in dept_entries %}
+          <div class="settings-row">
+            <div class="main">
+              <span class="name">{{ entry.user.username if entry.user else "?" }}</span>
+              <span class="meta">{{ entry.role.value }}</span>
+            </div>
+            <div class="actions">
+              <form method="post" action="/admin/access/{{ entry.user_id }}/{{ entry.department_id }}/delete" onsubmit="return confirm('Zugriff entfernen?')">
+                <button type="submit" class="link-btn danger">Entfernen</button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endfor %}
+    {% if not access_by_user %}
+      <div class="settings-empty">Noch keine Zugriffs-Zuweisungen.</div>
+    {% endif %}
+  </div>
+
+  <form class="settings-add-inline" method="post" action="/admin/access/new">
     <div class="field">
-      <label for="u-role">Rolle</label>
-      <select id="u-role" name="role">
-        <option value="nutzer" selected>Nutzer (ansehen + reservieren)</option>
-        <option value="mitarbeiter">Mitarbeiter (verwalten + ausgeben)</option>
-        <option value="admin">Admin</option>
+      <label for="acc-user">Benutzer</label>
+      <select id="acc-user" name="user_id" required>
+        {% for u in users %}{% if not u.is_admin %}<option value="{{ u.id }}">{{ u.username }}</option>{% endif %}{% endfor %}
       </select>
     </div>
     <div class="field">
-      <label for="u-department">Abteilung</label>
-      <select id="u-department" name="department_id">
-        <option value="">— keine —</option>
+      <label for="acc-department">Abteilung</label>
+      <select id="acc-department" name="department_id" required>
         {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn btn-primary">+ Anlegen</button>
+    <div class="field">
+      <label for="acc-role">Rolle</label>
+      <select id="acc-role" name="role">
+        <option value="nutzer">Nutzer (ansehen + reservieren)</option>
+        <option value="mitarbeiter">Mitarbeiter (verwalten + ausgeben)</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">+ Zuweisen</button>
   </form>
 </section>
 
@@ -195,68 +255,6 @@
     <div class="field">
       <label for="loc-name">Name</label>
       <input type="text" id="loc-name" name="name" placeholder="z.B. Regal A1" required>
-    </div>
-    <button type="submit" class="btn btn-primary">+ Anlegen</button>
-  </form>
-</section>
-
-{# ================= Gruppen ================= #}
-<section class="settings-section" x-show="tab === 'groups'" x-cloak>
-  <p class="settings-hint">
-    Legt fest, aus welchen Abteilungen eine Gruppe (z.B. "Studierende Informatik")
-    ausleihen darf - unabhängig davon, welcher Abteilung ihre Mitglieder organisatorisch
-    angehören. Mitarbeiter/Nutzer werden unter "Mitarbeiter → Bearbeiten" einer Gruppe zugeordnet.
-    Ohne Gruppe gilt weiterhin die eigene Abteilung.
-  </p>
-
-  <div class="settings-list">
-    {% for g in groups %}
-      <div class="settings-row" style="align-items: flex-start;">
-        <div class="main" style="flex-direction: column; align-items: flex-start; gap: var(--space-2);">
-          <div style="display:flex; align-items:center; gap: var(--space-2);">
-            <span class="name">{{ g.name }}</span>
-            {% if not group_dept_ids.get(g.id) %}
-              <span class="chip chip-danger">Keine Abteilung freigeschaltet - Mitglieder sehen nichts!</span>
-            {% endif %}
-          </div>
-          <form method="post" action="/admin/groups/{{ g.id }}/access" style="display: flex; flex-wrap: wrap; gap: var(--space-3); margin: 0;">
-            {% for d in departments %}
-              <label style="display:flex; align-items:center; gap:4px; font-size:0.8125rem; font-weight:400; text-transform:none; letter-spacing:normal; font-family:var(--font-body);">
-                <input type="checkbox" name="department_ids" value="{{ d.id }}"
-                       {% if d.id in group_dept_ids.get(g.id, []) %}checked{% endif %}
-                       onchange="this.form.requestSubmit()">
-                {{ d.name }}
-              </label>
-            {% endfor %}
-          </form>
-        </div>
-        <div class="actions">
-          <form method="post" action="/admin/groups/{{ g.id }}/delete" onsubmit="return confirm('{{ g.name }} wirklich entfernen? Mitglieder verlieren die Gruppen-Zuordnung.')">
-            <button type="submit" class="link-btn danger">Entfernen</button>
-          </form>
-        </div>
-      </div>
-    {% else %}
-      <div class="settings-empty">Noch keine Gruppen.</div>
-    {% endfor %}
-  </div>
-
-  <form class="settings-add-inline" method="post" action="/admin/groups/new" style="flex-direction: column; align-items: stretch;">
-    <div class="field">
-      <label for="grp-name">Neue Gruppe</label>
-      <input type="text" id="grp-name" name="name" placeholder="z.B. Studierende Informatik" required>
-    </div>
-    <div class="field">
-      <label>Zugriff auf Abteilungen (später jederzeit änderbar)</label>
-      <div style="display: flex; flex-wrap: wrap; gap: var(--space-3);">
-        {% for d in departments %}
-          <label style="display:flex; align-items:center; gap:4px; font-size:0.8125rem; font-weight:400; text-transform:none; letter-spacing:normal; font-family:var(--font-body);">
-            <input type="checkbox" name="department_ids" value="{{ d.id }}">
-            {{ d.name }}
-          </label>
-        {% endfor %}
-      </div>
-      {% if not departments %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Abteilungen angelegt.</p>{% endif %}
     </div>
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>

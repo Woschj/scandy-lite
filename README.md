@@ -24,41 +24,38 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 - [x] **Phase 5 — Historie-Ansicht**
 - [x] **Reservierungs-Workflow (Kanban)** — Reservieren per App → Ausgabe per Scan + digitale Unterschrift → Rückgabe per Scan
 - [x] **Bild-Upload für Gegenstände/Verbrauchsmaterial** + **Einstellungen als Tabs statt Scroll-Seite**
-- [x] **Rollenmodell: Admin / Mitarbeiter / Nutzer**
-- [x] **Nutzergruppen: Ausleihberechtigung entkoppelt von der Abteilungs-Zugehörigkeit**
+- [x] **Rollenmodell: Admin (global) + Rolle pro Abteilung (Mitarbeiter/Nutzer)** (überarbeitet, dieser Stand)
 - [x] **Legacy-Migration Scandy2 (MongoDB) → Scandy-Lite (PostgreSQL)**
 - [x] **Ausleih-Workflow + Mobile-UX-Feinschliff**
-- [x] **Bugfix: Gegenstände unsichtbar für Nutzer in frisch angelegten Gruppen** (dieser Stand)
 - [ ] Phase 6 — Feinschliff UI/PWA (Offline-Hinweis, Service Worker, Einstellungsseiten-Layout)
 
-## Bugfix: "Gegenstände tauchen für Nutzer teilweise nicht auf"
+## Berechtigungsmodell: Rolle pro Benutzer UND Abteilung
 
-Ursache gefunden: Das Gruppen-Anlegen-Formular (*Einstellungen → Gruppen*) hatte
-keine Abteilungs-Checkboxen - eine frisch angelegte Gruppe bekam dadurch
-**null** Abteilungs-Zugriffe. Ordnete man ihr sofort Studierende zu (naheliegender
-Workflow), sahen die betroffenen Nutzer plötzlich gar nichts, ohne dass ersichtlich
-war, warum - andere, längst korrekt konfigurierte Gruppen funktionierten weiter
-normal. Genau das erzeugt das gemeldete "teilweise"-Muster.
+Das ursprüngliche Gruppen-Konzept ("Nutzergruppe hat Zugriff auf Abteilungen")
+wurde durch ein direkteres Modell ersetzt, weil es einen unnötigen Umweg
+darstellte: **Admin** ist ein globales Flag (voller Zugriff überall). Alle
+anderen bekommen ihre Rolle **direkt pro Abteilung** zugewiesen
+(*Einstellungen → Zugriff*) - eine Person kann in mehreren Abteilungen
+unterschiedliche Rollen haben, z.B. Mitarbeiter in Werkstatt UND gleichzeitig
+Nutzer in Büro.
 
-Behoben:
-- Abteilungs-Checkboxen sind jetzt direkt im Anlegen-Formular dabei (ein Schritt
-  statt zwei)
-- Gruppen ganz ohne Abteilungs-Zugriff zeigen in der Liste einen unübersehbaren
-  Warn-Chip
-- Empty-States bei Gegenstände/Verbrauchsmaterial erklären jetzt konkret,
-  *warum* nichts sichtbar ist (keine Worker-Verknüpfung vs. keine Freigabe),
-  statt generisch "nichts vorhanden" zu suggerieren
+Das löst den ursprünglichen Anwendungsfall (Studierende leihen Geräte aus
+einer ANDEREN Abteilung, als der sie organisatorisch angehören) direkt, ohne
+Umweg über eine Gruppen-Verwaltung: Der Person einfach "Nutzer"-Rolle in der
+Abteilung geben, aus der sie ausleihen soll - fertig.
 
-Nebenbei bei der Vollprüfung der gesamten Berechtigungslogik gefunden und
-behoben: Der Abteilungs-Auswahl-Cookie war nicht an den jeweiligen Admin
-gebunden - auf einem geteilten Rechner (z.B. Empfang) hätte ein zweiter
-Admin-Login die Abteilungswahl des vorherigen geerbt. Cookie ist jetzt
-user-gebunden.
+- **Sichtbarkeit** (Gegenstände/Material ansehen): jede Rolle (Mitarbeiter
+  UND Nutzer) gewährt Sichtbarkeit in ihrer jeweiligen Abteilung
+- **Verwaltung** (Anlegen/Bearbeiten/Löschen/Scannen/Ausgeben): nur die
+  Mitarbeiter-Rolle, und zwar SPEZIFISCH für die betroffene Abteilung -
+  Mitarbeiter-Rolle in Werkstatt erlaubt kein Bearbeiten in Büro
+- Der Abteilungs-Switcher erscheint für JEDEN, der in mehr als einer
+  Abteilung eine Rolle hat (vorher nur für Admins)
 
-Mitarbeiter-Rolle, Abteilungs-Wechsel für Admins, und die Grund-Sichtbarkeitslogik
-selbst liefen bei der Prüfung durchgehend korrekt (per E2E-Matrix über alle
-Rollen-Kombinationen verifiziert) - der Fehler lag im Setup-Workflow, nicht in
-der Kernlogik.
+Migration: bestehende `role`+`department_id`-Kombination pro User wird
+automatisch in genau einen entsprechenden Zugriffs-Eintrag übersetzt - beim
+Deploy geht nichts verloren.
+
 
 ## Mobile-UX-Verbesserungen (Scan-Workflow)
 
@@ -89,25 +86,6 @@ Verbrauchsmaterial, Mitarbeiter, Ausleih-Historie, Benutzer) aus der alten
 MongoDB-Instanz. Details, Nutzung und wichtige Hinweise (Passwörter können
 nicht 1:1 übernommen werden!) in [`migrations_legacy/README.md`](migrations_legacy/README.md).
 
-## Nutzergruppen (Ausleihberechtigung)
-
-Ursprünglich war "welche Abteilung ein Worker hat" gleichzeitig "welche Gegenstände
-er sehen darf" - unpraktisch, sobald Nutzer (z.B. Studierende) Geräte aus einer
-ANDEREN Abteilung ausleihen sollen als der, zu der sie organisatorisch gehören.
-
-Jetzt getrennt:
-- **Abteilung** eines Gegenstands = wo er inventarisiert ist (unverändert)
-- **Gruppe** eines Workers (*Einstellungen → Gruppen*, Zuweisung bei
-  *Mitarbeiter → Bearbeiten*) = aus welchen Abteilungen er ausleihen/reservieren
-  darf - unabhängig von seiner eigenen `department_id`
-
-Eine Gruppe kann Zugriff auf mehrere Abteilungen bekommen (Checkboxen in den
-Einstellungen). Ohne zugewiesene Gruppe gilt weiterhin die alte Logik (eigene
-Abteilung) - bestehende Setups funktionieren unverändert weiter.
-
-Betrifft nur Nutzer/Reservierungen. Mitarbeiter und Admin verwalten weiterhin
-strikt eine Abteilung nach der anderen (Nav-Switcher), das war schon immer
-getrennt von der Ausleih-Berechtigung der Studierenden gedacht.
 
 ## Löschen vs. Deaktivieren
 
@@ -123,15 +101,16 @@ Gruppen sind hingegen unkritisch und lassen sich echt löschen.
 
 ## Rollenmodell
 
-| Rolle | Darf |
+| Rolle | Darf (jeweils PRO Abteilung, außer Admin) |
 |---|---|
-| **Admin** | Alles: Einstellungen, Abteilungen wechseln, Benutzer verwalten, plus alles von Mitarbeiter |
-| **Mitarbeiter** | Gegenstände/Material/Mitarbeiter verwalten (anlegen/bearbeiten/löschen), Scannen (Ausgabe/Rückgabe/Entnahme), Historie einsehen — innerhalb der eigenen Abteilung |
-| **Nutzer** | Gegenstände/Material **ansehen**, Gegenstände **reservieren** (erfordert einen mit dem Login verknüpften Mitarbeiter-Datensatz), eigene Reservierungen einsehen/stornieren — keine Verwaltung, kein Scannen, keine Historie |
+| **Admin** | Alles, überall: Einstellungen, Abteilungen wechseln, Benutzer verwalten, plus alles von Mitarbeiter — global, kein Abteilungs-Eintrag nötig |
+| **Mitarbeiter** (in Abteilung X) | Gegenstände/Material/Mitarbeiter in X verwalten (anlegen/bearbeiten/löschen), Scannen (Ausgabe/Rückgabe/Entnahme), Historie einsehen |
+| **Nutzer** (in Abteilung X) | Gegenstände/Material in X **ansehen**, Gegenstände **reservieren** (erfordert einen mit dem Login verknüpften Mitarbeiter-Datensatz), eigene Reservierungen einsehen/stornieren — keine Verwaltung, kein Scannen, keine Historie |
 
-Ein Nutzer-Login wird unter *Einstellungen → Benutzer* angelegt; damit er reservieren
-kann, muss ein Admin ihn anschließend bei einem Mitarbeiter-Datensatz verknüpfen
-(*Mitarbeiter → Bearbeiten → Verknüpfter Login*).
+Eine Person kann in mehreren Abteilungen unterschiedliche Rollen haben (siehe
+"Berechtigungsmodell" oben). Zugewiesen wird das unter *Einstellungen → Zugriff*.
+Für Reservierungen zusätzlich nötig: den Login bei einem Mitarbeiter-Datensatz
+verknüpfen (*Mitarbeiter → Bearbeiten → Verknüpfter Login*).
 
 ## Bild-Upload
 

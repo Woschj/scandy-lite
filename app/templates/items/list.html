@@ -2,13 +2,12 @@
 {% block title %}Gegenstände — Scandy-Lite{% endblock %}
 
 {% block content %}
-{% set is_staff = user.role.value in ("admin", "mitarbeiter") %}
 <div class="list-header">
   <div>
     <span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
     <h1>Gegenstände</h1>
   </div>
-  {% if department and is_staff %}
+  {% if department and is_staff_here %}
     <a href="/items/new" class="btn btn-primary">+ Neuer Gegenstand</a>
   {% endif %}
 </div>
@@ -21,7 +20,7 @@
   <button type="submit" class="btn btn-ghost">Suchen</button>
 </form>
 
-{% if not department and is_staff %}
+{% if not department and (user.is_admin or staff_department_ids) %}
   <p class="form-error">Wähle oben eine Abteilung aus, um Gegenstände anzulegen oder zu bearbeiten. In der Übersicht "Alle Abteilungen" kannst du nur ansehen.</p>
 {% endif %}
 
@@ -74,7 +73,7 @@
               <button type="submit" class="link-btn" style="color: var(--brand); font-weight: 700;">Reservieren</button>
             </form>
           {% endif %}
-          {% if is_staff %}
+          {% if is_staff_here or user.is_admin or item.department_id in staff_department_ids %}
             <a href="/items/{{ item.id }}/edit" class="link-btn">Bearbeiten</a>
             <form method="post" action="/items/{{ item.id }}/delete" onsubmit="return confirm('{{ item.name }} wirklich entfernen?')">
               <button type="submit" class="link-btn danger">Entfernen</button>
@@ -88,10 +87,8 @@
   <div class="empty-state">
     {% if q %}
       <p>Keine Gegenstände gefunden für "{{ q }}".</p>
-    {% elif user.role.value == "nutzer" and not linked_worker %}
-      <p>Dein Login ist mit keinem Mitarbeiter-Ausweis verknüpft, deshalb sind hier keine Gegenstände sichtbar. Bitte an eine Administratorin oder einen Administrator wenden.</p>
-    {% elif user.role.value == "nutzer" %}
-      <p>Für dich sind aktuell keine Gegenstände freigeschaltet. Falls das nicht stimmen sollte: bitte an eine Administratorin oder einen Administrator wenden (Einstellungen → Gruppen).</p>
+    {% elif not user.is_admin %}
+      <p>Für dich sind aktuell keine Gegenstände sichtbar. Falls das nicht stimmen sollte: bitte an eine Administratorin oder einen Administrator wenden (Einstellungen → Zugriff).</p>
     {% else %}
       <p>Noch keine Gegenstände angelegt.</p>
     {% endif %}

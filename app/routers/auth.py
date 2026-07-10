@@ -85,7 +85,7 @@ async def login_submit(
 
     token = create_access_token(
         subject=str(user.id),
-        extra_claims={"role": user.role.value},
+        extra_claims={"is_admin": user.is_admin},
     )
 
     response = RedirectResponse(url="/", status_code=303)

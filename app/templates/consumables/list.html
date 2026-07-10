@@ -2,13 +2,12 @@
 {% block title %}Verbrauchsmaterial — Scandy-Lite{% endblock %}
 
 {% block content %}
-{% set is_staff = user.role.value in ("admin", "mitarbeiter") %}
 <div class="list-header">
   <div>
     <span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
     <h1>Verbrauchsmaterial</h1>
   </div>
-  {% if department and is_staff %}
+  {% if department and is_staff_here %}
     <a href="/consumables/new" class="btn btn-primary">+ Neues Material</a>
   {% endif %}
 </div>
@@ -21,7 +20,7 @@
   <button type="submit" class="btn btn-ghost">Suchen</button>
 </form>
 
-{% if not department and is_staff %}
+{% if not department and (user.is_admin or staff_department_ids) %}
   <p class="form-error">Wähle oben eine Abteilung aus, um Material anzulegen oder zu bearbeiten.</p>
 {% endif %}
 
@@ -59,7 +58,7 @@
           <span class="chip chip-danger">Mindestbestand erreicht</span>
         {% endif %}
 
-        {% if department and is_staff %}
+        {% if department and is_staff_here %}
         <form method="post" action="/consumables/{{ c.id }}/adjust" style="margin-top: var(--space-3);" data-guard
               title="Nur Nachschub - Entnahmen bitte über Scannen erfassen, damit sie in der Historie landen">
           <div class="qty-stepper" style="max-width: 220px;">
@@ -72,7 +71,7 @@
         </form>
         {% endif %}
 
-        {% if is_staff %}
+        {% if is_staff_here or user.is_admin or c.department_id in staff_department_ids %}
         <div class="item-card-actions">
           <a href="/consumables/{{ c.id }}/edit" class="link-btn">Bearbeiten</a>
           <form method="post" action="/consumables/{{ c.id }}/delete" onsubmit="return confirm('{{ c.name }} wirklich entfernen?')">
@@ -87,10 +86,8 @@
   <div class="empty-state">
     {% if q %}
       <p>Kein Material gefunden für "{{ q }}".</p>
-    {% elif user.role.value == "nutzer" and not linked_worker %}
-      <p>Dein Login ist mit keinem Mitarbeiter-Ausweis verknüpft, deshalb ist hier nichts sichtbar. Bitte an eine Administratorin oder einen Administrator wenden.</p>
-    {% elif user.role.value == "nutzer" %}
-      <p>Für dich ist aktuell kein Material freigeschaltet. Falls das nicht stimmen sollte: bitte an eine Administratorin oder einen Administrator wenden (Einstellungen → Gruppen).</p>
+    {% elif not user.is_admin %}
+      <p>Für dich ist aktuell kein Material sichtbar. Falls das nicht stimmen sollte: bitte an eine Administratorin oder einen Administrator wenden (Einstellungen → Zugriff).</p>
     {% else %}
       <p>Noch kein Verbrauchsmaterial angelegt.</p>
     {% endif %}

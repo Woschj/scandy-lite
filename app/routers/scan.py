@@ -6,7 +6,6 @@ Abteilungs-Filter bei der Suche nötig - nur eine Berechtigungsprüfung danach.
 """
 import uuid
 
-
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
@@ -14,10 +13,11 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.access import is_staff_in_department
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments, require_staff
 from app.core.templating import templates
-from app.models.common import ItemStatus, UserRole, utcnow
+from app.models.common import ItemStatus, utcnow
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.department import Department
 from app.models.item import Item
@@ -29,10 +29,10 @@ from app.routers.reservations import get_open_reservation
 router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_switchable_departments), Depends(require_staff)])
 
 
-def _check_department_access(user: User, entity_department_id: uuid.UUID) -> None:
-    """Mitarbeiter dürfen nur mit Gegenständen/Material ihrer eigenen Abteilung arbeiten.
-    Admins dürfen abteilungsübergreifend scannen."""
-    if user.role != UserRole.ADMIN and user.department_id != entity_department_id:
+async def _check_department_access(session: AsyncSession, user: User, entity_department_id: uuid.UUID) -> None:
+    """Nur wer in DIESER Abteilung Mitarbeiter-Rolle (oder Admin) hat, darf hier
+    scannen - unabhängig davon, ob er in einer ANDEREN Abteilung Mitarbeiter ist."""
+    if not await is_staff_in_department(session, user, entity_department_id):
         raise Forbidden()
 
 
@@ -63,7 +63,7 @@ async def scan_lookup(
     result = await session.exec(select(Item).where(Item.barcode == barcode, Item.deleted_at.is_(None)))
     item = result.first()
     if item:
-        _check_department_access(user, item.department_id)
+        await _check_department_access(session, user, item.department_id)
         active_lending = None
         if item.status == ItemStatus.AUSGELIEHEN:
             lending_result = await session.exec(
@@ -84,7 +84,7 @@ async def scan_lookup(
     result = await session.exec(select(Consumable).where(Consumable.barcode == barcode, Consumable.deleted_at.is_(None)))
     consumable = result.first()
     if consumable:
-        _check_department_access(user, consumable.department_id)
+        await _check_department_access(session, user, consumable.department_id)
         return templates.TemplateResponse(
             request, "scan/result.html",
             {"user": user, "department": department, "kind": "consumable", "consumable": consumable},
@@ -107,7 +107,7 @@ async def scan_lend(
     item = await session.get(Item, item_id)
     if not item or item.deleted_at is not None:
         raise Forbidden()
-    _check_department_access(user, item.department_id)
+    await _check_department_access(session, user, item.department_id)
 
     if item.status != ItemStatus.VERFUEGBAR:
         return RedirectResponse(url="/scan?error=Gegenstand+ist+nicht+verfügbar.", status_code=303)
@@ -123,7 +123,6 @@ async def scan_lend(
     worker = worker_result.first()
     if not worker:
         return RedirectResponse(url="/scan?error=Mitarbeiter-Barcode+nicht+gefunden.", status_code=303)
-    _check_department_access(user, worker.department_id)
 
     # Reservierungs-Logik: ist der Gegenstand für jemand ANDEREN reserviert -> blockieren.
     # Für DENSELBEN Worker reserviert -> Reservierung wird mit der Ausgabe erfüllt.
@@ -164,7 +163,7 @@ async def scan_return(
     item = await session.get(Item, item_id)
     if not item or item.deleted_at is not None:
         raise Forbidden()
-    _check_department_access(user, item.department_id)
+    await _check_department_access(session, user, item.department_id)
 
     lending_result = await session.exec(
         select(Lending).where(Lending.item_id == item.id, Lending.returned_at.is_(None))
@@ -193,7 +192,7 @@ async def scan_consume(
     consumable = await session.get(Consumable, consumable_id)
     if not consumable or consumable.deleted_at is not None:
         raise Forbidden()
-    _check_department_access(user, consumable.department_id)
+    await _check_department_access(session, user, consumable.department_id)
 
     if quantity <= 0:
         return RedirectResponse(url="/scan?error=Menge+muss+größer+als+0+sein.", status_code=303)
@@ -206,7 +205,6 @@ async def scan_consume(
     worker = worker_result.first()
     if not worker:
         return RedirectResponse(url="/scan?error=Mitarbeiter-Barcode+nicht+gefunden.", status_code=303)
-    _check_department_access(user, worker.department_id)
 
     consumable.quantity -= quantity
     usage = ConsumableUsage(consumable_id=consumable.id, worker_id=worker.id, quantity=quantity)

@@ -1,10 +1,12 @@
 """
 CRUD für Verbrauchsmaterial + Bestandsanpassung. Eine Entnahme mit gewähltem
-Mitarbeiter wird als ConsumableUsage protokolliert (Grundlage der Historie in
-Phase 5); reiner Nachschub (kein Mitarbeiter gewählt) verändert nur den Bestand.
+Mitarbeiter wird als ConsumableUsage protokolliert (Grundlage der Historie);
+reiner Nachschub (kein Mitarbeiter gewählt) verändert nur den Bestand.
+
+Abteilungsgescoped über UserDepartmentRole - siehe items.py für die
+ausführliche Erklärung des Berechtigungsmodells, hier identisch angewendet.
 """
 import uuid
-
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
@@ -13,11 +15,12 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.access import is_staff_in_department, get_visible_department_ids, get_department_roles
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user, require_staff, populate_switchable_departments
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
-from app.models.common import UserRole, utcnow
+from app.models.common import utcnow
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.department import Department
 from app.models.preset import Category, Location
@@ -47,21 +50,26 @@ async def list_consumables(
     department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    from app.core.access import get_visible_department_ids
     from app.routers.reservations import get_linked_worker
 
     linked_worker = await get_linked_worker(session, user)
 
     stmt = select(Consumable).where(Consumable.deleted_at.is_(None)).order_by(Consumable.name)
     show_department_badge = False
+    is_staff_here = False
+    staff_department_ids: set = set()
 
-    if user.role == UserRole.NUTZER:
-        visible_ids = await get_visible_department_ids(session, linked_worker)
-        stmt = stmt.where(Consumable.department_id.in_(visible_ids))
-        show_department_badge = True
-    elif department:
+    if not user.is_admin:
+        roles = await get_department_roles(session, user)
+        staff_department_ids = {r.department_id for r in roles if r.role.value == "mitarbeiter"}
+
+    if department:
         stmt = stmt.where(Consumable.department_id == department.id)
+        is_staff_here = await is_staff_in_department(session, user, department.id)
     else:
+        visible_ids = await get_visible_department_ids(session, user)
+        if visible_ids is not None:
+            stmt = stmt.where(Consumable.department_id.in_(visible_ids))
         show_department_badge = True
 
     if q:
@@ -80,6 +88,7 @@ async def list_consumables(
         {
             "user": user, "department": department, "consumables": consumables, "q": q, "ok": ok, "error": error,
             "show_department_badge": show_department_badge, "linked_worker": linked_worker,
+            "is_staff_here": is_staff_here, "staff_department_ids": staff_department_ids,
         },
     )
 
@@ -93,6 +102,9 @@ async def new_consumable_form(
 ):
     if not department:
         raise Forbidden()
+    if not await is_staff_in_department(session, user, department.id):
+        raise Forbidden()
+
     categories, locations = await _presets(session, department.id)
     return templates.TemplateResponse(
         request,
@@ -119,6 +131,8 @@ async def create_consumable(
     session: AsyncSession = Depends(get_session),
 ):
     if not department:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, department.id):
         raise Forbidden()
 
     result = await session.exec(
@@ -162,7 +176,9 @@ async def edit_consumable_form(
     session: AsyncSession = Depends(get_session),
 ):
     consumable = await session.get(Consumable, consumable_id)
-    if not consumable or consumable.deleted_at is not None or (department and consumable.department_id != department.id):
+    if not consumable or consumable.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
 
     workers_result = await session.exec(
@@ -195,7 +211,9 @@ async def update_consumable(
     session: AsyncSession = Depends(get_session),
 ):
     consumable = await session.get(Consumable, consumable_id)
-    if not consumable or consumable.deleted_at is not None or (department and consumable.department_id != department.id):
+    if not consumable or consumable.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
 
     result = await session.exec(
@@ -237,11 +255,12 @@ async def adjust_consumable(
     delta: int = Form(...),
     worker_id: str = Form(""),
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     consumable = await session.get(Consumable, consumable_id)
-    if not consumable or consumable.deleted_at is not None or (department and consumable.department_id != department.id):
+    if not consumable or consumable.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
 
     new_quantity = consumable.quantity + delta
@@ -264,11 +283,7 @@ async def adjust_consumable(
         )
         session.add(usage)
 
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
+    await session.commit()
     return RedirectResponse(url="/consumables", status_code=303)
 
 
@@ -276,20 +291,17 @@ async def adjust_consumable(
 async def delete_consumable(
     consumable_id: uuid.UUID,
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     consumable = await session.get(Consumable, consumable_id)
-    if not consumable or consumable.deleted_at is not None or (department and consumable.department_id != department.id):
+    if not consumable or consumable.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
 
     consumable.deleted_at = utcnow()
     session.add(consumable)
-    try:
-        await session.commit()
-    except IntegrityError:
-        await session.rollback()
-        return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
+    await session.commit()
     return RedirectResponse(url="/consumables", status_code=303)
 
 
@@ -298,11 +310,12 @@ async def upload_consumable_image(
     consumable_id: uuid.UUID,
     image: UploadFile,
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     consumable = await session.get(Consumable, consumable_id)
-    if not consumable or consumable.deleted_at is not None or (department and consumable.department_id != department.id):
+    if not consumable or consumable.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
 
     try:
@@ -317,11 +330,12 @@ async def upload_consumable_image(
 async def delete_consumable_image(
     consumable_id: uuid.UUID,
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     consumable = await session.get(Consumable, consumable_id)
-    if not consumable or consumable.deleted_at is not None or (department and consumable.department_id != department.id):
+    if not consumable or consumable.deleted_at is not None:
+        raise Forbidden()
+    if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
 
     delete_image("consumables", consumable.id)

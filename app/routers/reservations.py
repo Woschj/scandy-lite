@@ -12,10 +12,11 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.access import get_visible_department_ids
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments
 from app.core.templating import templates
-from app.models.common import ItemStatus, UserRole, utcnow
+from app.models.common import ItemStatus, utcnow
 from app.models.department import Department
 from app.models.item import Item
 from app.models.reservation import Reservation
@@ -72,7 +73,7 @@ async def my_reservations(
 
     # Admins sehen zusätzlich alle offenen Reservierungen der gewählten Abteilung
     all_open = []
-    if user.role == UserRole.ADMIN:
+    if user.is_admin:
         stmt = (
             select(Reservation)
             .where(Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
@@ -112,13 +113,12 @@ async def reserve_item(
         raise Forbidden()
 
     # Berechtigung: Admin darf immer. Sonst muss die Abteilung des Gegenstands
-    # zu den für DIESEN Worker sichtbaren Abteilungen gehören (Gruppen-basiert
-    # bei Nutzern, sonst die eigene department_id - siehe app/core/access.py).
-    if user.role != UserRole.ADMIN:
-        from app.core.access import get_visible_department_ids
-        visible_ids = await get_visible_department_ids(session, worker)
-        if item.department_id not in visible_ids:
-            raise Forbidden()
+    # zu den für DIESEN User sichtbaren Abteilungen gehören (siehe
+    # app/core/access.py - jede Rolle, Mitarbeiter wie Nutzer, gewährt
+    # Sichtbarkeit/Reservierbarkeit in ihren jeweiligen Abteilungen).
+    visible_ids = await get_visible_department_ids(session, user)
+    if visible_ids is not None and item.department_id not in visible_ids:
+        raise Forbidden()
 
     if item.status != ItemStatus.VERFUEGBAR:
         return RedirectResponse(url="/reservations?error=Gegenstand+ist+aktuell+nicht+verfügbar.", status_code=303)
@@ -150,7 +150,7 @@ async def cancel_reservation(
     # Stornieren darf: der Reservierende selbst oder ein Admin
     worker = await get_linked_worker(session, user)
     is_owner = worker and reservation.worker_id == worker.id
-    if not is_owner and user.role != UserRole.ADMIN:
+    if not is_owner and not user.is_admin:
         raise Forbidden()
 
     reservation.cancelled_at = utcnow()

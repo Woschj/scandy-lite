@@ -2,6 +2,11 @@
 Bootstrap-Skript: legt (falls nicht vorhanden) eine Default-Abteilung und
 einen ersten Admin-User an. Idempotent - kann gefahrlos mehrfach laufen.
 
+Admin ist ein globales Flag (is_admin) - braucht keine Abteilungs-Zuordnung,
+hat vollen Zugriff überall. Die Default-Abteilung wird trotzdem angelegt,
+als Startpunkt für die spätere Einrichtung (Gegenstände, weitere Logins mit
+abteilungsgebundener Rolle über /admin/settings#access).
+
 Nutzung:
     python -m scripts.seed_admin --username admin --password ****** --department-code werkstatt --department-name Werkstatt
 """
@@ -12,7 +17,6 @@ from sqlmodel import select
 
 from app.core.database import async_session_maker
 from app.core.security import hash_password
-from app.models.common import UserRole
 from app.models.department import Department
 from app.models.user import User
 
@@ -38,9 +42,8 @@ async def seed(username: str, password: str, department_code: str, department_na
 
         user = User(
             username=username,
-            role=UserRole.ADMIN,
+            is_admin=True,
             hashed_password=hash_password(password),
-            department_id=department.id,
         )
         session.add(user)
         await session.commit()

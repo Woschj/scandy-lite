@@ -10,11 +10,12 @@ TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
 
 def _inject_switchable_departments(request: Request) -> dict:
-    """Macht 'all_departments' (Admin-Dropdown zum Abteilungswechsel) bei JEDEM
-    Template-Rendering automatisch verfügbar, unabhängig davon, ob der jeweilige
-    Router es explizit in den Kontext gepackt hat. Das genau war der Bug: der
-    Switcher existierte nur auf Seiten, die daran gedacht hatten (Dashboard,
-    Einstellungen) - auf allen anderen fehlte er.
+    """Macht 'all_departments' (Admin-Dropdown zum Abteilungswechsel) und
+    'has_any_staff_role' (Nav-Sichtbarkeit von Scannen/Mitarbeiter/Historie)
+    bei JEDEM Template-Rendering automatisch verfügbar, unabhängig davon, ob
+    der jeweilige Router es explizit in den Kontext gepackt hat. Das genau
+    war der Bug: der Switcher existierte nur auf Seiten, die daran gedacht
+    hatten (Dashboard, Einstellungen) - auf allen anderen fehlte er.
 
     Bewusst NUR ein synchrones Auslesen aus request.state - die eigentliche
     (async) DB-Abfrage passiert vorher in der populate_switchable_departments-
@@ -22,7 +23,10 @@ def _inject_switchable_departments(request: Request) -> dict:
     Context-Processor kann selbst keine async-Arbeit machen (Event-Loop läuft
     hier schon), deshalb die Aufteilung in zwei Schritte.
     """
-    return {"all_departments": getattr(request.state, "all_departments", None)}
+    return {
+        "all_departments": getattr(request.state, "all_departments", None),
+        "has_any_staff_role": getattr(request.state, "has_any_staff_role", False),
+    }
 
 
 templates = Jinja2Templates(

@@ -3,19 +3,19 @@
 
   <nav class="topnav-links">
     <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Übersicht</a>
-    {% if user and user.role.value in ("admin", "mitarbeiter") %}
+    {% if user and has_any_staff_role %}
       <a href="/scan" class="scan-cta {% if request.url.path.startswith('/scan') %}active{% endif %}">Scannen</a>
     {% endif %}
     <a href="/items" class="{% if request.url.path.startswith('/items') %}active{% endif %}">Gegenstände</a>
     <a href="/consumables" class="{% if request.url.path.startswith('/consumables') %}active{% endif %}">Verbrauchsmaterial</a>
-    {% if user and user.role.value in ("admin", "mitarbeiter") %}
+    {% if user and has_any_staff_role %}
       <a href="/workers" class="{% if request.url.path.startswith('/workers') %}active{% endif %}">Mitarbeiter</a>
     {% endif %}
     <a href="/reservations" class="{% if request.url.path.startswith('/reservations') %}active{% endif %}">Reservierungen</a>
-    {% if user and user.role.value in ("admin", "mitarbeiter") %}
+    {% if user and has_any_staff_role %}
       <a href="/history" class="{% if request.url.path.startswith('/history') %}active{% endif %}">Historie</a>
     {% endif %}
-    {% if user and user.role.value == "admin" %}
+    {% if user and user.is_admin %}
       <a href="/admin/settings" class="{% if request.url.path.startswith('/admin') %}active{% endif %}">Einstellungen</a>
     {% endif %}
   </nav>
