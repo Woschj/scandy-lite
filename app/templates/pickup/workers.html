@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Reservierungen ausgeben — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
+<h1>Reservierungen ausgeben</h1>
+<p>Person auswählen, dann Gegenstände nacheinander abscannen und gesammelt bestätigen.</p>
+
+{% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
+
+{% if workers_list %}
+  <div class="settings-list">
+    {% for entry in workers_list %}
+      <a href="/scan/pickup/{{ entry.worker.id }}" class="settings-row" style="text-decoration:none; color:inherit;">
+        <div class="main">
+          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">{{ entry.worker.full_name }}</span>
+          <span class="meta">{{ entry.worker.barcode }}</span>
+        </div>
+        <span class="chip chip-neutral">{{ entry.count }} offen</span>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state">
+    <p>Aktuell keine offenen Reservierungen{% if department %} in {{ department.name }}{% endif %}.</p>
+  </div>
+{% endif %}
+{% endblock %}

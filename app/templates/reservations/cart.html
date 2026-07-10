@@ -2,6 +2,7 @@
 {% block title %}Warenkorb — Scandy-Lite{% endblock %}
 
 {% block content %}
+<div class="has-mobile-fixed-cta">
 <span class="eyebrow">Reservierungen</span>
 <h1>Warenkorb</h1>
 <p>Gegenstände und Verbrauchsmaterial hier sammeln und gesammelt abschicken - die eigentliche Reservierung/Vormerkung passiert erst beim Absenden.</p>
@@ -16,8 +17,11 @@
 
 <form id="cart-form" method="post" action="/reservations/cart/submit" data-guard style="display:none;">
   <div id="cart-items" class="settings-list" style="margin-bottom: var(--space-4);"></div>
-  <button type="submit" class="btn btn-primary btn-block" id="cart-submit-btn">Warenkorb absenden</button>
+  <div class="mobile-fixed-cta">
+    <button type="submit" class="btn btn-primary btn-block" id="cart-submit-btn">Warenkorb absenden</button>
+  </div>
 </form>
+</div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
@@ -124,4 +128,5 @@ document.addEventListener("DOMContentLoaded", function () {
 })();
 });
 </script>
+</div>
 {% endblock %}

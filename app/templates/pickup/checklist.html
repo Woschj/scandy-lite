@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Ausgabe für {{ worker.full_name }} — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
+<h1>Ausgabe für {{ worker.full_name }}</h1>
+<p class="item-barcode">{{ worker.barcode }}</p>
+
+{% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+<div class="tag-card form-card" style="margin-bottom: var(--space-6);">
+  <form method="post" action="/scan/pickup/{{ worker.id }}/scan">
+    <input type="hidden" name="checked" value="{{ checked_param }}">
+    <div class="field">
+      <label for="barcode">Gegenstand-Barcode</label>
+      <input type="text" id="barcode" name="barcode" required autofocus autocomplete="off"
+             class="scan-input-large" placeholder="Scannen oder eintippen…">
+    </div>
+    <button type="submit" class="btn btn-primary btn-block">Abhaken</button>
+  </form>
+
+  <div id="camera-scan-wrap" style="display:none; margin-top: var(--space-4);">
+    <div id="scan-video-container" style="width:100%; border-radius: var(--radius); overflow:hidden; background:#000;"></div>
+    <button type="button" id="camera-cancel-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">Kamera schließen</button>
+  </div>
+  <button type="button" id="camera-start-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">📷 Mit Kamera scannen</button>
+  <p id="camera-unsupported" class="form-error" style="display:none; margin-top: var(--space-2); margin-bottom: 0;"></p>
+
+  {% if done %}
+    <a href="#confirm-section" class="link-btn" style="display:block; text-align:center; margin-top: var(--space-3);">↓ Zur Bestätigung springen ({{ done | length }} bereit)</a>
+  {% endif %}
+</div>
+
+<h2>Noch abzuholen ({{ pending | length }})</h2>
+{% if pending %}
+  <div class="settings-list" style="margin-bottom: var(--space-6);">
+    {% for r in pending %}
+      <div class="settings-row">
+        <div class="main">
+          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">{{ r.item.name if r.item else "?" }}</span>
+          <span class="meta">{{ r.item.barcode if r.item else "" }}</span>
+        </div>
+        <form method="post" action="/scan/pickup/{{ worker.id }}/remove/{{ r.id }}" onsubmit="return confirm('{{ (r.item.name if r.item else "Gegenstand") }} aus dieser Abholung entfernen? Die Reservierung wird storniert.')">
+          <input type="hidden" name="checked" value="{{ checked_param }}">
+          <button type="submit" class="link-btn danger">Entfernen</button>
+        </form>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty-state" style="margin-bottom: var(--space-6);"><p>Alles abgehakt.</p></div>
+{% endif %}
+
+{% if done %}
+  <h2>Abgehakt ({{ done | length }})</h2>
+  <div class="settings-list" style="margin-bottom: var(--space-6);">
+    {% for r in done %}
+      <div class="settings-row">
+        <div class="main">
+          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">✓ {{ r.item.name if r.item else "?" }}</span>
+          <span class="meta">{{ r.item.barcode if r.item else "" }}</span>
+        </div>
+        <span class="chip chip-success">Gescannt</span>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="tag-card form-card" id="confirm-section">
+    <p style="margin-top:0;">Ausgabe von {{ done | length }} Gegenstand/Gegenständen bestätigen:</p>
+    <form method="post" action="/scan/pickup/{{ worker.id }}/confirm" data-guard>
+      <input type="hidden" name="checked" value="{{ checked_param }}">
+      <input type="hidden" name="signature" id="signature-data" value="">
+      <div class="field">
+        <label>Unterschrift</label>
+        <canvas id="signature-pad" class="signature-pad" aria-label="Unterschriftsfeld"></canvas>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top: var(--space-1);">
+          <span id="signature-hint" class="eyebrow">Mit Finger oder Maus unterschreiben</span>
+          <button type="button" id="signature-clear" class="link-btn">Löschen</button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block">Ausgabe bestätigen ({{ done | length }})</button>
+    </form>
+  </div>
+  <script src="/static/js/signature.js" defer></script>
+{% endif %}
+
+<p style="margin-top: var(--space-6);"><a href="/scan/pickup" class="link-btn">← Zurück zur Übersicht</a></p>
+
+<script src="/static/js/vendor/html5-qrcode.min.js"></script>
+<script src="/static/js/barcode-camera.js"></script>
+<script>
+  ScandyCamera.attach({
+    startBtn: document.getElementById('camera-start-btn'),
+    cancelBtn: document.getElementById('camera-cancel-btn'),
+    wrap: document.getElementById('camera-scan-wrap'),
+    videoContainerId: 'scan-video-container',
+    unsupportedMsg: document.getElementById('camera-unsupported'),
+    input: document.getElementById('barcode')
+  });
+  {% if error %}ScandyCamera.vibrate([60, 60, 60]);{% elif checked_param %}ScandyCamera.vibrate(80);{% endif %}
+</script>
+{% endblock %}

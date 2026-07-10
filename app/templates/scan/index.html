@@ -17,8 +17,7 @@
     <div class="field">
       <label for="barcode">Barcode</label>
       <input type="text" id="barcode" name="barcode" required autofocus autocomplete="off"
-             placeholder="Scannen oder eintippen…"
-             style="font-family: var(--font-display); font-size: 1.25rem;">
+             placeholder="Scannen oder eintippen…" class="scan-input-large">
     </div>
     <button type="submit" class="btn btn-primary btn-block">Suchen</button>
   </form>
@@ -30,6 +29,8 @@
   <button type="button" id="camera-start-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">📷 Mit Kamera scannen</button>
   <p id="camera-unsupported" class="form-error" style="display:none; margin-top: var(--space-2); margin-bottom: 0;"></p>
 </div>
+
+<p style="margin-top: var(--space-6);"><a href="/scan/pickup" class="link-btn">📋 Reservierungen ausgeben (Sammel-Abholung)</a></p>
 
 <script src="/static/js/vendor/html5-qrcode.min.js"></script>
 <script src="/static/js/barcode-camera.js"></script>

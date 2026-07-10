@@ -59,6 +59,34 @@ Deploy geht nichts verloren.
 
 ## Mobile-UX-Verbesserungen (Scan-Workflow)
 
+### Warenkorb + Sammel-Ausgabe (dieser Stand)
+
+Ziel: beide Perspektiven (Nutzer reservieren, Personal gibt aus) sollen sich auf
+einem Handy so nativ wie möglich anfühlen, nicht wie eine Web-Formular-Seite.
+
+- **Fixierte Aktionsleiste am unteren Rand** (`.mobile-fixed-cta`): "Warenkorb
+  absenden" bleibt auf dem Warenkorb immer in Daumen-Reichweite sichtbar, statt
+  dass man bei vielen Einträgen erst nach unten scrollen muss - klassisches
+  Native-App-Pattern (wie ein Kassenbon-Button in Einkaufs-Apps). Sitzt oberhalb
+  der Tab-Bar, mit korrektem `safe-area-inset-bottom` für Geräte mit Notch/Home-Indicator.
+- **"In den Warenkorb" ist jetzt ein echter, gefüllter Button** statt eines
+  schmalen Textlinks - für Nutzer ist das die einzige/primäre Aktion auf der
+  Karte und sollte entsprechend aussehen (48px Mindesthöhe, volle Kartenbreite).
+- **Größeres, zentriertes Scan-Eingabefeld** (`.scan-input-large`, 56px hoch,
+  1.25rem Schrift) einheitlich auf allen Scan-Seiten (Hauptscan, Ausgabe/Rückgabe,
+  Sammel-Ausgabe) - wirkt mehr wie ein App-Eingabeelement als ein Formularfeld.
+- **Haptisches Feedback** bei jedem Scan-Erfolg/-Fehler, auch in der neuen
+  Sammel-Ausgabe (vorher nur auf der Hauptscan-Seite).
+- **Sprung-Link "↓ Zur Bestätigung"** in der Sammel-Ausgabe, sobald mindestens
+  ein Gegenstand abgehakt ist - erspart das manuelle Scrollen an einer
+  potenziell langen Checkliste vorbei zur Unterschrift.
+
+**Ehrlicher Hinweis:** Ich kann hier kein echtes Mobilgerät testen - alle
+Anpassungen sind eine sorgfältige Design-Durchsicht nach etablierten Mobile-
+Patterns (Daumen-Reichweite, Touch-Ziel-Größen, native Bestätigungs-Leisten),
+aber kein Ersatz für einen echten Test auf einem Telefon. Bitte insbesondere
+die fixierte Warenkorb-Leiste und das Scan-Eingabefeld einmal live ausprobieren.
+
 - **Kamera-Scan jetzt auch für den Mitarbeiter-/Ausweis-Barcode** (nicht nur für
   den Gegenstand am Anfang) - direkt in den Ausgabe-/Entnahme-Formularen.
   Gemeinsames JS-Modul (`barcode-camera.js`), unterstützt mehrere Scan-Buttons
@@ -229,12 +257,21 @@ sichtbar und wird beim Anlegen neuer Kategorien/Standorte automatisch vorausgew�
    **Bestände sind für die Rolle Nutzer nicht sichtbar** - nur "Verfügbar"/"Nicht verfügbar",
    keine genaue Zahl (auch nicht im HTML-Quelltext, z.B. über das Mengen-Eingabefeld). Mitarbeiter
    und Admin sehen weiterhin die exakten Bestandszahlen, die für die Lagerverwaltung nötig sind.
-2. **Ausgabe/Entnahme:** An der Ausgabe wird gescannt. Bei Gegenständen: ist er reserviert, wird
-   der Mitarbeiter-Barcode vorausgefüllt und die Ausgabe an andere Personen blockiert; die
-   Ausgabe wird mit **digitaler Unterschrift** (Canvas, Finger/Maus) bestätigt — serverseitig
-   Pflicht. Bei Verbrauchsmaterial: normale Entnahme über `/scan/consume`, offene Vormerkungen
-   werden dort als Kontext angezeigt, aber nicht hart erzwungen.
-3. **Rückgabe (nur Gegenstände):** Gegenstand einfach erneut scannen → Rückgabe mit einem Klick.
+2. **Sammel-Ausgabe (mehrere Gegenstände auf einmal):** Unter *Scannen → 📋 Reservierungen
+   ausgeben* wählt Personal eine Person mit offenen Reservierungen aus und sieht eine
+   Checkliste aller vorgemerkten Gegenstände. Barcode für Barcode abscannen (auch per Kamera) -
+   jeder Treffer wird sofort abgehakt. Fehlt ein Gegenstand, lässt er sich direkt aus der
+   Abholung **entfernen** (storniert nur diese eine Reservierung, der Rest läuft normal weiter).
+   Am Ende **eine** Unterschrift für alle abgehakten Gegenstände zusammen - erst dann werden
+   die Ausleihen tatsächlich angelegt. Der "was ist schon abgescannt"-Zwischenstand lebt
+   bewusst nur in der URL zwischen den Schritten, keine eigene Datenbank-Tabelle nötig.
+3. **Einzel-Ausgabe/Entnahme:** Der normale Scan-Workflow funktioniert weiterhin für einzelne
+   Gegenstände/Vorgänge. Bei Gegenständen: ist er reserviert, wird der Mitarbeiter-Barcode
+   vorausgefüllt und die Ausgabe an andere Personen blockiert; die Ausgabe wird mit
+   **digitaler Unterschrift** (Canvas, Finger/Maus) bestätigt — serverseitig Pflicht. Bei
+   Verbrauchsmaterial: normale Entnahme über `/scan/consume`, offene Vormerkungen werden dort
+   als Kontext angezeigt, aber nicht hart erzwungen.
+4. **Rückgabe (nur Gegenstände):** Gegenstand einfach erneut scannen → Rückgabe mit einem Klick.
 
 Die **Übersicht** ist ein Kanban-Board: Spalten *Reserviert* → *Ausgeliehen* zeigen alle laufenden Vorgänge (mit ✓-Kennzeichnung unterschriebener Ausgaben). Benutzer-Logins werden unter *Einstellungen → Benutzer* angelegt (nur Admin).
   - [x] Kamera-basiertes Scannen (via optionalem Caddy-HTTPS-Proxy)

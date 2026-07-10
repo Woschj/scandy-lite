@@ -33,7 +33,7 @@
         <div class="field">
           <label for="worker_barcode">Mitarbeiter-Barcode</label>
           <input type="text" id="worker_barcode" name="worker_barcode" required autofocus autocomplete="off"
-                 style="font-family: var(--font-display); font-size: 1.125rem;"
+                 class="scan-input-large"
                  {% if reservation and reservation.worker %}value="{{ reservation.worker.barcode }}"{% endif %}>
         </div>
 
@@ -113,7 +113,7 @@
       <div class="field">
         <label for="worker_barcode">Mitarbeiter-Barcode</label>
         <input type="text" id="worker_barcode" name="worker_barcode" required autofocus autocomplete="off"
-               style="font-family: var(--font-display); font-size: 1.125rem;">
+               class="scan-input-large">
       </div>
 
       <div id="worker-camera-wrap" style="display:none; margin-bottom: var(--space-3);">

@@ -70,7 +70,7 @@
             <input type="number" data-cart-quantity-for="{{ c.id }}" value="1" min="1" {% if is_staff_here or user.is_admin or c.department_id in staff_department_ids %}max="{{ c.quantity }}"{% endif %} inputmode="numeric">
             <button type="button" data-step="1" aria-label="Menge erhöhen">+</button>
           </div>
-          <button type="button" class="link-btn cart-toggle-btn" data-cart-toggle-consumable data-consumable-id="{{ c.id }}" style="color: var(--brand); font-weight: 700; margin-top: var(--space-2);">In den Warenkorb</button>
+          <button type="button" class="link-btn cart-toggle-btn" data-cart-toggle-consumable data-consumable-id="{{ c.id }}" style="margin-top: var(--space-2);">In den Warenkorb</button>
         {% endif %}
 
         {% if department and is_staff_here %}
