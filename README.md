@@ -79,16 +79,32 @@ Nicht mit einem echten Gerät testbar in dieser Umgebung (kein Browser mit
 Kamera/Touch verfügbar) - bitte insbesondere den Kamera-Scan für den
 Mitarbeiter-Barcode und die Stepper-Buttons einmal live ausprobieren.
 
-### Bugfix: Kamera lud nicht
+### Bugfix: Kamera lud nicht ("kein Internetzugriff")
 
-`@zxing/library` ist primär für Bundler gedacht - beim Einbinden per einfachem
-`<script>`-Tag (unser Anwendungsfall) stand kein zuverlässiges globales
-`ZXing`-Objekt zur Verfügung (das Paket hat kein `"browser"`-Feld, `"main"`
-zeigt auf einen CommonJS-Build). Umgestellt auf **html5-qrcode** - eine
-Bibliothek, die genau für Kamera-Scan per Script-Tag ohne Bundler gebaut und
-offiziell dafür dokumentiert ist. API-technisch: statt eines fertigen
-`<video>`-Elements erwartet sie ein leeres Container-`<div>`, in das sie ihr
-eigenes Video-/Canvas-Element einhängt.
+`@zxing/library` (die ursprüngliche Wahl) ist primär für Bundler gedacht - beim
+Einbinden per einfachem `<script>`-Tag stand kein zuverlässiges globales
+`ZXing`-Objekt zur Verfügung (kein `"browser"`-Feld im Paket, `"main"` zeigt
+auf einen CommonJS-Build). Umgestellt auf **html5-qrcode**, eine Bibliothek,
+die genau für Kamera-Scan per Script-Tag ohne Bundler gebaut und dafür
+dokumentiert ist. API-technisch: statt eines fertigen `<video>`-Elements
+erwartet sie ein leeres Container-`<div>`, in das sie ihr eigenes
+Video-/Canvas-Element einhängt.
+
+Auch mit der neuen Bibliothek dann die Meldung "kein Internetzugriff?" -
+die URL selbst war korrekt (per npm-Registry verifiziert), aber euer internes
+Netz erreicht `unpkg.com` offenbar generell nicht, genau wie schon einmal beim
+Wall-Ink-Projekt. Alle drei externen JS-Bibliotheken (htmx, Alpine.js,
+html5-qrcode) werden deshalb jetzt **selbst gehostet**
+(`app/static/js/vendor/`) statt per CDN geladen - damit ist die App komplett
+unabhängig von ausgehendem Internetzugriff des Browsers. Jede Datei wurde vor
+dem Einbinden auf externe Laufzeit-Abhängigkeiten geprüft (keine gefunden -
+alle drei sind in sich geschlossene Bundles).
+
+Nicht mit umgestellt: Google Fonts (IBM Plex Mono/Sans) - rein kosmetisch,
+fällt bei Nichterreichbarkeit automatisch auf System-Schriften zurück statt
+etwas kaputtzumachen. Bei Bedarf lässt sich das nachträglich ebenfalls
+selbst hosten (das Font-Paket ist allerdings deutlich unhandlicher, >180MB
+Rohgröße für alle Schnitte).
 
 ### Bugfix: Button blieb nach Unterschrift auf "Wird verarbeitet" hängen
 
