@@ -21,7 +21,7 @@
   </div>
 {% else %}
   <h2>Meine Reservierungen</h2>
-  {% if reservations %}
+  {% if reservations or consumable_reservations %}
     <div class="item-grid">
       {% for r in reservations %}
         <div class="item-card">
@@ -40,17 +40,34 @@
           </div>
         </div>
       {% endfor %}
+      {% for r in consumable_reservations %}
+        <div class="item-card">
+          <div class="item-card-top">
+            <div>
+              <h3>{{ r.quantity }}x {{ r.consumable.name if r.consumable else "?" }}</h3>
+              <span class="item-barcode">{{ r.consumable.barcode if r.consumable else "" }}</span>
+            </div>
+            <span class="chip chip-neutral">Vorgemerkt</span>
+          </div>
+          <p class="item-meta">Vorgemerkt am {{ r.created_at.strftime("%d.%m.%Y %H:%M") }} - Menge beim Scannen entnehmen lassen.</p>
+          <div class="item-card-actions">
+            <form method="post" action="/reservations/consumables/{{ r.id }}/cancel" onsubmit="return confirm('Vormerkung stornieren?')">
+              <button type="submit" class="link-btn danger">Stornieren</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
     </div>
   {% else %}
     <div class="empty-state">
-      <p>Keine offenen Reservierungen. <a href="/items">Zu den Gegenständen</a> - dort kannst du verfügbare Gegenstände reservieren.</p>
+      <p>Keine offenen Reservierungen. <a href="/items">Zu den Gegenständen</a> oder <a href="/consumables">zum Verbrauchsmaterial</a> - dort kannst du Verfügbares vormerken.</p>
     </div>
   {% endif %}
 {% endif %}
 
 {% if all_open is defined and user.is_admin %}
   <h2 style="margin-top: var(--space-12);">Alle offenen Reservierungen (Admin)</h2>
-  {% if all_open %}
+  {% if all_open or all_open_consumables %}
     <div class="item-grid">
       {% for r in all_open %}
         <div class="item-card">
@@ -63,6 +80,22 @@
           <p class="item-meta">Für {{ r.worker.full_name if r.worker else "?" }} · {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</p>
           <div class="item-card-actions">
             <form method="post" action="/reservations/{{ r.id }}/cancel" onsubmit="return confirm('Reservierung stornieren?')">
+              <button type="submit" class="link-btn danger">Stornieren</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+      {% for r in all_open_consumables %}
+        <div class="item-card">
+          <div class="item-card-top">
+            <div>
+              <h3>{{ r.quantity }}x {{ r.consumable.name if r.consumable else "?" }}</h3>
+              <span class="item-barcode">{{ r.consumable.barcode if r.consumable else "" }}</span>
+            </div>
+          </div>
+          <p class="item-meta">Für {{ r.worker.full_name if r.worker else "?" }} · {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</p>
+          <div class="item-card-actions">
+            <form method="post" action="/reservations/consumables/{{ r.id }}/cancel" onsubmit="return confirm('Vormerkung stornieren?')">
               <button type="submit" class="link-btn danger">Stornieren</button>
             </form>
           </div>

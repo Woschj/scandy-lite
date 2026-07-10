@@ -42,7 +42,13 @@
               <span class="item-barcode">{{ c.barcode }}</span>
             </div>
           </div>
-          <span class="qty-badge {% if c.quantity <= c.min_quantity %}qty-low{% endif %}">{{ c.quantity }} {{ c.unit }}</span>
+          {% if is_staff_here or user.is_admin or c.department_id in staff_department_ids %}
+            <span class="qty-badge {% if c.quantity <= c.min_quantity %}qty-low{% endif %}">{{ c.quantity }} {{ c.unit }}</span>
+          {% elif c.quantity > 0 %}
+            <span class="chip chip-success">Verfügbar</span>
+          {% else %}
+            <span class="chip chip-danger">Nicht verfügbar</span>
+          {% endif %}
         </div>
         {% if c.category or c.location %}
           <p class="item-meta">
@@ -56,6 +62,15 @@
         {% endif %}
         {% if c.quantity <= c.min_quantity %}
           <span class="chip chip-danger">Mindestbestand erreicht</span>
+        {% endif %}
+
+        {% if linked_worker and c.quantity > 0 %}
+          <div class="qty-stepper" style="max-width: 220px; margin-top: var(--space-3);">
+            <button type="button" data-step="-1" aria-label="Menge verringern">–</button>
+            <input type="number" data-cart-quantity-for="{{ c.id }}" value="1" min="1" {% if is_staff_here or user.is_admin or c.department_id in staff_department_ids %}max="{{ c.quantity }}"{% endif %} inputmode="numeric">
+            <button type="button" data-step="1" aria-label="Menge erhöhen">+</button>
+          </div>
+          <button type="button" class="link-btn cart-toggle-btn" data-cart-toggle-consumable data-consumable-id="{{ c.id }}" style="color: var(--brand); font-weight: 700; margin-top: var(--space-2);">In den Warenkorb</button>
         {% endif %}
 
         {% if department and is_staff_here %}

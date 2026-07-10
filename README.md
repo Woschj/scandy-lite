@@ -209,19 +209,32 @@ sichtbar und wird beim Anlegen neuer Kategorien/Standorte automatisch vorausgew�
 
 ## Reservierungs-Workflow
 
-1. **Reservieren (Warenkorb):** Eingeloggte Nutzer mit verknüpftem Mitarbeiter-Ausweis
+1. **Reservieren/Vormerken (Warenkorb):** Eingeloggte Nutzer mit verknüpftem Mitarbeiter-Ausweis
    (Verknüpfung: Mitarbeiter → Bearbeiten → Login zuordnen, oder direkt beim Anlegen über
-   das "Zugriffsrolle"-Feld) sehen in der Gegenstands-Liste einen **"In den Warenkorb"**-Button.
-   Der Warenkorb ist rein clientseitig (localStorage, `app/static/js/cart.js`) - Gegenstände
+   das "Zugriffsrolle"-Feld) sehen sowohl bei Gegenständen als auch bei Verbrauchsmaterial
+   einen **"In den Warenkorb"**-Button (bei Verbrauchsmaterial mit Mengen-Stepper). Der
+   Warenkorb ist rein clientseitig (localStorage, `app/static/js/cart.js`) - Einträge
    sammeln, seitenübergreifend (auch nach Abteilungswechsel), ohne dass beim Hinzufügen
    ein Seitenwechsel oder Server-Roundtrip passiert. Erst unter *Reservierungen → 🛒 Warenkorb
-   öffnen* wird der Inhalt geprüft (Verfügbarkeit kann sich zwischenzeitlich geändert haben)
-   und gesammelt abgeschickt - dort verwalten Nutzer auch ihre bestätigten Reservierungen
-   (inkl. Storno).
-2. **Ausgabe:** An der Ausgabe wird der Gegenstand gescannt. Ist er reserviert, wird der
-   Mitarbeiter-Barcode vorausgefüllt und die Ausgabe an andere Personen blockiert. Die Ausgabe
-   wird mit **digitaler Unterschrift** (Canvas, Finger/Maus) bestätigt — serverseitig Pflicht.
-3. **Rückgabe:** Gegenstand einfach erneut scannen → Rückgabe mit einem Klick.
+   öffnen* wird der Inhalt geprüft (Verfügbarkeit/Bestand kann sich zwischenzeitlich geändert
+   haben) und gesammelt abgeschickt - dort verwalten Nutzer auch ihre bestätigten
+   Reservierungen/Vormerkungen (inkl. Storno).
+
+   Gegenstände werden dabei **exklusiv** reserviert (ein Exemplar, ein Vorgang). Verbrauchsmaterial
+   wird **weich** vorgemerkt - mehrere Personen können denselben Bestand gleichzeitig anfragen
+   (kein harter Lagerbestand-Held), es wird nur gewarnt, wenn die Summe aller offenen
+   Vormerkungen den aktuellen Bestand übersteigt. Personal entscheidet beim Scannen nach
+   eigenem Ermessen.
+
+   **Bestände sind für die Rolle Nutzer nicht sichtbar** - nur "Verfügbar"/"Nicht verfügbar",
+   keine genaue Zahl (auch nicht im HTML-Quelltext, z.B. über das Mengen-Eingabefeld). Mitarbeiter
+   und Admin sehen weiterhin die exakten Bestandszahlen, die für die Lagerverwaltung nötig sind.
+2. **Ausgabe/Entnahme:** An der Ausgabe wird gescannt. Bei Gegenständen: ist er reserviert, wird
+   der Mitarbeiter-Barcode vorausgefüllt und die Ausgabe an andere Personen blockiert; die
+   Ausgabe wird mit **digitaler Unterschrift** (Canvas, Finger/Maus) bestätigt — serverseitig
+   Pflicht. Bei Verbrauchsmaterial: normale Entnahme über `/scan/consume`, offene Vormerkungen
+   werden dort als Kontext angezeigt, aber nicht hart erzwungen.
+3. **Rückgabe (nur Gegenstände):** Gegenstand einfach erneut scannen → Rückgabe mit einem Klick.
 
 Die **Übersicht** ist ein Kanban-Board: Spalten *Reserviert* → *Ausgeliehen* zeigen alle laufenden Vorgänge (mit ✓-Kennzeichnung unterschriebener Ausgaben). Benutzer-Logins werden unter *Einstellungen → Benutzer* angelegt (nur Admin).
   - [x] Kamera-basiertes Scannen (via optionalem Caddy-HTTPS-Proxy)

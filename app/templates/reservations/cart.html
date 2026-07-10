@@ -4,10 +4,10 @@
 {% block content %}
 <span class="eyebrow">Reservierungen</span>
 <h1>Warenkorb</h1>
-<p>Gegenstände hier sammeln und gesammelt abschicken - die eigentliche Reservierung passiert erst beim Absenden.</p>
+<p>Gegenstände und Verbrauchsmaterial hier sammeln und gesammelt abschicken - die eigentliche Reservierung/Vormerkung passiert erst beim Absenden.</p>
 
 <div id="cart-empty" class="empty-state" style="display:none;">
-  <p>Dein Warenkorb ist leer. <a href="/items">Gegenstände durchsuchen</a> und "In den Warenkorb" antippen.</p>
+  <p>Dein Warenkorb ist leer. <a href="/items">Gegenstände</a> oder <a href="/consumables">Verbrauchsmaterial</a> durchsuchen und "In den Warenkorb" antippen.</p>
 </div>
 
 <div id="cart-loading" class="empty-state">
@@ -20,71 +20,95 @@
 </form>
 
 <script>
+document.addEventListener("DOMContentLoaded", function () {
 (function () {
-  var ids = ScandyCart.getIds();
+  var entries = ScandyCart.getEntries();
   var emptyEl = document.getElementById("cart-empty");
   var loadingEl = document.getElementById("cart-loading");
   var formEl = document.getElementById("cart-form");
   var itemsEl = document.getElementById("cart-items");
   var submitBtn = document.getElementById("cart-submit-btn");
 
-  if (ids.length === 0) {
+  if (entries.length === 0) {
     loadingEl.style.display = "none";
     emptyEl.style.display = "block";
     return;
   }
 
-  fetch("/reservations/cart/items?ids=" + encodeURIComponent(ids.join(",")))
+  var itemIds = entries.filter(function (e) { return e.type === "item"; }).map(function (e) { return e.id; });
+  var consumableParam = entries.filter(function (e) { return e.type === "consumable"; })
+    .map(function (e) { return e.id + ":" + e.quantity; }).join(",");
+
+  var params = new URLSearchParams();
+  if (itemIds.length) params.set("item_ids", itemIds.join(","));
+  if (consumableParam) params.set("consumable_ids", consumableParam);
+
+  fetch("/reservations/cart/items?" + params.toString())
     .then(function (r) { return r.json(); })
     .then(function (data) {
       loadingEl.style.display = "none";
-
       var validCount = 0;
-      data.items.forEach(function (item) {
+
+      function buildRow(kind, item, removeId) {
         var row = document.createElement("div");
         row.className = "settings-row";
 
         if (!item.found) {
           row.innerHTML =
             '<span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400; color:var(--ink-soft);">' +
-            'Gegenstand nicht mehr verfügbar (entfernt)</span>';
-          ScandyCart.remove(item.id);
-        } else {
-          var statusChip = item.available
-            ? '<span class="chip chip-success">' + item.status_label + '</span>'
-            : '<span class="chip chip-danger">' + item.status_label + '</span>';
-          row.innerHTML =
-            '<div class="main">' +
-            '<span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">' + item.name + '</span>' +
-            '<span class="meta">' + item.department + ' · ' + item.barcode + '</span>' +
-            statusChip +
-            '</div>';
-          if (item.available) {
-            validCount++;
-            var hidden = document.createElement("input");
-            hidden.type = "hidden";
-            hidden.name = "item_ids";
-            hidden.value = item.id;
-            row.appendChild(hidden);
-          }
-          var removeBtn = document.createElement("button");
-          removeBtn.type = "button";
-          removeBtn.className = "link-btn danger";
-          removeBtn.textContent = "Entfernen";
-          removeBtn.addEventListener("click", function () {
-            ScandyCart.remove(item.id);
-            row.remove();
-          });
-          var actions = document.createElement("div");
-          actions.className = "actions";
-          actions.appendChild(removeBtn);
-          row.appendChild(actions);
+            'Nicht mehr verfügbar (entfernt)</span>';
+          ScandyCart.remove(kind, removeId);
+          itemsEl.appendChild(row);
+          return;
         }
+
+        var title = kind === "item" ? item.name : (item.requested_quantity + "x " + item.name + " (" + item.unit + ")");
+        var statusChip = item.available
+          ? '<span class="chip chip-success">' + item.status_label + '</span>'
+          : '<span class="chip chip-danger">' + item.status_label + '</span>';
+        row.innerHTML =
+          '<div class="main">' +
+          '<span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">' + title + '</span>' +
+          '<span class="meta">' + item.department + ' · ' + item.barcode + '</span>' +
+          statusChip +
+          '</div>';
+
+        if (item.available) {
+          validCount++;
+          if (kind === "item") {
+            var hidden = document.createElement("input");
+            hidden.type = "hidden"; hidden.name = "item_ids"; hidden.value = item.id;
+            row.appendChild(hidden);
+          } else {
+            var hiddenId = document.createElement("input");
+            hiddenId.type = "hidden"; hiddenId.name = "consumable_ids"; hiddenId.value = item.id;
+            var hiddenQty = document.createElement("input");
+            hiddenQty.type = "hidden"; hiddenQty.name = "consumable_quantities"; hiddenQty.value = item.requested_quantity;
+            row.appendChild(hiddenId);
+            row.appendChild(hiddenQty);
+          }
+        }
+
+        var removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "link-btn danger";
+        removeBtn.textContent = "Entfernen";
+        removeBtn.addEventListener("click", function () {
+          ScandyCart.remove(kind, item.id);
+          row.remove();
+        });
+        var actions = document.createElement("div");
+        actions.className = "actions";
+        actions.appendChild(removeBtn);
+        row.appendChild(actions);
         itemsEl.appendChild(row);
-      });
+      }
+
+      data.items.forEach(function (item) { buildRow("item", item, item.id); });
+      data.consumables.forEach(function (item) { buildRow("consumable", item, item.id); });
 
       if (validCount === 0) {
-        emptyEl.querySelector("p").textContent = "Keine der vorgemerkten Gegenstände ist noch verfügbar.";
+        emptyEl.querySelector("p").textContent = "Keine der vorgemerkten Einträge ist noch verfügbar.";
         emptyEl.style.display = "block";
       } else {
         formEl.style.display = "block";
@@ -98,5 +122,6 @@
     setTimeout(function () { ScandyCart.clear(); }, 100);
   });
 })();
+});
 </script>
 {% endblock %}
