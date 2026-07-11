@@ -6,6 +6,9 @@ reale Postgres-Bugs verdeckt), plus ein httpx.AsyncClient gegen die echte
 FastAPI-App (app.core.database.get_session wird per dependency_overrides auf
 die Test-Engine umgebogen).
 """
+import os
+import tempfile
+
 import app.models  # noqa: F401  (registriert alle Tabellen in SQLModel.metadata)
 import pytest
 import pytest_asyncio
@@ -31,18 +34,33 @@ STAFF_PASSWORD = "staffpass123"
 
 @pytest_asyncio.fixture
 async def engine():
-    test_engine = create_async_engine("sqlite+aiosqlite://")
+    # Datei-basierte SQLite-DB statt ":memory:" - jede Session bekommt so eine
+    # eigene, echte Connection mit korrekter Transaktions-Isolation (SQLite
+    # serialisiert konkurrierende Schreibzugriffe selbst ueber Datei-Locking,
+    # busy_timeout laesst eine wartende Transaktion retryen statt sofort mit
+    # "database is locked" zu scheitern). ":memory:" (mit oder ohne StaticPool)
+    # fuehrte bei echter Nebenlaeufigkeit (test_consumable_stock_race.py) zu
+    # falschen Ergebnissen: entweder isolierte DBs pro Connection (kein Pool-
+    # Sharing) oder - mit StaticPool - eine gemeinsame Connection, bei der der
+    # rollback() der einen Session die noch nicht committete Aenderung der
+    # anderen Session mit wegriss, weil beide dieselbe physische SQLite-
+    # Transaktion teilten.
+    fd, db_path = tempfile.mkstemp(suffix=".sqlite3")
+    os.close(fd)
+    test_engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
 
     @event.listens_for(test_engine.sync_engine, "connect")
-    def _enable_foreign_keys(dbapi_connection, _connection_record):
+    def _configure_sqlite(dbapi_connection, _connection_record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA busy_timeout=5000")
         cursor.close()
 
     async with test_engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
     yield test_engine
     await test_engine.dispose()
+    os.remove(db_path)
 
 
 @pytest_asyncio.fixture
