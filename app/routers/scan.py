@@ -15,18 +15,17 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments, require_staff
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
 from app.core.templating import templates
 from app.models.common import ItemStatus, utcnow
 from app.models.consumable import Consumable, ConsumableUsage
-from app.models.department import Department
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
 from app.models.worker import Worker
 from app.routers.reservations import get_open_reservation
 
-router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_switchable_departments), Depends(require_staff)])
+router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_nav_context), Depends(require_staff)])
 
 
 async def _check_department_access(session: AsyncSession, user: User, entity_department_id: uuid.UUID) -> None:
@@ -42,11 +41,10 @@ async def scan_home(
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
 ):
     return templates.TemplateResponse(
         request, "scan/index.html",
-        {"user": user, "department": department, "ok": ok, "error": error},
+        {"user": user, "ok": ok, "error": error},
     )
 
 
@@ -55,7 +53,6 @@ async def scan_lookup(
     request: Request,
     barcode: str = Form(...),
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     barcode = barcode.strip()
@@ -76,7 +73,7 @@ async def scan_lookup(
         return templates.TemplateResponse(
             request, "scan/result.html",
             {
-                "user": user, "department": department, "kind": "item", "item": item,
+                "user": user, "kind": "item", "item": item,
                 "lending": active_lending, "reservation": reservation,
             },
         )
@@ -87,12 +84,12 @@ async def scan_lookup(
         await _check_department_access(session, user, consumable.department_id)
         return templates.TemplateResponse(
             request, "scan/result.html",
-            {"user": user, "department": department, "kind": "consumable", "consumable": consumable},
+            {"user": user, "kind": "consumable", "consumable": consumable},
         )
 
     return templates.TemplateResponse(
         request, "scan/result.html",
-        {"user": user, "department": department, "kind": "not_found", "barcode": barcode},
+        {"user": user, "kind": "not_found", "barcode": barcode},
     )
 
 

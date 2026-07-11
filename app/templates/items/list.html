@@ -4,10 +4,9 @@
 {% block content %}
 <div class="list-header">
   <div>
-    <span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
     <h1>Gegenstände</h1>
   </div>
-  {% if department and is_staff_here %}
+  {% if user.is_admin or staff_department_ids %}
     <a href="/items/new" class="btn btn-primary">+ Neuer Gegenstand</a>
   {% endif %}
 </div>
@@ -19,10 +18,6 @@
   <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Name oder Barcode…" class="search-input">
   <button type="submit" class="btn btn-ghost">Suchen</button>
 </form>
-
-{% if not department and (user.is_admin or staff_department_ids) %}
-  <p class="form-error">Wähle oben eine Abteilung aus, um Gegenstände anzulegen oder zu bearbeiten. In der Übersicht "Alle Abteilungen" kannst du nur ansehen.</p>
-{% endif %}
 
 {% if items %}
   <div class="item-grid">
@@ -61,7 +56,7 @@
             {% if item.location %}{{ item.location }}{% endif %}
           </p>
         {% endif %}
-        {% if show_department_badge and item.department %}
+        {% if item.department %}
           <span class="chip chip-neutral" style="margin-top: var(--space-1);">{{ item.department.name }}</span>
         {% endif %}
         {% if item.notes %}
@@ -71,7 +66,7 @@
           {% if linked_worker and item.status.value == "verfuegbar" and item.id not in reserved_ids %}
             <button type="button" class="link-btn cart-toggle-btn" data-cart-toggle data-item-id="{{ item.id }}">In den Warenkorb</button>
           {% endif %}
-          {% if is_staff_here or user.is_admin or item.department_id in staff_department_ids %}
+          {% if user.is_admin or item.department_id in staff_department_ids %}
             <a href="/items/{{ item.id }}/edit" class="link-btn">Bearbeiten</a>
             <form method="post" action="/items/{{ item.id }}/delete" onsubmit="return confirm('{{ item.name }} wirklich entfernen?')">
               <button type="submit" class="link-btn danger">Entfernen</button>

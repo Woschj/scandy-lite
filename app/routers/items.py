@@ -3,6 +3,10 @@ CRUD für Gegenstände (Items). Abteilungsgescoped über UserDepartmentRole:
 Sichtbarkeit richtet sich danach, in welchen Abteilungen ein User überhaupt
 eine Rolle hat; Verwalten (Anlegen/Bearbeiten/Löschen) erfordert zusätzlich
 die Mitarbeiter-Rolle SPEZIFISCH in der jeweiligen Abteilung.
+
+Kein "aktuell aktive Abteilung"-Kontext (kein Umschalter) - die Liste zeigt
+immer alles Sichtbare gemischt (mit Abteilungs-Badge pro Karte), und beim
+Anlegen ist die Abteilung ein normales Formularfeld.
 """
 import uuid
 
@@ -13,18 +17,17 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.access import is_staff_in_department, get_visible_department_ids, get_department_roles
+from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user, require_staff, populate_switchable_departments
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
-from app.models.common import ItemStatus, utcnow
-from app.models.department import Department
+from app.models.common import ItemStatus, UserRole, utcnow
 from app.models.item import Item
 from app.models.preset import Category, Location
 from app.models.user import User
 
-router = APIRouter(prefix="/items", tags=["items"], dependencies=[Depends(populate_switchable_departments)])
+router = APIRouter(prefix="/items", tags=["items"], dependencies=[Depends(populate_nav_context)])
 
 
 async def _presets(session: AsyncSession, department_id):
@@ -37,6 +40,19 @@ async def _presets(session: AsyncSession, department_id):
     return categories, locations
 
 
+async def _staff_departments(session: AsyncSession, user: User):
+    """Abteilungen, in denen dieser User anlegen/bearbeiten darf - für das
+    Abteilungs-Auswahlfeld im Anlegen-Formular."""
+    if user.is_admin:
+        return await get_accessible_departments(session, user)
+    roles = await get_department_roles(session, user)
+    dept_ids = {r.department_id for r in roles if r.role == UserRole.MITARBEITER}
+    if not dept_ids:
+        return []
+    all_accessible = await get_accessible_departments(session, user)
+    return [d for d in all_accessible if d.id in dept_ids]
+
+
 @router.get("")
 async def list_items(
     request: Request,
@@ -44,7 +60,6 @@ async def list_items(
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     from app.models.reservation import Reservation
@@ -52,34 +67,20 @@ async def list_items(
 
     linked_worker = await get_linked_worker(session, user)
 
-    stmt = select(Item).where(Item.deleted_at.is_(None)).order_by(Item.name)
-    show_department_badge = False
-    is_staff_here = False
+    stmt = select(Item).where(Item.deleted_at.is_(None)).order_by(Item.name).options(selectinload(Item.department))
+
     staff_department_ids: set = set()
-
-    if not user.is_admin:
-        roles = await get_department_roles(session, user)
-        staff_department_ids = {r.department_id for r in roles if r.role.value == "mitarbeiter"}
-
-    if department:
-        stmt = stmt.where(Item.department_id == department.id)
-        is_staff_here = await is_staff_in_department(session, user, department.id)
+    if user.is_admin:
+        visible_ids = None
     else:
-        # Keine einzelne Abteilung gewählt: Admin sieht wirklich alles, alle
-        # anderen nur ihre eigenen (zugänglichen) Abteilungen gemischt.
+        roles = await get_department_roles(session, user)
+        staff_department_ids = {r.department_id for r in roles if r.role == UserRole.MITARBEITER}
         visible_ids = await get_visible_department_ids(session, user)
-        if visible_ids is not None:
-            stmt = stmt.where(Item.department_id.in_(visible_ids))
-        show_department_badge = True
-        # "+ Neu" etc. machen ohne konkrete Abteilung keinen Sinn - dafür muss
-        # erst eine gewählt werden (gilt auch für Admins mit "Alle Abteilungen").
+        stmt = stmt.where(Item.department_id.in_(visible_ids))
 
     if q:
         like = f"%{q}%"
         stmt = stmt.where((Item.name.ilike(like)) | (Item.barcode.ilike(like)))
-
-    if show_department_badge:
-        stmt = stmt.options(selectinload(Item.department))
 
     result = await session.exec(stmt)
     items = result.all()
@@ -100,9 +101,8 @@ async def list_items(
         request,
         "items/list.html",
         {
-            "user": user, "department": department, "items": items, "q": q, "ok": ok, "error": error,
+            "user": user, "items": items, "q": q, "ok": ok, "error": error,
             "reserved_ids": reserved_ids, "linked_worker": linked_worker,
-            "show_department_badge": show_department_badge, "is_staff_here": is_staff_here,
             "staff_department_ids": staff_department_ids,
         },
     )
@@ -112,21 +112,18 @@ async def list_items(
 async def new_item_form(
     request: Request,
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    if not department:
-        raise Forbidden()  # keine gewählte Abteilung - Zielabteilung ist nicht eindeutig
-    if not await is_staff_in_department(session, user, department.id):
-        raise Forbidden()  # Mitarbeiter-Rolle woanders reicht nicht - diese Abteilung fehlt
+    departments = await _staff_departments(session, user)
+    if not departments:
+        raise Forbidden()  # keine Abteilung, in der dieser User Mitarbeiter-Rolle hat
 
-    categories, locations = await _presets(session, department.id)
     return templates.TemplateResponse(
         request,
         "items/form.html",
         {
-            "user": user, "department": department, "item": None, "error": None,
-            "categories": categories, "locations": locations,
+            "user": user, "item": None, "error": None,
+            "departments": departments, "categories": [], "locations": [],
         },
     )
 
@@ -136,28 +133,28 @@ async def create_item(
     request: Request,
     barcode: str = Form(...),
     name: str = Form(...),
+    department_id: uuid.UUID = Form(...),
     category: str = Form(""),
     location: str = Form(""),
     notes: str = Form(""),
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    if not department:
-        raise Forbidden()
-    if not await is_staff_in_department(session, user, department.id):
+    if not await is_staff_in_department(session, user, department_id):
         raise Forbidden()
 
     result = await session.exec(select(Item).where(Item.barcode == barcode, Item.deleted_at.is_(None)))
     if result.first():
-        categories, locations = await _presets(session, department.id)
+        departments = await _staff_departments(session, user)
+        categories, locations = await _presets(session, department_id)
         return templates.TemplateResponse(
             request,
             "items/form.html",
             {
-                "user": user, "department": department, "item": None,
+                "user": user, "item": None,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
-                "categories": categories, "locations": locations,
+                "departments": departments, "categories": categories, "locations": locations,
+                "selected_department_id": department_id,
             },
             status_code=409,
         )
@@ -165,7 +162,7 @@ async def create_item(
     item = Item(
         barcode=barcode, name=name,
         category=category or None, location=location or None, notes=notes or None,
-        department_id=department.id,
+        department_id=department_id,
     )
     session.add(item)
     try:
@@ -183,7 +180,6 @@ async def edit_item_form(
     ok: str = "",
     error: str = "",
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     item = await session.get(Item, item_id)
@@ -198,7 +194,7 @@ async def edit_item_form(
         "items/form.html",
         {
             "ok": ok, "error": error,
-            "user": user, "department": department, "item": item,
+            "user": user, "item": item,
             "categories": categories, "locations": locations,
         },
     )
@@ -215,7 +211,6 @@ async def update_item(
     notes: str = Form(""),
     status: str = Form(...),
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     item = await session.get(Item, item_id)
@@ -233,7 +228,7 @@ async def update_item(
             request,
             "items/form.html",
             {
-                "user": user, "department": department, "item": item,
+                "user": user, "item": item,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
                 "categories": categories, "locations": locations,
             },

@@ -4,10 +4,9 @@
 {% block content %}
 <div class="list-header">
   <div>
-    <span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
     <h1>Mitarbeiter</h1>
   </div>
-  {% if department %}
+  {% if user.is_admin or staff_department_ids %}
     <a href="/workers/new" class="btn btn-primary">+ Neuer Mitarbeiter</a>
   {% endif %}
 </div>
@@ -20,10 +19,6 @@
   <button type="submit" class="btn btn-ghost">Suchen</button>
 </form>
 
-{% if not department %}
-  <p class="form-error">Wähle oben eine Abteilung aus, um Mitarbeiter anzulegen oder zu bearbeiten.</p>
-{% endif %}
-
 {% if workers %}
   <div class="item-grid">
     {% for w in workers %}
@@ -35,13 +30,16 @@
           </div>
           {% if not w.is_active %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
         </div>
+        {% if w.department %}<span class="chip chip-neutral">{{ w.department.name }}</span>{% endif %}
         {% if w.user_id %}<span class="chip chip-neutral">Login verknüpft</span>{% endif %}
+        {% if user.is_admin or w.department_id in staff_department_ids %}
         <div class="item-card-actions">
           <a href="/workers/{{ w.id }}/edit" class="link-btn">Bearbeiten</a>
           <form method="post" action="/workers/{{ w.id }}/delete" onsubmit="return confirm('{{ w.full_name }} wirklich entfernen?')">
             <button type="submit" class="link-btn danger">Entfernen</button>
           </form>
         </div>
+        {% endif %}
       </div>
     {% endfor %}
   </div>

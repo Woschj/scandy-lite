@@ -19,18 +19,17 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_visible_department_ids
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments
+from app.core.deps import Forbidden, get_current_user, populate_nav_context
 from app.core.templating import templates
 from app.models.common import ItemStatus, utcnow
 from app.models.consumable import Consumable
 from app.models.consumable_reservation import ConsumableReservation
-from app.models.department import Department
 from app.models.item import Item
 from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/reservations", tags=["reservations"], dependencies=[Depends(populate_switchable_departments)])
+router = APIRouter(prefix="/reservations", tags=["reservations"], dependencies=[Depends(populate_nav_context)])
 
 
 async def get_linked_worker(session: AsyncSession, user: User) -> Worker | None:
@@ -70,7 +69,6 @@ async def my_reservations(
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     worker = await get_linked_worker(session, user)
@@ -102,9 +100,11 @@ async def my_reservations(
         )
         consumable_reservations = result.all()
 
-    # Admins sehen zusätzlich alle offenen Reservierungen der gewählten Abteilung
-    all_open = []
-    all_open_consumables = []
+    # Admins sehen zusätzlich alle offenen Reservierungen - nach Person
+    # GRUPPIERT (nicht jede einzeln), damit z.B. "20 Gegenstände von einer
+    # Person" nicht als 20 einzelne Zeilen erscheint. Aufklappbar in der
+    # Vorlage (natives <details>, kein JS nötig).
+    open_groups = []
     if user.is_admin:
         stmt = (
             select(Reservation)
@@ -112,8 +112,6 @@ async def my_reservations(
             .options(selectinload(Reservation.item), selectinload(Reservation.worker))
             .order_by(Reservation.created_at.desc())
         )
-        if department:
-            stmt = stmt.where(Reservation.department_id == department.id)
         all_open = (await session.exec(stmt)).all()
 
         cstmt = (
@@ -122,17 +120,29 @@ async def my_reservations(
             .options(selectinload(ConsumableReservation.consumable), selectinload(ConsumableReservation.worker))
             .order_by(ConsumableReservation.created_at.desc())
         )
-        if department:
-            cstmt = cstmt.where(ConsumableReservation.department_id == department.id)
         all_open_consumables = (await session.exec(cstmt)).all()
+
+        groups_by_worker: dict = {}
+        for r in all_open:
+            if not r.worker:
+                continue
+            g = groups_by_worker.setdefault(r.worker.id, {"worker": r.worker, "item_reservations": [], "consumables": []})
+            g["item_reservations"].append(r)
+        for r in all_open_consumables:
+            if not r.worker:
+                continue
+            g = groups_by_worker.setdefault(r.worker.id, {"worker": r.worker, "item_reservations": [], "consumables": []})
+            g["consumables"].append(r)
+
+        open_groups = sorted(groups_by_worker.values(), key=lambda g: g["worker"].last_name)
 
     return templates.TemplateResponse(
         request,
         "reservations/list.html",
         {
-            "user": user, "department": department, "worker": worker,
+            "user": user, "worker": worker,
             "reservations": reservations, "consumable_reservations": consumable_reservations,
-            "all_open": all_open, "all_open_consumables": all_open_consumables,
+            "open_groups": open_groups,
             "ok": ok, "error": error,
         },
     )
@@ -232,16 +242,13 @@ async def reserve_item(
 async def cart_page(
     request: Request,
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
 ):
     """Reine Seiten-Hülle - der Inhalt (welche Einträge im Warenkorb sind)
     kommt clientseitig aus localStorage (app/static/js/cart.js), Details dazu
-    werden per fetch() von /reservations/cart/items nachgeladen. So bleibt der
-    Warenkorb über mehrere Seitenaufrufe/Abteilungswechsel hinweg erhalten,
-    ohne dass wir dafür einen eigenen Datenbank-Tabellen-Umweg bräuchten."""
+    werden per fetch() von /reservations/cart/items nachgeladen."""
     return templates.TemplateResponse(
         request, "reservations/cart.html",
-        {"user": user, "department": department},
+        {"user": user},
     )
 
 

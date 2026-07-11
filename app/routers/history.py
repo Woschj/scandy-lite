@@ -13,15 +13,15 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import get_current_department, get_current_user, populate_switchable_departments, require_staff
+from app.core.access import get_visible_department_ids
+from app.core.deps import get_current_user, populate_nav_context, require_staff
 from app.core.templating import templates
 from app.models.consumable import Consumable, ConsumableUsage
-from app.models.department import Department
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
 
-router = APIRouter(prefix="/history", tags=["history"], dependencies=[Depends(populate_switchable_departments), Depends(require_staff)])
+router = APIRouter(prefix="/history", tags=["history"], dependencies=[Depends(populate_nav_context), Depends(require_staff)])
 
 _FETCH_LIMIT = 300  # pro Quelle - für ein internes Tool ausreichend, keine Pagination-API nötig
 _PAGE_SIZE = 50
@@ -42,10 +42,10 @@ async def history_index(
     q: str = "",
     page: int = 1,
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     entries: list[HistoryEntry] = []
+    visible_ids = await get_visible_department_ids(session, user)  # None = Admin (alles)
 
     lending_stmt = (
         select(Lending)
@@ -53,8 +53,8 @@ async def history_index(
         .order_by(Lending.lent_at.desc())
         .limit(_FETCH_LIMIT)
     )
-    if department:
-        lending_stmt = lending_stmt.where(Lending.department_id == department.id)
+    if visible_ids is not None:
+        lending_stmt = lending_stmt.where(Lending.department_id.in_(visible_ids))
     lendings = (await session.exec(lending_stmt)).all()
 
     for lending in lendings:
@@ -75,8 +75,8 @@ async def history_index(
         .order_by(ConsumableUsage.used_at.desc())
         .limit(_FETCH_LIMIT)
     )
-    if department:
-        usage_stmt = usage_stmt.where(Consumable.department_id == department.id)
+    if visible_ids is not None:
+        usage_stmt = usage_stmt.where(Consumable.department_id.in_(visible_ids))
     usages = (await session.exec(usage_stmt)).all()
 
     for usage in usages:
@@ -102,7 +102,7 @@ async def history_index(
         request,
         "history/index.html",
         {
-            "user": user, "department": department, "entries": page_entries,
+            "user": user, "entries": page_entries,
             "q": q, "page": page, "has_more": has_more, "total": total,
         },
     )

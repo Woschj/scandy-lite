@@ -16,7 +16,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import get_current_department, require_admin, populate_switchable_departments
+from app.core.deps import require_admin, populate_nav_context
 from app.core.security import hash_password
 from app.core.templating import templates
 from app.models.common import UserRole, utcnow
@@ -26,14 +26,13 @@ from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(populate_switchable_departments)])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(populate_nav_context)])
 
 
 @router.get("/settings")
 async def settings_page(
     request: Request,
     user: User = Depends(require_admin),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     departments = (await session.exec(select(Department).order_by(Department.name))).all()
@@ -64,7 +63,6 @@ async def settings_page(
         "admin/settings.html",
         {
             "user": user,
-            "department": department,
             "departments": departments,
             "categories": categories,
             "locations": locations,
@@ -168,7 +166,6 @@ async def edit_user_form(
     user_id: uuid.UUID,
     error: str = "",
     user: User = Depends(require_admin),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     target = await session.get(User, user_id)
@@ -180,7 +177,7 @@ async def edit_user_form(
 
     return templates.TemplateResponse(
         request, "admin/user_edit.html",
-        {"user": user, "department": department, "target": target, "linked_worker": linked_worker, "error": error},
+        {"user": user, "target": target, "linked_worker": linked_worker, "error": error},
     )
 
 

@@ -4,10 +4,9 @@
 {% block content %}
 <div class="list-header">
   <div>
-    <span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
     <h1>Verbrauchsmaterial</h1>
   </div>
-  {% if department and is_staff_here %}
+  {% if user.is_admin or staff_department_ids %}
     <a href="/consumables/new" class="btn btn-primary">+ Neues Material</a>
   {% endif %}
 </div>
@@ -20,13 +19,10 @@
   <button type="submit" class="btn btn-ghost">Suchen</button>
 </form>
 
-{% if not department and (user.is_admin or staff_department_ids) %}
-  <p class="form-error">Wähle oben eine Abteilung aus, um Material anzulegen oder zu bearbeiten.</p>
-{% endif %}
-
 {% if consumables %}
   <div class="item-grid">
     {% for c in consumables %}
+      {% set can_manage = user.is_admin or c.department_id in staff_department_ids %}
       <div class="item-card">
         <div class="item-card-top">
           <div class="main">
@@ -42,7 +38,7 @@
               <span class="item-barcode">{{ c.barcode }}</span>
             </div>
           </div>
-          {% if is_staff_here or user.is_admin or c.department_id in staff_department_ids %}
+          {% if can_manage %}
             <span class="qty-badge {% if c.quantity <= c.min_quantity %}qty-low{% endif %}">{{ c.quantity }} {{ c.unit }}</span>
           {% elif c.quantity > 0 %}
             <span class="chip chip-success">Verfügbar</span>
@@ -57,23 +53,23 @@
             {% if c.location %}{{ c.location }}{% endif %}
           </p>
         {% endif %}
-        {% if show_department_badge and c.department %}
+        {% if c.department %}
           <span class="chip chip-neutral" style="margin-top: var(--space-1);">{{ c.department.name }}</span>
         {% endif %}
-        {% if c.quantity <= c.min_quantity %}
+        {% if can_manage and c.quantity <= c.min_quantity %}
           <span class="chip chip-danger">Mindestbestand erreicht</span>
         {% endif %}
 
         {% if linked_worker and c.quantity > 0 %}
           <div class="qty-stepper" style="max-width: 220px; margin-top: var(--space-3);">
             <button type="button" data-step="-1" aria-label="Menge verringern">–</button>
-            <input type="number" data-cart-quantity-for="{{ c.id }}" value="1" min="1" {% if is_staff_here or user.is_admin or c.department_id in staff_department_ids %}max="{{ c.quantity }}"{% endif %} inputmode="numeric">
+            <input type="number" data-cart-quantity-for="{{ c.id }}" value="1" min="1" {% if can_manage %}max="{{ c.quantity }}"{% endif %} inputmode="numeric">
             <button type="button" data-step="1" aria-label="Menge erhöhen">+</button>
           </div>
           <button type="button" class="link-btn cart-toggle-btn" data-cart-toggle-consumable data-consumable-id="{{ c.id }}" style="margin-top: var(--space-2);">In den Warenkorb</button>
         {% endif %}
 
-        {% if department and is_staff_here %}
+        {% if can_manage %}
         <form method="post" action="/consumables/{{ c.id }}/adjust" style="margin-top: var(--space-3);" data-guard
               title="Nur Nachschub - Entnahmen bitte über Scannen erfassen, damit sie in der Historie landen">
           <div class="qty-stepper" style="max-width: 220px;">
@@ -84,9 +80,7 @@
           <input type="hidden" name="worker_id" value="">
           <button type="submit" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">+ Nachschub</button>
         </form>
-        {% endif %}
 
-        {% if is_staff_here or user.is_admin or c.department_id in staff_department_ids %}
         <div class="item-card-actions">
           <a href="/consumables/{{ c.id }}/edit" class="link-btn">Bearbeiten</a>
           <form method="post" action="/consumables/{{ c.id }}/delete" onsubmit="return confirm('{{ c.name }} wirklich entfernen?')">

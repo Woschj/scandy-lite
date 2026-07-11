@@ -1,57 +1,46 @@
 """
 Startseite nach dem Login: Kennzahlen + Kanban-Board der laufenden Vorgänge
-(offene Reservierungen -> aktive Ausleihen).
+(offene Reservierungen -> aktive Ausleihen). Zeigt immer alles, wozu der
+jeweilige User Zugriff hat (kein "aktuell aktive Abteilung"-Kontext).
 """
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import selectinload
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.access import get_visible_department_ids
 from app.core.database import get_session
-from app.core.deps import get_current_department, get_current_user, populate_switchable_departments
+from app.core.deps import get_current_user, populate_nav_context
 from app.core.templating import templates
 from app.models.consumable import Consumable
-from app.models.department import Department
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(tags=["pages"], dependencies=[Depends(populate_switchable_departments)])
+router = APIRouter(tags=["pages"], dependencies=[Depends(populate_nav_context)])
 
 
 @router.get("/")
 async def dashboard(
     request: Request,
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    item_count = 0
-    consumable_count = 0
-    worker_count = 0
-    if department:
-        result = await session.exec(
-            select(func.count()).select_from(Item).where(
-                Item.department_id == department.id, Item.deleted_at.is_(None)
-            )
-        )
-        item_count = result.one()
+    visible_ids = await get_visible_department_ids(session, user)  # None = Admin (alles)
 
-        result = await session.exec(
-            select(func.count()).select_from(Consumable).where(
-                Consumable.department_id == department.id, Consumable.deleted_at.is_(None)
-            )
-        )
-        consumable_count = result.one()
+    item_stmt = select(func.count()).select_from(Item).where(Item.deleted_at.is_(None))
+    consumable_stmt = select(func.count()).select_from(Consumable).where(Consumable.deleted_at.is_(None))
+    worker_stmt = select(func.count()).select_from(Worker).where(Worker.deleted_at.is_(None))
+    if visible_ids is not None:
+        item_stmt = item_stmt.where(Item.department_id.in_(visible_ids))
+        consumable_stmt = consumable_stmt.where(Consumable.department_id.in_(visible_ids))
+        worker_stmt = worker_stmt.where(Worker.department_id.in_(visible_ids))
 
-        result = await session.exec(
-            select(func.count()).select_from(Worker).where(
-                Worker.department_id == department.id, Worker.deleted_at.is_(None)
-            )
-        )
-        worker_count = result.one()
+    item_count = (await session.exec(item_stmt)).one()
+    consumable_count = (await session.exec(consumable_stmt)).one()
+    worker_count = (await session.exec(worker_stmt)).one()
 
     # Kanban-Spalten: offene Reservierungen und aktive Ausleihen
     res_stmt = (
@@ -68,9 +57,9 @@ async def dashboard(
         .order_by(Lending.lent_at.desc())
         .limit(50)
     )
-    if department:
-        res_stmt = res_stmt.where(Reservation.department_id == department.id)
-        lend_stmt = lend_stmt.where(Lending.department_id == department.id)
+    if visible_ids is not None:
+        res_stmt = res_stmt.where(Reservation.department_id.in_(visible_ids))
+        lend_stmt = lend_stmt.where(Lending.department_id.in_(visible_ids))
 
     open_reservations = (await session.exec(res_stmt)).all()
     active_lendings = (await session.exec(lend_stmt)).all()
@@ -80,7 +69,6 @@ async def dashboard(
         "dashboard.html",
         {
             "user": user,
-            "department": department,
             "item_count": item_count,
             "consumable_count": consumable_count,
             "worker_count": worker_count,

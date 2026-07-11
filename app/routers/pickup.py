@@ -19,19 +19,18 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.access import is_staff_in_department
+from app.core.access import get_department_roles, is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments, require_staff
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
 from app.core.templating import templates
-from app.models.common import ItemStatus, utcnow
-from app.models.department import Department
+from app.models.common import ItemStatus, UserRole, utcnow
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/scan/pickup", tags=["pickup"], dependencies=[Depends(populate_switchable_departments), Depends(require_staff)])
+router = APIRouter(prefix="/scan/pickup", tags=["pickup"], dependencies=[Depends(populate_nav_context), Depends(require_staff)])
 
 
 def _parse_checked(raw: str) -> list[uuid.UUID]:
@@ -62,18 +61,21 @@ async def pickup_workers(
     request: Request,
     ok: str = "",
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     """Liste aller Personen mit mindestens einer offenen Gegenstands-
-    Reservierung - Ausgangspunkt für die Sammel-Ausgabe."""
+    Reservierung - Ausgangspunkt für die Sammel-Ausgabe. Zeigt alle
+    Abteilungen, in denen dieser User Mitarbeiter-Rolle hat, gemischt
+    (Admin: wirklich alle)."""
     stmt = (
         select(Reservation)
         .where(Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
         .options(selectinload(Reservation.worker))
     )
-    if department:
-        stmt = stmt.where(Reservation.department_id == department.id)
+    if not user.is_admin:
+        roles = await get_department_roles(session, user)
+        staff_dept_ids = [r.department_id for r in roles if r.role == UserRole.MITARBEITER]
+        stmt = stmt.where(Reservation.department_id.in_(staff_dept_ids))
     reservations = (await session.exec(stmt)).all()
 
     workers_map: dict = {}
@@ -86,7 +88,7 @@ async def pickup_workers(
 
     return templates.TemplateResponse(
         request, "pickup/workers.html",
-        {"user": user, "department": department, "workers_list": workers_list, "ok": ok},
+        {"user": user, "workers_list": workers_list, "ok": ok},
     )
 
 
@@ -97,7 +99,6 @@ async def pickup_checklist(
     checked: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     worker = await session.get(Worker, worker_id)
@@ -114,7 +115,7 @@ async def pickup_checklist(
     return templates.TemplateResponse(
         request, "pickup/checklist.html",
         {
-            "user": user, "department": department, "worker": worker,
+            "user": user, "worker": worker,
             "pending": pending, "done": done, "checked_param": checked, "error": error,
         },
     )

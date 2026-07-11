@@ -2,7 +2,6 @@
 {% block title %}Reservierungen — Scandy-Lite{% endblock %}
 
 {% block content %}
-<span class="eyebrow">{% if department %}{{ department.name }}{% else %}Alle Abteilungen{% endif %}</span>
 <h1>Reservierungen</h1>
 
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
@@ -65,41 +64,52 @@
   {% endif %}
 {% endif %}
 
-{% if all_open is defined and user.is_admin %}
+{% if open_groups is defined and user.is_admin %}
   <h2 style="margin-top: var(--space-12);">Alle offenen Reservierungen (Admin)</h2>
-  {% if all_open or all_open_consumables %}
-    <div class="item-grid">
-      {% for r in all_open %}
-        <div class="item-card">
-          <div class="item-card-top">
-            <div>
-              <h3>{{ r.item.name if r.item else "?" }}</h3>
-              <span class="item-barcode">{{ r.item.barcode if r.item else "" }}</span>
-            </div>
+  {% if open_groups %}
+    <div class="settings-list">
+      {% for g in open_groups %}
+        <details class="pickup-row" style="padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line);">
+          <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; list-style:none;">
+            <span style="display:flex; align-items:center; gap: var(--space-3);">
+              <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">{{ g.worker.full_name }}</span>
+              <span class="meta">{{ g.worker.barcode }}</span>
+            </span>
+            <span style="display:flex; align-items:center; gap: var(--space-2);">
+              {% if g.item_reservations %}<span class="chip chip-neutral">{{ g.item_reservations | length }} Gegenstand/-stände</span>{% endif %}
+              {% if g.consumables %}<span class="chip chip-neutral">{{ g.consumables | length }} Material-Vormerkung(en)</span>{% endif %}
+            </span>
+          </summary>
+
+          <div style="margin-top: var(--space-3); padding-left: var(--space-2);">
+            {% for r in g.item_reservations %}
+              <div class="settings-row" style="padding-left: 0; padding-right: 0;">
+                <div class="main">
+                  <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">{{ r.item.name if r.item else "?" }}</span>
+                  <span class="meta">{{ r.item.barcode if r.item else "" }} · seit {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
+                </div>
+                <form method="post" action="/reservations/{{ r.id }}/cancel" onsubmit="return confirm('Reservierung stornieren?')">
+                  <button type="submit" class="link-btn danger">Stornieren</button>
+                </form>
+              </div>
+            {% endfor %}
+            {% for r in g.consumables %}
+              <div class="settings-row" style="padding-left: 0; padding-right: 0;">
+                <div class="main">
+                  <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">{{ r.quantity }}x {{ r.consumable.name if r.consumable else "?" }}</span>
+                  <span class="meta">{{ r.consumable.barcode if r.consumable else "" }} · seit {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
+                </div>
+                <form method="post" action="/reservations/consumables/{{ r.id }}/cancel" onsubmit="return confirm('Vormerkung stornieren?')">
+                  <button type="submit" class="link-btn danger">Stornieren</button>
+                </form>
+              </div>
+            {% endfor %}
+
+            {% if g.item_reservations %}
+              <a href="/scan/pickup/{{ g.worker.id }}" class="btn btn-ghost btn-block" style="margin-top: var(--space-3);">📋 Gegenstände jetzt ausgeben</a>
+            {% endif %}
           </div>
-          <p class="item-meta">Für {{ r.worker.full_name if r.worker else "?" }} · {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</p>
-          <div class="item-card-actions">
-            <form method="post" action="/reservations/{{ r.id }}/cancel" onsubmit="return confirm('Reservierung stornieren?')">
-              <button type="submit" class="link-btn danger">Stornieren</button>
-            </form>
-          </div>
-        </div>
-      {% endfor %}
-      {% for r in all_open_consumables %}
-        <div class="item-card">
-          <div class="item-card-top">
-            <div>
-              <h3>{{ r.quantity }}x {{ r.consumable.name if r.consumable else "?" }}</h3>
-              <span class="item-barcode">{{ r.consumable.barcode if r.consumable else "" }}</span>
-            </div>
-          </div>
-          <p class="item-meta">Für {{ r.worker.full_name if r.worker else "?" }} · {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</p>
-          <div class="item-card-actions">
-            <form method="post" action="/reservations/consumables/{{ r.id }}/cancel" onsubmit="return confirm('Vormerkung stornieren?')">
-              <button type="submit" class="link-btn danger">Stornieren</button>
-            </form>
-          </div>
-        </div>
+        </details>
       {% endfor %}
     </div>
   {% else %}

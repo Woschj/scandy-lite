@@ -27,19 +27,6 @@
 
   <div class="user-chip">
     {% if user %}
-      {% if all_departments %}
-        <form method="get" action="{{ request.url.path }}" style="margin:0;">
-          <select name="department" onchange="this.form.submit()" aria-label="Abteilung wechseln"
-                  style="font-family:var(--font-display); font-size:0.75rem; padding:0.375rem 0.5rem; border-radius:6px; border:1px solid var(--line-strong); background:#fff;">
-            <option value="" {% if not department %}selected{% endif %}>Alle Abteilungen</option>
-            {% for d in all_departments %}
-              <option value="{{ d.code }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>
-            {% endfor %}
-          </select>
-        </form>
-      {% elif department %}
-        <span class="eyebrow">{{ department.name }}</span>
-      {% endif %}
       <span class="username-text">{{ user.username }}</span>
       <a href="/auth/logout" class="btn btn-ghost" style="min-height:36px; padding:0.375rem 0.75rem;">Abmelden</a>
     {% endif %}

@@ -1,4 +1,6 @@
-"""CRUD für Mitarbeiter (Worker) - die Personen, die Gegenstände ausleihen."""
+"""CRUD für Mitarbeiter (Worker) - die Personen, die Gegenstände ausleihen.
+Kein "aktuell aktive Abteilung"-Kontext - die Abteilung ist ein Formularfeld
+beim Anlegen, sonst über den Datensatz selbst bekannt."""
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -7,16 +9,26 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.access import is_staff_in_department
+from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user, populate_switchable_departments, require_staff
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
 from app.core.templating import templates
-from app.models.common import utcnow
-from app.models.department import Department
+from app.models.common import UserRole, utcnow
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/workers", tags=["workers"], dependencies=[Depends(populate_switchable_departments), Depends(require_staff)])
+router = APIRouter(prefix="/workers", tags=["workers"], dependencies=[Depends(populate_nav_context), Depends(require_staff)])
+
+
+async def _staff_departments(session: AsyncSession, user: User):
+    if user.is_admin:
+        return await get_accessible_departments(session, user)
+    roles = await get_department_roles(session, user)
+    dept_ids = {r.department_id for r in roles if r.role == UserRole.MITARBEITER}
+    if not dept_ids:
+        return []
+    all_accessible = await get_accessible_departments(session, user)
+    return [d for d in all_accessible if d.id in dept_ids]
 
 
 @router.get("")
@@ -26,12 +38,17 @@ async def list_workers(
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    stmt = select(Worker).where(Worker.deleted_at.is_(None)).order_by(Worker.last_name)
-    if department:
-        stmt = stmt.where(Worker.department_id == department.id)
+    from sqlalchemy.orm import selectinload
+
+    stmt = select(Worker).where(Worker.deleted_at.is_(None)).order_by(Worker.last_name).options(selectinload(Worker.department))
+    staff_department_ids: set = set()
+    if not user.is_admin:
+        roles = await get_department_roles(session, user)
+        staff_department_ids = {r.department_id for r in roles if r.role == UserRole.MITARBEITER}
+        visible_ids = await get_visible_department_ids(session, user)
+        stmt = stmt.where(Worker.department_id.in_(visible_ids))
     if q:
         like = f"%{q}%"
         stmt = stmt.where(
@@ -44,7 +61,7 @@ async def list_workers(
     return templates.TemplateResponse(
         request,
         "workers/list.html",
-        {"user": user, "department": department, "workers": workers, "q": q, "ok": ok, "error": error},
+        {"user": user, "workers": workers, "q": q, "ok": ok, "error": error, "staff_department_ids": staff_department_ids},
     )
 
 
@@ -52,17 +69,15 @@ async def list_workers(
 async def new_worker_form(
     request: Request,
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    if not department:
-        raise Forbidden()
-    if not await is_staff_in_department(session, user, department.id):
+    departments = await _staff_departments(session, user)
+    if not departments:
         raise Forbidden()
     return templates.TemplateResponse(
         request,
         "workers/form.html",
-        {"user": user, "department": department, "worker": None, "error": None},
+        {"user": user, "worker": None, "error": None, "departments": departments},
     )
 
 
@@ -72,28 +87,28 @@ async def create_worker(
     barcode: str = Form(...),
     first_name: str = Form(...),
     last_name: str = Form(...),
+    department_id: uuid.UUID = Form(...),
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    if not department:
-        raise Forbidden()
-    if not await is_staff_in_department(session, user, department.id):
+    if not await is_staff_in_department(session, user, department_id):
         raise Forbidden()
 
     result = await session.exec(select(Worker).where(Worker.barcode == barcode, Worker.deleted_at.is_(None)))
     if result.first():
+        departments = await _staff_departments(session, user)
         return templates.TemplateResponse(
             request,
             "workers/form.html",
             {
-                "user": user, "department": department, "worker": None,
+                "user": user, "worker": None,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
+                "departments": departments,
             },
             status_code=409,
         )
 
-    worker = Worker(barcode=barcode, first_name=first_name, last_name=last_name, department_id=department.id)
+    worker = Worker(barcode=barcode, first_name=first_name, last_name=last_name, department_id=department_id)
     session.add(worker)
     try:
         await session.commit()
@@ -108,7 +123,6 @@ async def edit_worker_form(
     request: Request,
     worker_id: uuid.UUID,
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     worker = await session.get(Worker, worker_id)
@@ -127,7 +141,7 @@ async def edit_worker_form(
         request,
         "workers/form.html",
         {
-            "user": user, "department": department, "worker": worker, "error": None,
+            "user": user, "worker": worker, "error": None,
             "linkable_users": linkable_users,
         },
     )
@@ -143,7 +157,6 @@ async def update_worker(
     is_active: str = Form(""),
     user_id: str = Form(""),
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     worker = await session.get(Worker, worker_id)
@@ -164,7 +177,7 @@ async def update_worker(
             request,
             "workers/form.html",
             {
-                "user": user, "department": department, "worker": worker,
+                "user": user, "worker": worker,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
                 "linkable_users": linkable_users,
             },

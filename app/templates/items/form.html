@@ -2,7 +2,6 @@
 {% block title %}{% if item %}Gegenstand bearbeiten{% else %}Neuer Gegenstand{% endif %} — Scandy-Lite{% endblock %}
 
 {% block content %}
-<span class="eyebrow">{{ department.name }}</span>
 <h1>{% if item %}Gegenstand bearbeiten{% else %}Neuer Gegenstand{% endif %}</h1>
 
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
@@ -31,6 +30,16 @@
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
   <form data-guard method="post" action="{% if item %}/items/{{ item.id }}/edit{% else %}/items/new{% endif %}">
+    {% if not item %}
+      <div class="field">
+        <label for="department_id">Abteilung</label>
+        <select id="department_id" name="department_id" required>
+          {% for d in departments %}
+            <option value="{{ d.id }}" {% if selected_department_id and d.id == selected_department_id %}selected{% endif %}>{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endif %}
     <div class="field">
       <label for="barcode">Barcode</label>
       <input type="text" id="barcode" name="barcode" value="{{ item.barcode if item else '' }}" required autofocus>
@@ -39,33 +48,44 @@
       <label for="name">Bezeichnung</label>
       <input type="text" id="name" name="name" value="{{ item.name if item else '' }}" required>
     </div>
-    <div class="field">
-      <label for="category">Kategorie</label>
-      <select id="category" name="category">
-        <option value="">— keine —</option>
-        {% for c in categories %}
-          <option value="{{ c.name }}" {% if item and item.category == c.name %}selected{% endif %}>{{ c.name }}</option>
-        {% endfor %}
-        {# Legacy-Wert erhalten, falls er nicht (mehr) in den Presets ist #}
-        {% if item and item.category and item.category not in categories | map(attribute="name") | list %}
-          <option value="{{ item.category }}" selected>{{ item.category }} (nicht in Vorgaben)</option>
-        {% endif %}
-      </select>
-      {% if not categories %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Kategorien für {{ department.name }} angelegt — Admin: Einstellungen → Kategorien (Abteilung dort korrekt auswählen!).</p>{% endif %}
-    </div>
-    <div class="field">
-      <label for="location">Standort</label>
-      <select id="location" name="location">
-        <option value="">— keiner —</option>
-        {% for l in locations %}
-          <option value="{{ l.name }}" {% if item and item.location == l.name %}selected{% endif %}>{{ l.name }}</option>
-        {% endfor %}
-        {% if item and item.location and item.location not in locations | map(attribute="name") | list %}
-          <option value="{{ item.location }}" selected>{{ item.location }} (nicht in Vorgaben)</option>
-        {% endif %}
-      </select>
-      {% if not locations %}<p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1);">Noch keine Standorte für {{ department.name }} angelegt — Admin: Einstellungen → Standorte (Abteilung dort korrekt auswählen!).</p>{% endif %}
-    </div>
+    {% if item %}
+      <div class="field">
+        <label for="category">Kategorie</label>
+        <select id="category" name="category">
+          <option value="">— keine —</option>
+          {% for c in categories %}
+            <option value="{{ c.name }}" {% if item.category == c.name %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+          {% if item.category and item.category not in categories | map(attribute="name") | list %}
+            <option value="{{ item.category }}" selected>{{ item.category }} (nicht in Vorgaben)</option>
+          {% endif %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="location">Standort</label>
+        <select id="location" name="location">
+          <option value="">— keiner —</option>
+          {% for l in locations %}
+            <option value="{{ l.name }}" {% if item.location == l.name %}selected{% endif %}>{{ l.name }}</option>
+          {% endfor %}
+          {% if item.location and item.location not in locations | map(attribute="name") | list %}
+            <option value="{{ item.location }}" selected>{{ item.location }} (nicht in Vorgaben)</option>
+          {% endif %}
+        </select>
+      </div>
+    {% else %}
+      <div class="field">
+        <label for="category">Kategorie</label>
+        <input type="text" id="category" name="category" placeholder="frei wählbar">
+      </div>
+      <div class="field">
+        <label for="location">Standort</label>
+        <input type="text" id="location" name="location" placeholder="frei wählbar">
+      </div>
+      <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:calc(-1 * var(--space-2)); margin-bottom: var(--space-4);">
+        Nach dem Anlegen stehen für die gewählte Abteilung ggf. hinterlegte Vorschläge als Dropdown zur Verfügung (Einstellungen → Kategorien/Standorte).
+      </p>
+    {% endif %}
     <div class="field">
       <label for="notes">Bemerkungen</label>
       <textarea id="notes" name="notes" rows="3" style="width:100%; padding:0.75rem; border:1px solid var(--line-strong); border-radius:var(--radius); font-family:inherit; resize:vertical;">{{ item.notes if item else '' }}</textarea>

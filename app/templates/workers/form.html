@@ -2,13 +2,22 @@
 {% block title %}{% if worker %}Mitarbeiter bearbeiten{% else %}Neuer Mitarbeiter{% endif %} — Scandy-Lite{% endblock %}
 
 {% block content %}
-<span class="eyebrow">{{ department.name }}</span>
 <h1>{% if worker %}Mitarbeiter bearbeiten{% else %}Neuer Mitarbeiter{% endif %}</h1>
 
 <div class="tag-card form-card">
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
   <form data-guard method="post" action="{% if worker %}/workers/{{ worker.id }}/edit{% else %}/workers/new{% endif %}">
+    {% if not worker %}
+      <div class="field">
+        <label for="department_id">Abteilung</label>
+        <select id="department_id" name="department_id" required>
+          {% for d in departments %}
+            <option value="{{ d.id }}">{{ d.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endif %}
     <div class="field">
       <label for="barcode">Barcode (Ausweis)</label>
       <input type="text" id="barcode" name="barcode" value="{{ worker.barcode if worker else '' }}" required autofocus>

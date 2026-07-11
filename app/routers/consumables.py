@@ -5,6 +5,7 @@ reiner Nachschub (kein Mitarbeiter gewählt) verändert nur den Bestand.
 
 Abteilungsgescoped über UserDepartmentRole - siehe items.py für die
 ausführliche Erklärung des Berechtigungsmodells, hier identisch angewendet.
+Kein "aktuell aktive Abteilung"-Kontext (kein Umschalter).
 """
 import uuid
 
@@ -15,19 +16,18 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.access import is_staff_in_department, get_visible_department_ids, get_department_roles
+from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_department, get_current_user, require_staff, populate_switchable_departments
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
-from app.models.common import utcnow
+from app.models.common import UserRole, utcnow
 from app.models.consumable import Consumable, ConsumableUsage
-from app.models.department import Department
 from app.models.preset import Category, Location
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/consumables", tags=["consumables"], dependencies=[Depends(populate_switchable_departments)])
+router = APIRouter(prefix="/consumables", tags=["consumables"], dependencies=[Depends(populate_nav_context)])
 
 
 async def _presets(session: AsyncSession, department_id):
@@ -40,6 +40,17 @@ async def _presets(session: AsyncSession, department_id):
     return categories, locations
 
 
+async def _staff_departments(session: AsyncSession, user: User):
+    if user.is_admin:
+        return await get_accessible_departments(session, user)
+    roles = await get_department_roles(session, user)
+    dept_ids = {r.department_id for r in roles if r.role == UserRole.MITARBEITER}
+    if not dept_ids:
+        return []
+    all_accessible = await get_accessible_departments(session, user)
+    return [d for d in all_accessible if d.id in dept_ids]
+
+
 @router.get("")
 async def list_consumables(
     request: Request,
@@ -47,37 +58,24 @@ async def list_consumables(
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     from app.routers.reservations import get_linked_worker
 
     linked_worker = await get_linked_worker(session, user)
 
-    stmt = select(Consumable).where(Consumable.deleted_at.is_(None)).order_by(Consumable.name)
-    show_department_badge = False
-    is_staff_here = False
-    staff_department_ids: set = set()
+    stmt = select(Consumable).where(Consumable.deleted_at.is_(None)).order_by(Consumable.name).options(selectinload(Consumable.department))
 
+    staff_department_ids: set = set()
     if not user.is_admin:
         roles = await get_department_roles(session, user)
-        staff_department_ids = {r.department_id for r in roles if r.role.value == "mitarbeiter"}
-
-    if department:
-        stmt = stmt.where(Consumable.department_id == department.id)
-        is_staff_here = await is_staff_in_department(session, user, department.id)
-    else:
+        staff_department_ids = {r.department_id for r in roles if r.role == UserRole.MITARBEITER}
         visible_ids = await get_visible_department_ids(session, user)
-        if visible_ids is not None:
-            stmt = stmt.where(Consumable.department_id.in_(visible_ids))
-        show_department_badge = True
+        stmt = stmt.where(Consumable.department_id.in_(visible_ids))
 
     if q:
         like = f"%{q}%"
         stmt = stmt.where((Consumable.name.ilike(like)) | (Consumable.barcode.ilike(like)))
-
-    if show_department_badge:
-        stmt = stmt.options(selectinload(Consumable.department))
 
     result = await session.exec(stmt)
     consumables = result.all()
@@ -86,9 +84,8 @@ async def list_consumables(
         request,
         "consumables/list.html",
         {
-            "user": user, "department": department, "consumables": consumables, "q": q, "ok": ok, "error": error,
-            "show_department_badge": show_department_badge, "linked_worker": linked_worker,
-            "is_staff_here": is_staff_here, "staff_department_ids": staff_department_ids,
+            "user": user, "consumables": consumables, "q": q, "ok": ok, "error": error,
+            "linked_worker": linked_worker, "staff_department_ids": staff_department_ids,
         },
     )
 
@@ -97,21 +94,18 @@ async def list_consumables(
 async def new_consumable_form(
     request: Request,
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    if not department:
-        raise Forbidden()
-    if not await is_staff_in_department(session, user, department.id):
+    departments = await _staff_departments(session, user)
+    if not departments:
         raise Forbidden()
 
-    categories, locations = await _presets(session, department.id)
     return templates.TemplateResponse(
         request,
         "consumables/form.html",
         {
-            "user": user, "department": department, "consumable": None, "error": None,
-            "categories": categories, "locations": locations,
+            "user": user, "consumable": None, "error": None,
+            "departments": departments, "categories": [], "locations": [],
         },
     )
 
@@ -121,32 +115,31 @@ async def create_consumable(
     request: Request,
     barcode: str = Form(...),
     name: str = Form(...),
+    department_id: uuid.UUID = Form(...),
     category: str = Form(""),
     location: str = Form(""),
     unit: str = Form("Stück"),
     quantity: int = Form(0),
     min_quantity: int = Form(0),
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
-    if not department:
-        raise Forbidden()
-    if not await is_staff_in_department(session, user, department.id):
+    if not await is_staff_in_department(session, user, department_id):
         raise Forbidden()
 
     result = await session.exec(
         select(Consumable).where(Consumable.barcode == barcode, Consumable.deleted_at.is_(None))
     )
     if result.first():
-        categories, locations = await _presets(session, department.id)
+        departments = await _staff_departments(session, user)
+        categories, locations = await _presets(session, department_id)
         return templates.TemplateResponse(
             request,
             "consumables/form.html",
             {
-                "user": user, "department": department, "consumable": None,
+                "user": user, "consumable": None,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
-                "categories": categories, "locations": locations,
+                "departments": departments, "categories": categories, "locations": locations,
             },
             status_code=409,
         )
@@ -154,7 +147,7 @@ async def create_consumable(
     consumable = Consumable(
         barcode=barcode, name=name, category=category or None, location=location or None,
         unit=unit or "Stück", quantity=max(quantity, 0), min_quantity=max(min_quantity, 0),
-        department_id=department.id,
+        department_id=department_id,
     )
     session.add(consumable)
     try:
@@ -172,7 +165,6 @@ async def edit_consumable_form(
     ok: str = "",
     error: str = "",
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     consumable = await session.get(Consumable, consumable_id)
@@ -189,7 +181,7 @@ async def edit_consumable_form(
         request,
         "consumables/form.html",
         {
-            "user": user, "department": department, "consumable": consumable, "error": error, "ok": ok,
+            "user": user, "consumable": consumable, "error": error, "ok": ok,
             "workers": workers_result.all(),
             "categories": categories, "locations": locations,
         },
@@ -207,7 +199,6 @@ async def update_consumable(
     unit: str = Form("Stück"),
     min_quantity: int = Form(0),
     user: User = Depends(require_staff),
-    department: Department | None = Depends(get_current_department),
     session: AsyncSession = Depends(get_session),
 ):
     consumable = await session.get(Consumable, consumable_id)
@@ -227,7 +218,7 @@ async def update_consumable(
             request,
             "consumables/form.html",
             {
-                "user": user, "department": department, "consumable": consumable,
+                "user": user, "consumable": consumable,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
                 "categories": categories, "locations": locations,
             },

@@ -297,6 +297,13 @@ sichtbar und wird beim Anlegen neuer Kategorien/Standorte automatisch vorausgew�
    als Kontext angezeigt, aber nicht hart erzwungen.
 4. **Rückgabe (nur Gegenstände):** Gegenstand einfach erneut scannen → Rückgabe mit einem Klick.
 
+**Admin-Übersicht (dieser Stand):** Unter *Reservierungen → Alle offenen Reservierungen* sind
+Einträge **nach Person gruppiert** statt einzeln aufgelistet - reserviert jemand 20 Gegenstände,
+erscheint das als EINE aufklappbare Zeile ("Person X — 20 Gegenstände"), nicht als 20 einzelne
+Karten. Aufklappen (natives `<details>`, kein JS nötig) zeigt die Einzelposten mit
+Stornier-Möglichkeit pro Eintrag, plus einen direkten Link zur Sammel-Ausgabe für genau diese
+Person.
+
 Die **Übersicht** ist ein Kanban-Board: Spalten *Reserviert* → *Ausgeliehen* zeigen alle laufenden Vorgänge (mit ✓-Kennzeichnung unterschriebener Ausgaben). Benutzer-Logins werden unter *Einstellungen → Benutzer* angelegt (nur Admin).
   - [x] Kamera-basiertes Scannen (via optionalem Caddy-HTTPS-Proxy)
 - [x] **Phase 7 — Docker-Setup für Produktivbetrieb** (vorgezogen für Portainer-Deployment)
