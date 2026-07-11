@@ -10,7 +10,7 @@
 
 <div class="tag-card form-card" style="margin-bottom: var(--space-6);">
   <div id="scan-form-area">
-    <form method="post" action="/scan/pickup/{{ worker.id }}/scan">
+    <form method="post" action="/scan/pickup/{{ worker.id }}/scan" data-guard>
       {% include "partials/csrf_field.html" %}
       <input type="hidden" name="checked" value="{{ checked_param }}">
       <div class="field">
@@ -101,7 +101,8 @@
     videoContainerId: 'scan-video-container',
     unsupportedMsg: document.getElementById('camera-unsupported'),
     input: document.getElementById('barcode'),
-    hideWhileActive: document.getElementById('scan-form-area')
+    hideWhileActive: document.getElementById('scan-form-area'),
+    centerContent: false
   });
   {% if error %}ScandyCamera.vibrate([60, 60, 60]);{% elif checked_param %}ScandyCamera.vibrate(80);{% endif %}
 </script>

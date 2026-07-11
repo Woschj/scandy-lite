@@ -46,7 +46,15 @@
   </div>
 {% else %}
   <div class="empty-state">
-    <p>{% if q %}Keine Mitarbeiter gefunden für "{{ q }}".{% else %}Noch keine Mitarbeiter angelegt.{% endif %}</p>
+    <p>
+      {% if q %}
+        Keine Mitarbeiter gefunden für "{{ q }}".
+      {% elif user.is_admin or staff_department_ids %}
+        Noch keine Mitarbeiter angelegt. <a href="/workers/new">Jetzt einen anlegen</a>.
+      {% else %}
+        Noch keine Mitarbeiter angelegt.
+      {% endif %}
+    </p>
   </div>
 {% endif %}
 {% endblock %}

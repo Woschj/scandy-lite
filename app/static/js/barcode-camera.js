@@ -5,8 +5,18 @@
  *
  * Nutzung: ScandyCamera.attach({
  *   startBtn, cancelBtn, wrap, videoContainerId, unsupportedMsg, input,
- *   onScan: function(text) { ... }  // optional, Default: Formular absenden
+ *   onScan: function(text) { ... },  // optional, Default: Formular absenden
+ *   centerContent: true  // optional, Default true - siehe unten
  * });
+ *
+ * centerContent steuert, ob die Kamera-Karte im verbleibenden Platz vertikal
+ * zentriert wird (Klasse "camera-active-centered" auf <body>, siehe app.css).
+ * Macht nur Sinn, wenn hideWhileActive auch WIRKLICH fast die ganze Seite
+ * ausblendet (Hauptscan-Seite) - blendet hideWhileActive nur ein einzelnes
+ * Formularfeld aus und der Rest der Seite (Gegenstand-Karte, Checkliste)
+ * bleibt sichtbar, würde die Zentrierung bei Inhalt, der höher als der
+ * verfügbare Platz ist, den oberen Teil hinter die Nav schieben und
+ * unerreichbar machen - dafür centerContent: false setzen.
  *
  * videoContainerId ist die ID eines LEEREN <div> - html5-qrcode erzeugt
  * darin selbst sein Video-/Canvas-Element (anders als z.B. ZXing, das ein
@@ -21,6 +31,7 @@ window.ScandyCamera = (function () {
 
   function attach(cfg) {
     var scanner = null;
+    var centerContent = cfg.centerContent !== false; // Default true
 
     function showUnsupported(msg) {
       cfg.startBtn.style.display = "none";
@@ -35,6 +46,7 @@ window.ScandyCamera = (function () {
       cfg.startBtn.style.display = "block";
       if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = ""; }
       document.body.classList.remove("camera-active");
+      if (centerContent) { document.body.classList.remove("camera-active-centered"); }
       if (scanner) {
         var s = scanner;
         scanner = null;
@@ -62,6 +74,7 @@ window.ScandyCamera = (function () {
       cfg.wrap.style.display = "block";
       if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = "none"; }
       document.body.classList.add("camera-active");
+      if (centerContent) { document.body.classList.add("camera-active-centered"); }
       cfg.wrap.scrollIntoView({ behavior: "smooth", block: "start" });
 
       scanner = new Html5Qrcode(cfg.videoContainerId);
@@ -85,6 +98,7 @@ window.ScandyCamera = (function () {
         cfg.startBtn.style.display = "block";
         if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = ""; }
         document.body.classList.remove("camera-active");
+        if (centerContent) { document.body.classList.remove("camera-active-centered"); }
         scanner = null;
       });
     });

@@ -11,7 +11,7 @@ import os
 import logging
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import get_settings
@@ -64,6 +64,21 @@ app.include_router(admin_import.router)
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     return RedirectResponse(url="/static/icons/icon.svg")
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    # Bewusst NICHT unter /static/ (StaticFiles-Mount) ausgeliefert: ein
+    # Service Worker kontrolliert per Default nur den Pfad, unter dem er
+    # liegt - unter /static/sw.js gecacht, würde er nie die eigentlichen
+    # App-Seiten (/scan, /items, ...) sehen. Cache-Control: no-cache, damit
+    # Browser bei jedem Start auf eine neue Version prüfen (Service Worker
+    # werden sonst bis zu 24h lang aus dem HTTP-Cache bedient).
+    return FileResponse(
+        "app/static/sw.js",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 
 @app.exception_handler(RedirectToLogin)

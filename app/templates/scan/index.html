@@ -14,7 +14,7 @@
     <div class="tag-barcode" aria-hidden="true">
       {% for i in range(20) %}<span style="height:{{ (35 + (i * 41) % 65) }}%"></span>{% endfor %}
     </div>
-    <form method="post" action="/scan/lookup" id="scan-form">
+    <form method="post" action="/scan/lookup" id="scan-form" data-guard>
       {% include "partials/csrf_field.html" %}
       <div class="field">
         <label for="barcode">Barcode</label>

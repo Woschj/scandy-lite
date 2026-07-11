@@ -12,9 +12,9 @@
   --brand: #1b5e5a;
   --brand-ink: #0f3f3c;
   --accent: #e8a33d;
-  --success: #3d8361;
+  --success: #2d6b4c;
   --success-bg: #e3efe7;
-  --danger: #b84a3b;
+  --danger: #96372a;
   --danger-bg: #f6e6e2;
   --line: #d9d5c9;
   --line-strong: #b9b4a4;
@@ -1220,13 +1220,38 @@ details.pickup-row[open] summary::after { transform: rotate(180deg); }
 }
 
 /* -------------------------------------------------------------------------
+   Offline-Hinweis (app/static/js/offline-banner.js) - fixiert am oberen
+   Rand, per Default per translateY ausgeblendet, schiebt sich bei fehlender
+   Verbindung sichtbar rein. Reiner Hinweis, kein Cache/Queue-Mechanismus.
+   ------------------------------------------------------------------------- */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  padding: var(--space-2) var(--space-4);
+  padding-top: calc(var(--space-2) + env(safe-area-inset-top));
+  background: var(--accent);
+  color: var(--brand-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+  transform: translateY(-100%);
+  transition: transform 0.2s ease;
+}
+.offline-banner.is-visible {
+  transform: translateY(0);
+}
+
+/* -------------------------------------------------------------------------
    Kamera aktiv: Rest der Seite (Überschrift, Formular) wird per JS
    ausgeblendet (hideWhileActive in barcode-camera.js) - hier zusätzlich die
    Kamera-Karte im verbleibenden Platz vertikal zentrieren, statt einfach
    oben kleben zu bleiben. body.camera-active wird von barcode-camera.js
    gesetzt/entfernt.
    ------------------------------------------------------------------------- */
-body.camera-active .main-content {
+body.camera-active-centered .main-content {
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1234,5 +1259,5 @@ body.camera-active .main-content {
 }
 
 @media (min-width: 721px) {
-  body.camera-active .main-content { min-height: calc(100dvh - var(--nav-height)); }
+  body.camera-active-centered .main-content { min-height: calc(100dvh - var(--nav-height)); }
 }

@@ -67,6 +67,7 @@
           unsupportedMsg: document.getElementById('worker-camera-unsupported'),
           input: document.getElementById('worker_barcode'),
           hideWhileActive: document.getElementById('worker-barcode-field'),
+          centerContent: false,
           onScan: function () { /* nicht automatisch absenden - Unterschrift fehlt noch */ }
         });
       </script>
@@ -142,6 +143,7 @@
         unsupportedMsg: document.getElementById('worker-camera-unsupported'),
         input: document.getElementById('worker_barcode'),
         hideWhileActive: document.getElementById('consume-fields'),
+        centerContent: false,
         onScan: function () { /* nicht automatisch absenden - Menge nochmal prüfen lassen */ }
       });
     </script>

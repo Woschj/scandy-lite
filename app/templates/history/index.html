@@ -83,7 +83,13 @@
   </div>
 {% else %}
   <div class="empty-state">
-    <p>{% if q %}Keine Einträge gefunden für "{{ q }}".{% else %}Noch keine Ausleihen oder Entnahmen erfasst.{% endif %}</p>
+    <p>
+      {% if q %}
+        Keine Einträge gefunden für "{{ q }}".
+      {% else %}
+        Noch keine Ausleihen oder Entnahmen erfasst. <a href="/scan">Jetzt einen Barcode scannen</a>.
+      {% endif %}
+    </p>
   </div>
 {% endif %}
 {% endblock %}
