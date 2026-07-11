@@ -3,8 +3,18 @@ Historie - kombinierte, chronologische Zeitleiste aus Ausleihen, Rückgaben und
 Verbrauchsmaterial-Entnahmen. Bewusst als EINE Ansicht statt getrennter
 Tool-Historie/Worker-Historie/Consumable-Historie (wie im Original) - für ein
 schlankes System reicht eine gemeinsame, filterbare Liste.
+
+Ausleihen werden nach (Mitarbeiter, Unterschrift) GRUPPIERT statt einzeln
+aufgelistet: eine Unterschrift gehört immer zu genau einem Bestätigungsvorgang
+(egal ob Einzel-Ausgabe oder Sammel-Ausgabe für 20 Gegenstände auf einmal) -
+das ist ein natürlicher, bereits vorhandener Gruppierungsschlüssel, ohne dass
+wir dafür extra eine "Sitzung"/"Vorgang"-Tabelle bräuchten. Historische, aus
+Scandy2 importierte Ausleihen ohne Unterschrift bleiben einzeln (Gruppierung
+über eine gemeinsame NULL-Unterschrift wäre irreführend - würde sämtliche
+Alt-Ausleihen einer Person fälschlich in einen Topf werfen).
 """
-from dataclasses import dataclass
+from collections import defaultdict
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
@@ -28,12 +38,28 @@ _PAGE_SIZE = 50
 
 
 @dataclass
+class LendingDetail:
+    name: str
+    lent_at: datetime
+    returned_at: datetime | None
+
+
+@dataclass
 class HistoryEntry:
     timestamp: datetime
-    action: str  # "ausgeliehen" | "zurückgegeben" | "entnommen"
+    action: str  # "ausgeliehen" | "entnommen" - fürs Icon/den Chip
     title: str
     subtitle: str  # Mitarbeitername
     detail: str = ""
+    signature: str | None = None
+    lending_items: list[LendingDetail] = field(default_factory=list)  # nur bei gruppierten Ausleihen
+    open_count: int = 0
+    total_count: int = 1
+
+    @property
+    def search_text(self) -> str:
+        extra = " ".join(li.name for li in self.lending_items)
+        return f"{self.title} {self.subtitle} {extra}".lower()
 
 
 @router.get("")
@@ -57,16 +83,42 @@ async def history_index(
         lending_stmt = lending_stmt.where(Lending.department_id.in_(visible_ids))
     lendings = (await session.exec(lending_stmt)).all()
 
+    # Gruppieren nach (worker_id, signature) - siehe Modul-Docstring. Nur wenn
+    # eine Unterschrift vorhanden ist; ohne Unterschrift (Alt-/Import-Daten)
+    # bleibt jede Ausleihe ein eigener Eintrag.
+    groups: dict[tuple, list[Lending]] = defaultdict(list)
+    ungrouped: list[Lending] = []
     for lending in lendings:
+        if lending.signature:
+            groups[(lending.worker_id, lending.signature)].append(lending)
+        else:
+            ungrouped.append(lending)
+
+    for (_worker_id, signature), group in groups.items():
+        group.sort(key=lambda l: l.lent_at)
+        worker_name = group[0].worker.full_name if group[0].worker else "(gelöschter Mitarbeiter)"
+        details = [
+            LendingDetail(
+                name=l.item.name if l.item else "(gelöschter Gegenstand)",
+                lent_at=l.lent_at, returned_at=l.returned_at,
+            )
+            for l in group
+        ]
+        open_count = sum(1 for l in group if l.returned_at is None)
+        title = details[0].name if len(group) == 1 else f"{len(group)} Gegenstände"
+        entries.append(HistoryEntry(
+            timestamp=group[0].lent_at, action="ausgeliehen", title=title, subtitle=worker_name,
+            signature=signature, lending_items=details, open_count=open_count, total_count=len(group),
+        ))
+
+    for lending in ungrouped:
         item_name = lending.item.name if lending.item else "(gelöschter Gegenstand)"
         worker_name = lending.worker.full_name if lending.worker else "(gelöschter Mitarbeiter)"
         entries.append(HistoryEntry(
             timestamp=lending.lent_at, action="ausgeliehen", title=item_name, subtitle=worker_name,
+            open_count=(1 if lending.returned_at is None else 0), total_count=1,
+            lending_items=[LendingDetail(name=item_name, lent_at=lending.lent_at, returned_at=lending.returned_at)],
         ))
-        if lending.returned_at:
-            entries.append(HistoryEntry(
-                timestamp=lending.returned_at, action="zurückgegeben", title=item_name, subtitle=worker_name,
-            ))
 
     usage_stmt = (
         select(ConsumableUsage)
@@ -89,7 +141,7 @@ async def history_index(
 
     if q:
         q_lower = q.lower()
-        entries = [e for e in entries if q_lower in e.title.lower() or q_lower in e.subtitle.lower()]
+        entries = [e for e in entries if q_lower in e.search_text]
 
     entries.sort(key=lambda e: e.timestamp, reverse=True)
 

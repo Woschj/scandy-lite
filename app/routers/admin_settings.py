@@ -8,9 +8,11 @@ Feature-Flags, kein Custom-Fields-System, kein Notification-Center - nur die
 Presets, die die Formulare tatsächlich brauchen.
 """
 import uuid
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -20,8 +22,13 @@ from app.core.deps import require_admin, populate_nav_context
 from app.core.security import hash_password
 from app.core.templating import templates
 from app.models.common import UserRole, utcnow
+from app.models.consumable import Consumable
+from app.models.consumable_reservation import ConsumableReservation
 from app.models.department import Department
+from app.models.item import Item
+from app.models.lending import Lending
 from app.models.preset import Category, Location
+from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
 from app.models.worker import Worker
@@ -32,6 +39,8 @@ router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(popula
 @router.get("/settings")
 async def settings_page(
     request: Request,
+    ok: str = "",
+    error: str = "",
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -70,6 +79,8 @@ async def settings_page(
             "access_by_user": access_by_user,
             "all_access": all_access,
             "worker_by_user": worker_by_user,
+            "ok": ok,
+            "error": error,
         },
     )
 
@@ -288,6 +299,54 @@ async def toggle_department(
         session.add(department)
         await session.commit()
     return RedirectResponse(url="/admin/settings#departments", status_code=303)
+
+
+@router.post("/departments/{department_id}/delete")
+async def delete_department(
+    department_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Echtes Löschen, aber NUR wenn die Abteilung wirklich leer ist - eine
+    Abteilung mit Gegenständen/Material/Mitarbeitern/Historie zu löschen
+    würde all das mitreißen (oder an Fremdschlüssel-Verletzungen scheitern).
+    Zählt bewusst auch soft-gelöschte Einträge mit (die referenzieren die
+    Abteilung ja immer noch, genau wie ihre Ausleih-/Entnahme-Historie) -
+    'leer' heißt hier wirklich 'nie etwas drin gehabt', nicht nur 'aktuell
+    nichts Aktives drin'. Zum Aufräumen von Karteileichen/Duplikaten (z.B.
+    aus einem Test-Import) reicht das i.d.R. trotzdem."""
+    department = await session.get(Department, department_id)
+    if not department:
+        return RedirectResponse(url="/admin/settings#departments", status_code=303)
+
+    checks = [
+        ("Gegenstände", select(func.count()).select_from(Item).where(Item.department_id == department_id)),
+        ("Verbrauchsmaterial", select(func.count()).select_from(Consumable).where(Consumable.department_id == department_id)),
+        ("Mitarbeiter", select(func.count()).select_from(Worker).where(Worker.department_id == department_id)),
+        ("Zugriffs-Zuweisungen", select(func.count()).select_from(UserDepartmentRole).where(UserDepartmentRole.department_id == department_id)),
+        ("Kategorien", select(func.count()).select_from(Category).where(Category.department_id == department_id)),
+        ("Standorte", select(func.count()).select_from(Location).where(Location.department_id == department_id)),
+        ("Ausleihen (Historie)", select(func.count()).select_from(Lending).where(Lending.department_id == department_id)),
+        ("Reservierungen", select(func.count()).select_from(Reservation).where(Reservation.department_id == department_id)),
+        ("Material-Vormerkungen", select(func.count()).select_from(ConsumableReservation).where(ConsumableReservation.department_id == department_id)),
+    ]
+
+    blockers = []
+    for label, stmt in checks:
+        count = (await session.exec(stmt)).one()
+        if count:
+            blockers.append(f"{count} {label}")
+
+    if blockers:
+        message = quote(
+            f"'{department.name}' kann nicht gelöscht werden, enthält noch: " + ", ".join(blockers) +
+            ". Erst verschieben/entfernen, oder stattdessen nur deaktivieren."
+        )
+        return RedirectResponse(url=f"/admin/settings?error={message}#departments", status_code=303)
+
+    await session.delete(department)
+    await session.commit()
+    return RedirectResponse(url=f"/admin/settings?ok={quote(department.name + ' gelöscht.')}#departments", status_code=303)
 
 
 # --- Kategorien --------------------------------------------------------

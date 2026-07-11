@@ -3,7 +3,7 @@
 
 {% block content %}
 <h1>Historie</h1>
-<p>{{ total }} Einträge - Ausleihen, Rückgaben und Materialentnahmen.</p>
+<p>{{ total }} Einträge - Ausleihen (gruppiert nach Ausgabe-Vorgang) und Materialentnahmen.</p>
 
 <form class="list-toolbar" method="get" action="/history">
   <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Gegenstand, Material oder Mitarbeiter…" class="search-input">
@@ -13,28 +13,61 @@
 {% if entries %}
   <div class="history-list">
     {% for e in entries %}
-      <div class="history-row">
-        <span class="history-icon action-{{ e.action }}" aria-hidden="true">
-          {% if e.action == "ausgeliehen" %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
-          {% elif e.action == "zurückgegeben" %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 7 7 17M17 17H7V7"/></svg>
-          {% else %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6v4l3 12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2l3-12V2Z"/></svg>
-          {% endif %}
-        </span>
-        <div class="history-main">
-          <div class="title">
-            {{ e.title }}
-            {% if e.detail %}<span style="color: var(--ink-soft); font-weight: 400;">({{ e.detail }})</span>{% endif %}
-            <span class="chip chip-neutral" style="margin-left: var(--space-2);">{{ e.action }}</span>
+      {% if e.action == "ausgeliehen" %}
+        <details class="history-row history-row-expandable">
+          <summary>
+            <span class="history-icon action-ausgeliehen" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
+            </span>
+            <div class="history-main">
+              <div class="title">
+                {{ e.title }}
+                <span class="chip chip-neutral" style="margin-left: var(--space-2);">
+                  {% if e.open_count == 0 %}alle zurückgegeben{% elif e.open_count == e.total_count %}ausgeliehen{% else %}{{ e.open_count }}/{{ e.total_count }} noch offen{% endif %}
+                </span>
+              </div>
+              <div class="subtitle">{{ e.subtitle }}</div>
+            </div>
+            <div class="history-time">
+              {{ e.timestamp.strftime("%d.%m.%Y") }}<br>{{ e.timestamp.strftime("%H:%M") }}
+            </div>
+          </summary>
+
+          <div class="history-detail">
+            {% for li in e.lending_items %}
+              <div class="history-detail-row">
+                <span>{{ li.name }}</span>
+                <span class="meta">
+                  {% if li.returned_at %}zurückgegeben {{ li.returned_at.strftime("%d.%m.%Y %H:%M") }}{% else %}<span class="chip chip-neutral">noch ausgeliehen</span>{% endif %}
+                </span>
+              </div>
+            {% endfor %}
+            {% if e.signature %}
+              <details class="signature-toggle">
+                <summary>Unterschrift ansehen</summary>
+                <img src="{{ e.signature }}" alt="Unterschrift von {{ e.subtitle }}" class="signature-preview">
+              </details>
+            {% endif %}
           </div>
-          <div class="subtitle">{{ e.subtitle }}</div>
+        </details>
+      {% else %}
+        <div class="history-row">
+          <span class="history-icon action-{{ e.action }}" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6v4l3 12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2l3-12V2Z"/></svg>
+          </span>
+          <div class="history-main">
+            <div class="title">
+              {{ e.title }}
+              {% if e.detail %}<span style="color: var(--ink-soft); font-weight: 400;">({{ e.detail }})</span>{% endif %}
+              <span class="chip chip-neutral" style="margin-left: var(--space-2);">{{ e.action }}</span>
+            </div>
+            <div class="subtitle">{{ e.subtitle }}</div>
+          </div>
+          <div class="history-time">
+            {{ e.timestamp.strftime("%d.%m.%Y") }}<br>{{ e.timestamp.strftime("%H:%M") }}
+          </div>
         </div>
-        <div class="history-time">
-          {{ e.timestamp.strftime("%d.%m.%Y") }}<br>{{ e.timestamp.strftime("%H:%M") }}
-        </div>
-      </div>
+      {% endif %}
     {% endfor %}
   </div>
 

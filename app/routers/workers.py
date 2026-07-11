@@ -65,6 +65,15 @@ async def list_workers(
     )
 
 
+async def _linkable_users(session: AsyncSession, exclude_worker_user_id: uuid.UUID | None = None) -> list[User]:
+    """User-Logins, die noch mit keinem (anderen) Mitarbeiter-Ausweis verknüpft
+    sind - fürs Verknüpfen-Dropdown beim Anlegen UND Bearbeiten."""
+    linked_ids_result = await session.exec(select(Worker.user_id).where(Worker.user_id.is_not(None)))
+    linked_ids = {uid for uid in linked_ids_result.all() if uid != exclude_worker_user_id}
+    users_result = await session.exec(select(User).where(User.is_active == True).order_by(User.username))  # noqa: E712
+    return [u for u in users_result.all() if u.id not in linked_ids]
+
+
 @router.get("/new")
 async def new_worker_form(
     request: Request,
@@ -74,10 +83,11 @@ async def new_worker_form(
     departments = await _staff_departments(session, user)
     if not departments:
         raise Forbidden()
+    linkable_users = await _linkable_users(session)
     return templates.TemplateResponse(
         request,
         "workers/form.html",
-        {"user": user, "worker": None, "error": None, "departments": departments},
+        {"user": user, "worker": None, "error": None, "departments": departments, "linkable_users": linkable_users},
     )
 
 
@@ -88,6 +98,7 @@ async def create_worker(
     first_name: str = Form(...),
     last_name: str = Form(...),
     department_id: uuid.UUID = Form(...),
+    user_id: str = Form(""),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -97,18 +108,24 @@ async def create_worker(
     result = await session.exec(select(Worker).where(Worker.barcode == barcode, Worker.deleted_at.is_(None)))
     if result.first():
         departments = await _staff_departments(session, user)
+        linkable_users = await _linkable_users(session)
         return templates.TemplateResponse(
             request,
             "workers/form.html",
             {
                 "user": user, "worker": None,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
-                "departments": departments,
+                "departments": departments, "linkable_users": linkable_users,
             },
             status_code=409,
         )
 
     worker = Worker(barcode=barcode, first_name=first_name, last_name=last_name, department_id=department_id)
+    if user_id:
+        try:
+            worker.user_id = uuid.UUID(user_id)
+        except ValueError:
+            raise Forbidden()
     session.add(worker)
     try:
         await session.commit()
@@ -132,10 +149,7 @@ async def edit_worker_form(
         raise Forbidden()
 
     # User zum Verknüpfen: noch nicht verknüpfte + der ggf. bereits verknüpfte
-    linked_ids_result = await session.exec(select(Worker.user_id).where(Worker.user_id.is_not(None)))
-    linked_ids = {uid for uid in linked_ids_result.all() if uid != worker.user_id}
-    users_result = await session.exec(select(User).where(User.is_active == True).order_by(User.username))  # noqa: E712
-    linkable_users = [u for u in users_result.all() if u.id not in linked_ids]
+    linkable_users = await _linkable_users(session, exclude_worker_user_id=worker.user_id)
 
     return templates.TemplateResponse(
         request,
@@ -169,10 +183,7 @@ async def update_worker(
         select(Worker).where(Worker.barcode == barcode, Worker.id != worker_id, Worker.deleted_at.is_(None))
     )
     if result.first():
-        linked_ids_result = await session.exec(select(Worker.user_id).where(Worker.user_id.is_not(None)))
-        linked_ids = {uid for uid in linked_ids_result.all() if uid != worker.user_id}
-        users_result = await session.exec(select(User).where(User.is_active == True).order_by(User.username))  # noqa: E712
-        linkable_users = [u for u in users_result.all() if u.id not in linked_ids]
+        linkable_users = await _linkable_users(session, exclude_worker_user_id=worker.user_id)
         return templates.TemplateResponse(
             request,
             "workers/form.html",

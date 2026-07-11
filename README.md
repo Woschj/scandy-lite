@@ -59,7 +59,41 @@ Deploy geht nichts verloren.
 
 ## Mobile-UX-Verbesserungen (Scan-Workflow)
 
-### Fixes nach echtem Geräte-Test (iPhone-Screenshot, dieser Stand)
+### Weitere Fixes (dieser Stand)
+
+- **Mitarbeiter-Login-Verknüpfung war nur beim Bearbeiten möglich, nicht beim
+  Anlegen** - musste man einen neuen Mitarbeiter direkt mit einem Login
+  verknüpfen wollen, ging das nur über den Umweg "erst anlegen, dann
+  bearbeiten". Jetzt im selben Formular verfügbar wie beim Bearbeiten.
+- **Bildschirm-Rotation:** Erster Versuch war ein blockierender "Bitte Gerät
+  drehen"-Hinweis - auf Nutzer-Feedback hin durch echte Querformat-
+  Unterstützung ersetzt (siehe nächster Abschnitt).
+
+### Querformat-Unterstützung (statt Blockieren)
+
+Ursprünglich gab es einen Overlay, der Handys im Querformat komplett
+blockierte ("Bitte Gerät drehen") - stattdessen jetzt aktive Unterstützung,
+da Querformat für manche (z.B. beim Kamera-Scannen) tatsächlich praktisch
+sein kann:
+
+- Eigene Media Query für Handy-Querformat (`orientation: landscape` +
+  `max-height: 500px`, damit Tablets im Querformat unberührt bleiben):
+  Top-Leiste und Tab-Bar werden schmaler (44px/52px statt 60px/72px), um
+  im knappen Vertikalraum mehr Platz für den eigentlichen Inhalt zu lassen.
+- Tab-Bar wechselt im Querformat von gestapeltem Icon-über-Text-Layout zu
+  Icon-neben-Text (spart Höhe, ohne die Tap-Fläche zu verkleinern).
+- Kamera-Vorschau orientiert sich im Querformat an der verfügbaren Höhe
+  (`max-height`) statt stur `width: 100%` zu nutzen, damit sie nicht über
+  den knappen Vertikalraum hinausschießt.
+- PWA-Manifest wieder auf `"orientation": "any"` (keine erzwungene Sperre
+  mehr).
+
+**Tab-Bar generell (auch im Hochformat) komfortabler gemacht** - war laut
+Rückmeldung "klein und fiddly zu bedienen": größere Icons (26px statt
+22px), größere Schrift, mehr Höhe (72px statt 64px), plus sichtbares
+Tap-Feedback (kurzes Aufhellen beim Antippen statt nur Farbwechsel des Texts).
+
+### Fixes nach echtem Geräte-Test (iPhone-Screenshot)
 
 Zwei konkrete, per Screenshot gemeldete Probleme behoben:
 
@@ -227,8 +261,17 @@ wird beim Löschen sauber aufgelöst statt zu verwaisen).
 
 Gegenstände, Verbrauchsmaterial und Mitarbeiter bleiben bewusst beim **Soft-Delete**
 (nur "entfernt"-Markierung) - sie hängen an Ausleih-/Reservierungs-Historie, ein
-echtes Löschen würde diese Historie zerreißen. Kategorien/Standorte/Abteilungen/
-Gruppen sind hingegen unkritisch und lassen sich echt löschen.
+echtes Löschen würde diese Historie zerreißen. Kategorien/Standorte sind unkritisch
+und lassen sich echt löschen.
+
+**Abteilungen** lassen sich jetzt ebenfalls echt löschen (*Einstellungen →
+Abteilungen*) - aber nur, wenn sie wirklich **komplett leer** sind (keine
+Gegenstände/Material/Mitarbeiter/Zugriffs-Zuweisungen/Kategorien/Standorte/
+Ausleihen/Reservierungen, auch keine soft-gelöschten - die zählen als "war mal
+was drin" mit). Ist noch was drin, zeigt die Fehlermeldung genau, was zuerst weg
+muss. Zum Aufräumen von Karteileichen/Duplikaten (z.B. aus einem Test-Import)
+reicht das in der Praxis meistens; für eine Abteilung mit echter Historie bleibt
+weiterhin nur Deaktivieren.
 
 ## Rollenmodell
 
@@ -258,6 +301,31 @@ der restliche Anwendungscode.
 Standorte) statt einer langen Scroll-Seite — nur ein Bereich sichtbar,
 Tab-Wechsel ohne Neuladen (Alpine.js). Die aktuell aktive Abteilung ist immer
 sichtbar und wird beim Anlegen neuer Kategorien/Standorte automatisch vorausgewählt.
+
+## Historie: gruppierte Ausleihen + sichtbare Unterschrift
+
+Zwei Probleme behoben, die die Historie faktisch unbrauchbar machten:
+
+- **Unterschriften wurden zwar gespeichert, aber nirgendwo angezeigt** - jede
+  Ausleihe/Ausgabe wird zwar mit digitaler Unterschrift bestätigt und landet
+  auch in der Datenbank (`lendings.signature`, base64-PNG), aber es gab keine
+  Stelle, die sie je wieder zeigt. Jetzt in der Historie pro Ausleih-Eintrag
+  aufklappbar ("Unterschrift ansehen").
+- **Jede Ausleihe/Rückgabe war ein eigener Zeitleisten-Eintrag** - eine
+  Sammel-Ausgabe von 20 Gegenständen erschien als 20 (bzw. 40 mit Rückgabe)
+  einzelne, unzusammenhängende Zeilen. Jetzt nach **Ausgabe-Vorgang**
+  gruppiert: Gegenstände mit derselben Unterschrift (= derselbe
+  Bestätigungsvorgang, egal ob Einzel- oder Sammel-Ausgabe) erscheinen als
+  EIN aufklappbarer Eintrag ("20 Gegenstände — Person X"), mit Status-Chip
+  ("ausgeliehen" / "N/M noch offen" / "alle zurückgegeben") und beim
+  Aufklappen dem Einzelstatus jedes Gegenstands.
+
+Gruppierungsschlüssel ist bewusst (Mitarbeiter, Unterschrift) - eine
+Unterschrift gehört immer zu genau einem Bestätigungsvorgang, ganz ohne
+eigene "Sitzung"/"Vorgang"-Tabelle. Aus Scandy2 importierte Alt-Ausleihen
+ohne Unterschrift bleiben einzeln (eine Gruppierung über eine gemeinsame
+"keine Unterschrift" würde alle Alt-Ausleihen einer Person fälschlich in
+einen Topf werfen).
 
 ## Reservierungs-Workflow
 
