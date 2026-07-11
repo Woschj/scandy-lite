@@ -131,12 +131,15 @@ def build_worker_kwargs(worker_doc: dict, department_id) -> dict:
     }
 
 
-def build_user_kwargs(user_doc: dict, department_id, hashed_password: str) -> dict:
+def build_user_kwargs(user_doc: dict, hashed_password: str) -> dict:
+    """User hat kein 'role'/'department_id'-Feld mehr (Berechtigungsmodell
+    lief auf Rolle-pro-Abteilung um, siehe app/models/user_department_role.py)
+    - Admin ist stattdessen ein globales Flag, die konkrete Abteilungs-Rolle
+    legt migrate_core separat als UserDepartmentRole an."""
     return {
         "username": clean_str(user_doc.get("username")),
-        "role": map_user_role(user_doc.get("role")),
+        "is_admin": map_user_role(user_doc.get("role")) == UserRole.ADMIN,
         "hashed_password": hashed_password,
-        "department_id": department_id,
         "is_active": user_doc.get("is_active", True) is not False,
     }
 

@@ -20,6 +20,7 @@ from app.models.item import Item  # noqa: E402
 from app.models.lending import Lending  # noqa: E402
 from app.models.preset import Category, Location  # noqa: E402
 from app.models.user import User  # noqa: E402
+from app.models.user_department_role import UserDepartmentRole  # noqa: E402
 from app.models.worker import Worker  # noqa: E402
 from migrations_legacy.migrate_core import migrate  # noqa: E402
 
@@ -98,6 +99,8 @@ def run():
 
         check("2 gültige User angelegt (mmuster, erika)", report.get("users_created") == 2)
         check("Kaputter User (kein Username) wurde übersprungen, kein Crash", "users_created" in report)
+        check("2 Abteilungs-Rollen angelegt (beide User hatten eine bekannte Abteilung)",
+              report.get("user_department_roles_created") == 2)
 
         check("2 gültige Worker angelegt", report.get("workers_created") == 2)
         check("1 Worker mit unbekannter Abteilung übersprungen", report.get("workers_skipped_no_department") == 1)
@@ -132,8 +135,14 @@ def run():
               item_t001 is not None and item_t001.status == ItemStatus.VERFUEGBAR)
 
         erika_user = session.exec(select(User).where(User.username == "erika")).first()
-        check("erika bekam Rolle NUTZER (aus 'teilnehmer' gemappt)",
-              erika_user is not None and erika_user.role.value == "nutzer")
+        werkstatt = session.exec(select(Department).where(Department.name == "Werkstatt")).first()
+        erika_role = session.exec(
+            select(UserDepartmentRole).where(
+                UserDepartmentRole.user_id == erika_user.id, UserDepartmentRole.department_id == werkstatt.id
+            )
+        ).first() if erika_user and werkstatt else None
+        check("erika bekam Rolle NUTZER in Werkstatt (aus 'teilnehmer' gemappt)",
+              erika_role is not None and erika_role.role.value == "nutzer")
 
         erika_worker = session.exec(select(Worker).where(Worker.barcode == "W-002")).first()
         check("Worker 'erika' ist mit dem User-Login verknüpft",

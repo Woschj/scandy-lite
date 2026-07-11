@@ -19,6 +19,7 @@ from app.models.item import Item
 from app.models.lending import Lending
 from app.models.preset import Category, Location
 from app.models.user import User
+from app.models.user_department_role import UserDepartmentRole
 from app.models.worker import Worker
 from migrations_legacy.transform import (
     build_consumable_kwargs,
@@ -28,6 +29,7 @@ from migrations_legacy.transform import (
     clean_str,
     generate_temp_password,
     is_real_withdrawal,
+    map_user_role,
     slugify_department_code,
     to_datetime,
 )
@@ -128,15 +130,28 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
 
         dept_name = user_doc.get("default_department") or (user_doc.get("allowed_departments") or [None])[0]
         dept_id = resolve_department(dept_name)
+        role = map_user_role(user_doc.get("role"))
 
         temp_password = generate_temp_password()
-        kwargs = build_user_kwargs(user_doc, dept_id, hash_password(temp_password) if apply else "")
+        kwargs = build_user_kwargs(user_doc, hash_password(temp_password) if apply else "")
         if apply:
             user = User(**kwargs)
             session.add(user)
             session.flush()
             user_id_by_username[username] = user.id
             generated_passwords.append((username, temp_password))
+
+            # Abteilungs-Rolle anlegen (Admin ist ein globales Flag, braucht
+            # keinen UserDepartmentRole-Eintrag - siehe app/core/access.py).
+            if not user.is_admin:
+                if dept_id is not None:
+                    session.add(UserDepartmentRole(user_id=user.id, department_id=dept_id, role=role))
+                    report["user_department_roles_created"] += 1
+                else:
+                    warnings.append(
+                        f"User '{username}': keine Abteilung zuordenbar - Zugriffsrolle muss manuell "
+                        "unter Einstellungen -> Zugriff nachgetragen werden."
+                    )
         else:
             user_id_by_username[username] = f"<würde-anlegen:{username}>"
         report["users_created"] += 1

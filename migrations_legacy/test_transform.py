@@ -85,9 +85,13 @@ check("Worker ohne Barcode -> generierter Ersatz-Barcode statt Crash", kw7["barc
 
 # --- build_user_kwargs ---
 user_doc = {"username": "mmuster", "role": "anwender", "is_active": True}
-kw8 = build_user_kwargs(user_doc, dept_id, "hashed123")
-check("User: Rolle korrekt gemappt", kw8["role"] == UserRole.MITARBEITER)
+kw8 = build_user_kwargs(user_doc, "hashed123")
+check("User: kein Admin (Rolle 'anwender' -> Mitarbeiter, nicht global)", kw8["is_admin"] is False)
 check("User: Passwort-Hash übernommen (der neu generierte, nicht der alte)", kw8["hashed_password"] == "hashed123")
+
+admin_doc = {"username": "root", "role": "admin", "is_active": True}
+kw9 = build_user_kwargs(admin_doc, "hashed456")
+check("User: Rolle 'admin' -> globales is_admin-Flag", kw9["is_admin"] is True)
 
 # --- is_real_withdrawal ---
 check("Echte Entnahme (negativ, echter Worker) -> True",

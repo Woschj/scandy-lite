@@ -3,3 +3,7 @@
 # MongoDB-Abhängigkeit mit sich herumträgt (die Migration ist ein einmaliger,
 # manuell ausgeführter Schritt).
 pymongo==4.9.2
+
+# Nur für test_fetch_mongo.py - In-Memory-Nachbildung von MongoDB, damit der
+# Test ohne echten Mongo-Server läuft.
+mongomock==4.2.0.post1
