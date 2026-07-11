@@ -16,6 +16,7 @@
 </div>
 
 <form id="cart-form" method="post" action="/reservations/cart/submit" data-guard style="display:none;">
+  {% include "partials/csrf_field.html" %}
   <div id="cart-items" class="settings-list" style="margin-bottom: var(--space-4);"></div>
   <div class="mobile-fixed-cta">
     <button type="submit" class="btn btn-primary btn-block" id="cart-submit-btn">Warenkorb absenden</button>

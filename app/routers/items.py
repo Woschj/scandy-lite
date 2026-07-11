@@ -19,7 +19,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
+from app.core.responses import redirect_with_query
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
 from app.models.common import ItemStatus, UserRole, utcnow
@@ -27,7 +28,7 @@ from app.models.item import Item
 from app.models.preset import Category, Location
 from app.models.user import User
 
-router = APIRouter(prefix="/items", tags=["items"], dependencies=[Depends(populate_nav_context)])
+router = APIRouter(prefix="/items", tags=["items"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
 
 async def _presets(session: AsyncSession, department_id):
@@ -284,7 +285,7 @@ async def upload_item_image(
     try:
         await save_image(image, "items", item.id)
     except InvalidImage as exc:
-        return RedirectResponse(url=f"/items/{item_id}/edit?error={exc}", status_code=303)
+        return redirect_with_query(f"/items/{item_id}/edit", error=str(exc))
 
     return RedirectResponse(url=f"/items/{item_id}/edit?ok=Bild+aktualisiert.", status_code=303)
 

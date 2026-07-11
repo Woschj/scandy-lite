@@ -36,6 +36,7 @@
         <div class="item-card-actions">
           <a href="/workers/{{ w.id }}/edit" class="link-btn">Bearbeiten</a>
           <form method="post" action="/workers/{{ w.id }}/delete" onsubmit="return confirm('{{ w.full_name }} wirklich entfernen?')">
+            {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn danger">Entfernen</button>
           </form>
         </div>

@@ -38,9 +38,11 @@
         </div>
         <div class="actions">
           <form method="post" action="/admin/departments/{{ d.id }}/toggle">
+            {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn">{% if d.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
           </form>
           <form method="post" action="/admin/departments/{{ d.id }}/delete" onsubmit="return confirm('{{ d.name }} wirklich endgültig löschen? Geht nur, wenn die Abteilung komplett leer ist.')">
+            {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn danger">Löschen</button>
           </form>
         </div>
@@ -51,6 +53,7 @@
   </div>
 
   <form class="settings-add-inline" method="post" action="/admin/departments/new">
+    {% include "partials/csrf_field.html" %}
     <div class="field">
       <label for="dep-code">Kurzcode</label>
       <input type="text" id="dep-code" name="code" placeholder="z.B. buero" required>
@@ -98,9 +101,11 @@
           <a href="/admin/users/{{ u.id }}/edit" class="link-btn">Bearbeiten</a>
           {% if u.id != user.id %}
             <form method="post" action="/admin/users/{{ u.id }}/toggle">
+              {% include "partials/csrf_field.html" %}
               <button type="submit" class="link-btn">{% if u.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
             </form>
             <form method="post" action="/admin/users/{{ u.id }}/delete" onsubmit="return confirm('{{ u.username }} endgültig löschen? Das kann nicht rückgängig gemacht werden.')">
+              {% include "partials/csrf_field.html" %}
               <button type="submit" class="link-btn danger">Löschen</button>
             </form>
           {% else %}
@@ -114,6 +119,7 @@
   </div>
 
   <form class="settings-add-inline" method="post" action="/admin/users/new">
+    {% include "partials/csrf_field.html" %}
     <div class="field">
       <label for="u-username">Benutzername (Login)</label>
       <input type="text" id="u-username" name="username" required>
@@ -181,6 +187,7 @@
             </div>
             <div class="actions">
               <form method="post" action="/admin/access/{{ entry.user_id }}/{{ entry.department_id }}/delete" onsubmit="return confirm('Zugriff entfernen?')">
+                {% include "partials/csrf_field.html" %}
                 <button type="submit" class="link-btn danger">Entfernen</button>
               </form>
             </div>
@@ -194,6 +201,7 @@
   </div>
 
   <form class="settings-add-inline" method="post" action="/admin/access/new">
+    {% include "partials/csrf_field.html" %}
     <div class="field">
       <label for="acc-user">Benutzer</label>
       <select id="acc-user" name="user_id" required>
@@ -231,6 +239,7 @@
             <span class="name">{{ c.name }}</span>
             <div class="actions">
               <form method="post" action="/admin/categories/{{ c.id }}/delete" onsubmit="return confirm('{{ c.name }} wirklich entfernen?')">
+                {% include "partials/csrf_field.html" %}
                 <button type="submit" class="link-btn danger">Entfernen</button>
               </form>
             </div>
@@ -244,6 +253,7 @@
   </div>
 
   <form class="settings-add-inline" method="post" action="/admin/categories/new">
+    {% include "partials/csrf_field.html" %}
     <div class="field">
       <label for="cat-department">Abteilung</label>
       <select id="cat-department" name="department_id" required>
@@ -272,6 +282,7 @@
             <span class="name">{{ l.name }}</span>
             <div class="actions">
               <form method="post" action="/admin/locations/{{ l.id }}/delete" onsubmit="return confirm('{{ l.name }} wirklich entfernen?')">
+                {% include "partials/csrf_field.html" %}
                 <button type="submit" class="link-btn danger">Entfernen</button>
               </form>
             </div>
@@ -285,6 +296,7 @@
   </div>
 
   <form class="settings-add-inline" method="post" action="/admin/locations/new">
+    {% include "partials/csrf_field.html" %}
     <div class="field">
       <label for="loc-department">Abteilung</label>
       <select id="loc-department" name="department_id" required>

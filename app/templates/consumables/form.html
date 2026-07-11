@@ -14,11 +14,13 @@
   {% endif %}
   <div class="image-upload-row">
     <form method="post" action="/consumables/{{ consumable.id }}/image" enctype="multipart/form-data" style="margin:0;">
+      {% include "partials/csrf_field.html" %}
       <input type="file" name="image" accept="image/png,image/jpeg,image/webp" required
              onchange="this.form.requestSubmit()">
     </form>
     {% if has_image("consumables", consumable.id) %}
       <form method="post" action="/consumables/{{ consumable.id }}/image/delete" style="margin:0;" onsubmit="return confirm('Bild entfernen?')">
+        {% include "partials/csrf_field.html" %}
         <button type="submit" class="link-btn danger">Bild entfernen</button>
       </form>
     {% endif %}
@@ -30,6 +32,7 @@
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
   <form data-guard method="post" action="{% if consumable %}/consumables/{{ consumable.id }}/edit{% else %}/consumables/new{% endif %}">
+    {% include "partials/csrf_field.html" %}
     {% if not consumable %}
       <div class="field">
         <label for="department_id">Abteilung</label>

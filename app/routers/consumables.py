@@ -13,12 +13,13 @@ from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import select, update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
+from app.core.responses import redirect_with_query
 from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
 from app.models.common import UserRole, utcnow
@@ -27,7 +28,7 @@ from app.models.preset import Category, Location
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/consumables", tags=["consumables"], dependencies=[Depends(populate_nav_context)])
+router = APIRouter(prefix="/consumables", tags=["consumables"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
 
 async def _presets(session: AsyncSession, department_id):
@@ -254,12 +255,18 @@ async def adjust_consumable(
     if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
 
-    new_quantity = consumable.quantity + delta
-    if new_quantity < 0:
+    # Atomares UPDATE mit Bestands-Guard in der WHERE-Klausel statt
+    # check-then-write: verhindert, dass zwei gleichzeitige Anpassungen
+    # denselben Bestand negativ werden lassen.
+    update_result = await session.exec(
+        update(Consumable)
+        .where(Consumable.id == consumable.id, Consumable.quantity + delta >= 0)
+        .values(quantity=Consumable.quantity + delta)
+        .returning(Consumable.quantity)
+    )
+    if update_result.first() is None:
+        await session.rollback()
         raise Forbidden()  # kein negativer Bestand - kein stiller Fehlerfall, sondern harter Stop
-
-    consumable.quantity = new_quantity
-    session.add(consumable)
 
     # Entnahme (delta < 0) mit gewähltem Mitarbeiter protokollieren -> Historie
     if delta < 0 and worker_id:
@@ -312,7 +319,7 @@ async def upload_consumable_image(
     try:
         await save_image(image, "consumables", consumable.id)
     except InvalidImage as exc:
-        return RedirectResponse(url=f"/consumables/{consumable_id}/edit?error={exc}", status_code=303)
+        return redirect_with_query(f"/consumables/{consumable_id}/edit", error=str(exc))
 
     return RedirectResponse(url=f"/consumables/{consumable_id}/edit?ok=Bild+aktualisiert.", status_code=303)
 

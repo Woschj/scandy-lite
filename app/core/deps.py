@@ -28,7 +28,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.access import get_department_roles
 from app.core.config import get_settings
 from app.core.database import get_session
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, verify_csrf_token
 from app.models.common import UserRole
 from app.models.user import User
 
@@ -93,6 +93,27 @@ async def require_staff(
     if not result.first():
         raise Forbidden()
     return user
+
+
+async def verify_csrf(request: Request) -> None:
+    """CSRF-Schutz für mutierende Formulare: das Token aus dem versteckten
+    `csrf_token`-Feld muss zum aktuellen Session-Cookie passen (siehe
+    app.core.security.generate_csrf_token). `await request.form()` wird von
+    Starlette pro Request gecacht - die spätere `Form(...)`-Deklaration im
+    Route-Handler liest dieselbe gecachte FormData, der Body wird also nicht
+    doppelt geparst.
+
+    Nur für POST relevant; als Router-Dependency eingebunden wirkt das auch
+    auf GET-Routen desselben Routers, dort aber wirkungslos (early return).
+    Bewusst NICHT im auth-Router: vor dem Login existiert noch kein Session-
+    Cookie, aus dem sich ein Token ableiten ließe (siehe README/Statusdoc)."""
+    if request.method != "POST":
+        return
+    form = await request.form()
+    token = form.get("csrf_token", "")
+    session_value = request.cookies.get(settings.SESSION_COOKIE_NAME, "")
+    if not verify_csrf_token(str(token), session_value):
+        raise Forbidden()
 
 
 async def populate_nav_context(

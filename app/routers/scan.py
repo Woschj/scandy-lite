@@ -10,12 +10,13 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
-from sqlmodel import select
+from sqlmodel import select, update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
+from app.core.responses import redirect_with_query
 from app.core.templating import templates
 from app.models.common import ItemStatus, utcnow
 from app.models.consumable import Consumable, ConsumableUsage
@@ -25,7 +26,7 @@ from app.models.user import User
 from app.models.worker import Worker
 from app.routers.reservations import get_open_reservation
 
-router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_nav_context), Depends(require_staff)])
+router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_nav_context), Depends(require_staff), Depends(verify_csrf)])
 
 
 async def _check_department_access(session: AsyncSession, user: User, entity_department_id: uuid.UUID) -> None:
@@ -126,9 +127,7 @@ async def scan_lend(
     reservation = await get_open_reservation(session, item.id)
     if reservation and reservation.worker_id != worker.id:
         reserved_name = reservation.worker.full_name if reservation.worker else "jemand anderen"
-        return RedirectResponse(
-            url=f"/scan?error=Gegenstand+ist+für+{reserved_name}+reserviert.", status_code=303
-        )
+        return redirect_with_query("/scan", error=f"Gegenstand ist für {reserved_name} reserviert.")
 
     lending = Lending(
         item_id=item.id, worker_id=worker.id, department_id=item.department_id,
@@ -148,7 +147,7 @@ async def scan_lend(
         await session.rollback()
         return RedirectResponse(url="/scan?error=Gegenstand+wurde+soeben+bereits+ausgeliehen.", status_code=303)
 
-    return RedirectResponse(url=f"/scan?ok={item.name}+an+{worker.full_name}+ausgeliehen.", status_code=303)
+    return redirect_with_query("/scan", ok=f"{item.name} an {worker.full_name} ausgeliehen.")
 
 
 @router.post("/return")
@@ -175,7 +174,7 @@ async def scan_return(
     session.add(item)
     await session.commit()
 
-    return RedirectResponse(url=f"/scan?ok={item.name}+zurückgegeben.", status_code=303)
+    return redirect_with_query("/scan", ok=f"{item.name} zurückgegeben.")
 
 
 @router.post("/consume")
@@ -193,8 +192,6 @@ async def scan_consume(
 
     if quantity <= 0:
         return RedirectResponse(url="/scan?error=Menge+muss+größer+als+0+sein.", status_code=303)
-    if consumable.quantity < quantity:
-        return RedirectResponse(url="/scan?error=Nicht+genug+Bestand+vorhanden.", status_code=303)
 
     worker_result = await session.exec(
         select(Worker).where(Worker.barcode == worker_barcode.strip(), Worker.deleted_at.is_(None), Worker.is_active == True)  # noqa: E712
@@ -203,12 +200,21 @@ async def scan_consume(
     if not worker:
         return RedirectResponse(url="/scan?error=Mitarbeiter-Barcode+nicht+gefunden.", status_code=303)
 
-    consumable.quantity -= quantity
+    # Atomares UPDATE mit Bestands-Guard in der WHERE-Klausel statt
+    # check-then-write: verhindert, dass zwei gleichzeitige Entnahmen
+    # denselben Bestand doppelt abziehen und ihn negativ werden lassen.
+    update_result = await session.exec(
+        update(Consumable)
+        .where(Consumable.id == consumable.id, Consumable.quantity >= quantity)
+        .values(quantity=Consumable.quantity - quantity)
+        .returning(Consumable.quantity)
+    )
+    if update_result.first() is None:
+        await session.rollback()
+        return RedirectResponse(url="/scan?error=Nicht+genug+Bestand+vorhanden.", status_code=303)
+
     usage = ConsumableUsage(consumable_id=consumable.id, worker_id=worker.id, quantity=quantity)
-    session.add(consumable)
     session.add(usage)
     await session.commit()
 
-    return RedirectResponse(
-        url=f"/scan?ok={quantity}x+{consumable.name}+für+{worker.full_name}+entnommen.", status_code=303
-    )
+    return redirect_with_query("/scan", ok=f"{quantity}x {consumable.name} für {worker.full_name} entnommen.")

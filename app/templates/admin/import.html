@@ -27,6 +27,7 @@
 
 {% if not result %}
   <form class="tag-card form-card" method="post" action="/admin/import/preview" enctype="multipart/form-data" data-guard>
+    {% include "partials/csrf_field.html" %}
     <div class="field">
       <label for="import-file">Backup-Datei (.zip oder .json)</label>
       <input type="file" id="import-file" name="file" accept=".zip,.json" required>
@@ -78,6 +79,7 @@
 
   {% if mode == "preview" %}
     <form class="tag-card form-card" method="post" action="/admin/import/apply" enctype="multipart/form-data" data-guard onsubmit="return confirm('Jetzt WIRKLICH schreiben? Das kann nicht rückgängig gemacht werden.')">
+      {% include "partials/csrf_field.html" %}
       <p style="margin-top:0;">Sieht der Report plausibel aus? Dann dieselbe Datei nochmal auswählen und wirklich importieren:</p>
       <div class="field">
         <label for="import-file-apply">Backup-Datei (.zip oder .json)</label>

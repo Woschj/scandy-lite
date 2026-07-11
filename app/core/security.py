@@ -6,6 +6,8 @@ Der JWT wird in einem httpOnly-Cookie gespeichert - kein Local-Storage
 Gleichzeitig bleibt der Weg offen, dieselben Tokens später auch für eine
 mobile App / API-Clients zu nutzen (Authorization-Header funktioniert genauso).
 """
+import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -46,3 +48,18 @@ def decode_access_token(token: str) -> dict | None:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     except JWTError:
         return None
+
+
+def generate_csrf_token(session_value: str) -> str:
+    """Stateless CSRF-Token, deterministisch aus dem Session-Cookie-Wert
+    abgeleitet (HMAC mit SECRET_KEY) - kein zusätzlicher Server-State nötig.
+    Ein Angreifer kann den Wert nicht fälschen, ohne SECRET_KEY zu kennen,
+    und kann den httpOnly-Session-Cookie nicht per JS auslesen, um ihn
+    selbst abzuleiten."""
+    return hmac.new(settings.SECRET_KEY.encode("utf-8"), session_value.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_csrf_token(token: str, session_value: str) -> bool:
+    if not token or not session_value:
+        return False
+    return hmac.compare_digest(token, generate_csrf_token(session_value))

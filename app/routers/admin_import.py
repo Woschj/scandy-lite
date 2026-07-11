@@ -19,7 +19,7 @@ from fastapi.responses import RedirectResponse
 from sqlmodel import Session, create_engine
 
 from app.core.config import get_settings
-from app.core.deps import require_admin, populate_nav_context
+from app.core.deps import require_admin, populate_nav_context, verify_csrf
 from app.core.scandy2_import import ImportParseError, parse_scandy2_export
 from app.core.templating import templates
 from app.models.user import User
@@ -32,7 +32,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from migrations_legacy.migrate_core import migrate  # noqa: E402
 
-router = APIRouter(prefix="/admin/import", tags=["admin-import"], dependencies=[Depends(populate_nav_context)])
+router = APIRouter(prefix="/admin/import", tags=["admin-import"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB - Backup-JSON ohne Medien ist üblicherweise klein
 

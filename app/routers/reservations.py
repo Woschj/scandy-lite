@@ -19,7 +19,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_visible_department_ids
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_user, populate_nav_context
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, verify_csrf
+from app.core.responses import redirect_with_query
 from app.core.templating import templates
 from app.models.common import ItemStatus, utcnow
 from app.models.consumable import Consumable
@@ -29,7 +30,7 @@ from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/reservations", tags=["reservations"], dependencies=[Depends(populate_nav_context)])
+router = APIRouter(prefix="/reservations", tags=["reservations"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
 
 async def get_linked_worker(session: AsyncSession, user: User) -> Worker | None:
@@ -234,8 +235,8 @@ async def reserve_item(
     if not ok:
         if message == "Gegenstand nicht gefunden.":
             raise Forbidden()
-        return RedirectResponse(url=f"/reservations?error={message}", status_code=303)
-    return RedirectResponse(url=f"/reservations?ok={message}+reserviert.", status_code=303)
+        return redirect_with_query("/reservations", error=message)
+    return redirect_with_query("/reservations", ok=f"{message} reserviert.")
 
 
 @router.get("/cart")
@@ -342,9 +343,9 @@ async def cart_submit(
 ):
     worker = await get_linked_worker(session, user)
     if not worker:
-        return RedirectResponse(
-            url="/reservations?error=Dein+Login+ist+mit+keinem+Mitarbeiter-Ausweis+verknüpft.+Bitte+an+Admin+wenden.",
-            status_code=303,
+        return redirect_with_query(
+            "/reservations",
+            error="Dein Login ist mit keinem Mitarbeiter-Ausweis verknüpft. Bitte an Admin wenden.",
         )
 
     succeeded, failed = [], []
@@ -370,14 +371,11 @@ async def cart_submit(
         (succeeded if ok else failed).append(message)
 
     if not succeeded and not failed:
-        return RedirectResponse(url="/reservations/cart?error=Warenkorb+war+leer.", status_code=303)
+        return redirect_with_query("/reservations/cart", error="Warenkorb war leer.")
 
-    parts = []
-    if succeeded:
-        parts.append(f"ok={len(succeeded)}+Eintrag(e)+reserviert.")
-    if failed:
-        parts.append("error=" + "+/+".join(failed))
-    return RedirectResponse(url="/reservations?" + "&".join(parts), status_code=303)
+    ok_message = f"{len(succeeded)} Eintrag(e) reserviert." if succeeded else ""
+    error_message = " / ".join(failed) if failed else ""
+    return redirect_with_query("/reservations", ok=ok_message, error=error_message)
 
 
 @router.post("/{reservation_id}/cancel")

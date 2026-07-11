@@ -72,6 +72,7 @@
         {% if can_manage %}
         <form method="post" action="/consumables/{{ c.id }}/adjust" style="margin-top: var(--space-3);" data-guard
               title="Nur Nachschub - Entnahmen bitte über Scannen erfassen, damit sie in der Historie landen">
+          {% include "partials/csrf_field.html" %}
           <div class="qty-stepper" style="max-width: 220px;">
             <button type="button" data-step="-1" aria-label="Menge verringern">–</button>
             <input type="number" name="delta" value="1" min="1" required inputmode="numeric">
@@ -84,6 +85,7 @@
         <div class="item-card-actions">
           <a href="/consumables/{{ c.id }}/edit" class="link-btn">Bearbeiten</a>
           <form method="post" action="/consumables/{{ c.id }}/delete" onsubmit="return confirm('{{ c.name }} wirklich entfernen?')">
+            {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn danger">Entfernen</button>
           </form>
         </div>

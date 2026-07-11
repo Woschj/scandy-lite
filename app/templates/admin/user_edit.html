@@ -8,6 +8,7 @@
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
 <form class="tag-card form-card" method="post" action="/admin/users/{{ target.id }}/edit" data-guard>
+  {% include "partials/csrf_field.html" %}
   <div class="field">
     <label for="edit-username">Benutzername</label>
     <input type="text" id="edit-username" name="username" value="{{ target.username }}" required>

@@ -69,6 +69,7 @@
           {% if user.is_admin or item.department_id in staff_department_ids %}
             <a href="/items/{{ item.id }}/edit" class="link-btn">Bearbeiten</a>
             <form method="post" action="/items/{{ item.id }}/delete" onsubmit="return confirm('{{ item.name }} wirklich entfernen?')">
+              {% include "partials/csrf_field.html" %}
               <button type="submit" class="link-btn danger">Entfernen</button>
             </form>
           {% endif %}

@@ -15,6 +15,7 @@
       {% for i in range(20) %}<span style="height:{{ (35 + (i * 41) % 65) }}%"></span>{% endfor %}
     </div>
     <form method="post" action="/scan/lookup" id="scan-form">
+      {% include "partials/csrf_field.html" %}
       <div class="field">
         <label for="barcode">Barcode</label>
         <input type="text" id="barcode" name="barcode" required autofocus autocomplete="off"

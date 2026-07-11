@@ -8,6 +8,7 @@
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
   <form data-guard method="post" action="{% if worker %}/workers/{{ worker.id }}/edit{% else %}/workers/new{% endif %}">
+    {% include "partials/csrf_field.html" %}
     {% if not worker %}
       <div class="field">
         <label for="department_id">Abteilung</label>

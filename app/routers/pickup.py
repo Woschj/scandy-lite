@@ -14,14 +14,14 @@ durchgereicht, bis am Ende die eigentlichen Lendings angelegt werden.
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_department_roles, is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
+from app.core.responses import redirect_with_query
 from app.core.templating import templates
 from app.models.common import ItemStatus, UserRole, utcnow
 from app.models.item import Item
@@ -30,7 +30,7 @@ from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/scan/pickup", tags=["pickup"], dependencies=[Depends(populate_nav_context), Depends(require_staff)])
+router = APIRouter(prefix="/scan/pickup", tags=["pickup"], dependencies=[Depends(populate_nav_context), Depends(require_staff), Depends(verify_csrf)])
 
 
 def _parse_checked(raw: str) -> list[uuid.UUID]:
@@ -136,9 +136,7 @@ async def pickup_scan(
     item_result = await session.exec(select(Item).where(Item.barcode == barcode.strip(), Item.deleted_at.is_(None)))
     item = item_result.first()
     if not item:
-        return RedirectResponse(
-            url=f"/scan/pickup/{worker_id}?checked={checked}&error=Barcode+nicht+gefunden.", status_code=303
-        )
+        return redirect_with_query(f"/scan/pickup/{worker_id}", checked=checked, error="Barcode nicht gefunden.")
 
     if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
@@ -146,16 +144,15 @@ async def pickup_scan(
     reservations = await _open_reservations_for_worker(session, worker_id)
     match = next((r for r in reservations if r.item_id == item.id), None)
     if not match:
-        return RedirectResponse(
-            url=f"/scan/pickup/{worker_id}?checked={checked}&error={item.name}+ist+für+diese+Person+nicht+reserviert.",
-            status_code=303,
+        return redirect_with_query(
+            f"/scan/pickup/{worker_id}", checked=checked, error=f"{item.name} ist für diese Person nicht reserviert."
         )
 
     if match.id not in checked_ids:
         checked_ids.append(match.id)
 
     new_checked = ",".join(str(i) for i in checked_ids)
-    return RedirectResponse(url=f"/scan/pickup/{worker_id}?checked={new_checked}", status_code=303)
+    return redirect_with_query(f"/scan/pickup/{worker_id}", checked=new_checked)
 
 
 @router.post("/{worker_id}/remove/{reservation_id}")
@@ -183,7 +180,7 @@ async def pickup_remove(
     # gestanden hätte - kann nicht passieren, da entfernen nur bei "pending"
     # angeboten wird, aber zur Robustheit trotzdem sauber rausfiltern.
     checked_ids = [i for i in _parse_checked(checked) if i != reservation_id]
-    return RedirectResponse(url=f"/scan/pickup/{worker_id}?checked={','.join(str(i) for i in checked_ids)}", status_code=303)
+    return redirect_with_query(f"/scan/pickup/{worker_id}", checked=",".join(str(i) for i in checked_ids))
 
 
 @router.post("/{worker_id}/confirm")
@@ -200,17 +197,17 @@ async def pickup_confirm(
 
     checked_ids = _parse_checked(checked)
     if not checked_ids:
-        return RedirectResponse(url=f"/scan/pickup/{worker_id}?error=Kein+Gegenstand+abgehakt.", status_code=303)
+        return redirect_with_query(f"/scan/pickup/{worker_id}", error="Kein Gegenstand abgehakt.")
 
     if not signature.startswith("data:image/png;base64,") or len(signature) > 200_000:
-        return RedirectResponse(
-            url=f"/scan/pickup/{worker_id}?checked={checked}&error=Unterschrift+fehlt+oder+ist+ungültig.", status_code=303
+        return redirect_with_query(
+            f"/scan/pickup/{worker_id}", checked=checked, error="Unterschrift fehlt oder ist ungültig."
         )
 
     reservations = await _open_reservations_for_worker(session, worker_id)
     to_fulfill = [r for r in reservations if r.id in checked_ids]
     if not to_fulfill:
-        return RedirectResponse(url=f"/scan/pickup/{worker_id}?error=Nichts+mehr+abzugeben+-+bitte+erneut+prüfen.", status_code=303)
+        return redirect_with_query(f"/scan/pickup/{worker_id}", error="Nichts mehr abzugeben - bitte erneut prüfen.")
 
     for reservation in to_fulfill:
         if not await is_staff_in_department(session, user, reservation.department_id):
@@ -232,6 +229,4 @@ async def pickup_confirm(
         count += 1
 
     await session.commit()
-    return RedirectResponse(
-        url=f"/scan/pickup?ok={count}+Gegenstand(e)+an+{worker.full_name}+ausgegeben.", status_code=303
-    )
+    return redirect_with_query("/scan/pickup", ok=f"{count} Gegenstand(e) an {worker.full_name} ausgegeben.")

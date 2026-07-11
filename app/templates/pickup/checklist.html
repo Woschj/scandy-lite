@@ -11,6 +11,7 @@
 <div class="tag-card form-card" style="margin-bottom: var(--space-6);">
   <div id="scan-form-area">
     <form method="post" action="/scan/pickup/{{ worker.id }}/scan">
+      {% include "partials/csrf_field.html" %}
       <input type="hidden" name="checked" value="{{ checked_param }}">
       <div class="field">
         <label for="barcode">Gegenstand-Barcode</label>
@@ -43,6 +44,7 @@
           <span class="meta">{{ r.item.barcode if r.item else "" }}</span>
         </div>
         <form method="post" action="/scan/pickup/{{ worker.id }}/remove/{{ r.id }}" onsubmit="return confirm('{{ (r.item.name if r.item else "Gegenstand") }} aus dieser Abholung entfernen? Die Reservierung wird storniert.')">
+          {% include "partials/csrf_field.html" %}
           <input type="hidden" name="checked" value="{{ checked_param }}">
           <button type="submit" class="link-btn danger">Entfernen</button>
         </form>
@@ -70,6 +72,7 @@
   <div class="tag-card form-card" id="confirm-section">
     <p style="margin-top:0;">Ausgabe von {{ done | length }} Gegenstand/Gegenständen bestätigen:</p>
     <form method="post" action="/scan/pickup/{{ worker.id }}/confirm" data-guard>
+      {% include "partials/csrf_field.html" %}
       <input type="hidden" name="checked" value="{{ checked_param }}">
       <input type="hidden" name="signature" id="signature-data" value="">
       <div class="field">

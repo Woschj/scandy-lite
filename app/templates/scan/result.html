@@ -28,6 +28,7 @@
       {% endif %}
       <p>Gegenstand ausleihen - Mitarbeiter-Barcode scannen oder eintippen:</p>
       <form method="post" action="/scan/lend" data-guard>
+        {% include "partials/csrf_field.html" %}
         <input type="hidden" name="item_id" value="{{ item.id }}">
         <input type="hidden" name="signature" id="signature-data" value="">
         <div class="field" id="worker-barcode-field">
@@ -77,6 +78,7 @@
         <p>Als ausgeliehen markiert, aber keine offene Ausleihe gefunden - bitte manuell prüfen.</p>
       {% endif %}
       <form method="post" action="/scan/return" data-guard>
+        {% include "partials/csrf_field.html" %}
         <input type="hidden" name="item_id" value="{{ item.id }}">
         <button type="submit" class="btn btn-primary btn-block">Rückgabe bestätigen</button>
       </form>
@@ -102,6 +104,7 @@
 
     <p>Entnahme protokollieren - Menge und Mitarbeiter-Barcode angeben:</p>
     <form method="post" action="/scan/consume" data-guard>
+      {% include "partials/csrf_field.html" %}
       <input type="hidden" name="consumable_id" value="{{ consumable.id }}">
       <div id="consume-fields">
         <div class="field">

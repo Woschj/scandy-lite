@@ -34,6 +34,7 @@
           <p class="item-meta">Reserviert am {{ r.created_at.strftime("%d.%m.%Y %H:%M") }} - zur Abholung bereit, einfach an der Ausgabe scannen lassen.</p>
           <div class="item-card-actions">
             <form method="post" action="/reservations/{{ r.id }}/cancel" onsubmit="return confirm('Reservierung stornieren?')">
+              {% include "partials/csrf_field.html" %}
               <button type="submit" class="link-btn danger">Stornieren</button>
             </form>
           </div>
@@ -51,6 +52,7 @@
           <p class="item-meta">Vorgemerkt am {{ r.created_at.strftime("%d.%m.%Y %H:%M") }} - Menge beim Scannen entnehmen lassen.</p>
           <div class="item-card-actions">
             <form method="post" action="/reservations/consumables/{{ r.id }}/cancel" onsubmit="return confirm('Vormerkung stornieren?')">
+              {% include "partials/csrf_field.html" %}
               <button type="submit" class="link-btn danger">Stornieren</button>
             </form>
           </div>
@@ -89,6 +91,7 @@
                   <span class="meta">{{ r.item.barcode if r.item else "" }} · seit {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
                 </div>
                 <form method="post" action="/reservations/{{ r.id }}/cancel" onsubmit="return confirm('Reservierung stornieren?')">
+                  {% include "partials/csrf_field.html" %}
                   <button type="submit" class="link-btn danger">Stornieren</button>
                 </form>
               </div>
@@ -100,6 +103,7 @@
                   <span class="meta">{{ r.consumable.barcode if r.consumable else "" }} · seit {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
                 </div>
                 <form method="post" action="/reservations/consumables/{{ r.id }}/cancel" onsubmit="return confirm('Vormerkung stornieren?')">
+                  {% include "partials/csrf_field.html" %}
                   <button type="submit" class="link-btn danger">Stornieren</button>
                 </form>
               </div>

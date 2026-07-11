@@ -11,13 +11,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
 from app.core.database import get_session
-from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff
+from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
 from app.core.templating import templates
 from app.models.common import UserRole, utcnow
 from app.models.user import User
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/workers", tags=["workers"], dependencies=[Depends(populate_nav_context), Depends(require_staff)])
+router = APIRouter(prefix="/workers", tags=["workers"], dependencies=[Depends(populate_nav_context), Depends(require_staff), Depends(verify_csrf)])
 
 
 async def _staff_departments(session: AsyncSession, user: User):

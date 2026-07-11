@@ -8,7 +8,6 @@ Feature-Flags, kein Custom-Fields-System, kein Notification-Center - nur die
 Presets, die die Formulare tatsächlich brauchen.
 """
 import uuid
-from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -18,7 +17,8 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.database import get_session
-from app.core.deps import require_admin, populate_nav_context
+from app.core.deps import require_admin, populate_nav_context, verify_csrf
+from app.core.responses import redirect_with_query
 from app.core.security import hash_password
 from app.core.templating import templates
 from app.models.common import UserRole, utcnow
@@ -33,7 +33,7 @@ from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
 from app.models.worker import Worker
 
-router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(populate_nav_context)])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
 
 @router.get("/settings")
@@ -338,15 +338,15 @@ async def delete_department(
             blockers.append(f"{count} {label}")
 
     if blockers:
-        message = quote(
+        message = (
             f"'{department.name}' kann nicht gelöscht werden, enthält noch: " + ", ".join(blockers) +
             ". Erst verschieben/entfernen, oder stattdessen nur deaktivieren."
         )
-        return RedirectResponse(url=f"/admin/settings?error={message}#departments", status_code=303)
+        return redirect_with_query("/admin/settings", fragment="departments", error=message)
 
     await session.delete(department)
     await session.commit()
-    return RedirectResponse(url=f"/admin/settings?ok={quote(department.name + ' gelöscht.')}#departments", status_code=303)
+    return redirect_with_query("/admin/settings", fragment="departments", ok=f"{department.name} gelöscht.")
 
 
 # --- Kategorien --------------------------------------------------------
