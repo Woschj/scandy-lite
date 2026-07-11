@@ -17,6 +17,37 @@
 <form class="list-toolbar" method="get" action="/items">
   <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Name oder Barcode…" class="search-input">
   <button type="submit" class="btn btn-ghost">Suchen</button>
+  <select name="status" class="filter-select" onchange="this.form.requestSubmit()">
+    <option value="">Alle Status</option>
+    <option value="verfuegbar" {% if status == "verfuegbar" %}selected{% endif %}>Verfügbar</option>
+    <option value="ausgeliehen" {% if status == "ausgeliehen" %}selected{% endif %}>Ausgeliehen</option>
+    <option value="defekt" {% if status == "defekt" %}selected{% endif %}>Defekt</option>
+    <option value="ausgemustert" {% if status == "ausgemustert" %}selected{% endif %}>Ausgemustert</option>
+  </select>
+  {% if available_categories %}
+    <select name="category" class="filter-select" onchange="this.form.requestSubmit()">
+      <option value="">Alle Kategorien</option>
+      {% for c in available_categories %}
+        <option value="{{ c }}" {% if category == c %}selected{% endif %}>{{ c }}</option>
+      {% endfor %}
+    </select>
+  {% endif %}
+  {% if available_locations %}
+    <select name="location" class="filter-select" onchange="this.form.requestSubmit()">
+      <option value="">Alle Standorte</option>
+      {% for l in available_locations %}
+        <option value="{{ l }}" {% if location == l %}selected{% endif %}>{{ l }}</option>
+      {% endfor %}
+    </select>
+  {% endif %}
+  <select name="sort" class="filter-select" onchange="this.form.requestSubmit()">
+    <option value="name" {% if sort == "name" %}selected{% endif %}>Sortierung: Name</option>
+    <option value="barcode" {% if sort == "barcode" %}selected{% endif %}>Sortierung: Barcode</option>
+    <option value="status" {% if sort == "status" %}selected{% endif %}>Sortierung: Status</option>
+  </select>
+  {% if q or status or category or location %}
+    <a href="/items" class="link-btn">Filter zurücksetzen</a>
+  {% endif %}
   {% include "partials/view_toggle.html" %}
 </form>
 

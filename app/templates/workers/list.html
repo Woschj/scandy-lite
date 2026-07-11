@@ -17,6 +17,18 @@
 <form class="list-toolbar" method="get" action="/workers">
   <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Name oder Barcode…" class="search-input">
   <button type="submit" class="btn btn-ghost">Suchen</button>
+  <select name="status" class="filter-select" onchange="this.form.requestSubmit()">
+    <option value="">Alle Status</option>
+    <option value="aktiv" {% if status == "aktiv" %}selected{% endif %}>Aktiv</option>
+    <option value="inaktiv" {% if status == "inaktiv" %}selected{% endif %}>Inaktiv</option>
+  </select>
+  <select name="sort" class="filter-select" onchange="this.form.requestSubmit()">
+    <option value="name" {% if sort == "name" %}selected{% endif %}>Sortierung: Name</option>
+    <option value="barcode" {% if sort == "barcode" %}selected{% endif %}>Sortierung: Barcode</option>
+  </select>
+  {% if q or status %}
+    <a href="/workers" class="link-btn">Filter zurücksetzen</a>
+  {% endif %}
   {% include "partials/view_toggle.html" %}
 </form>
 

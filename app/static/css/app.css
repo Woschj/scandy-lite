@@ -512,6 +512,17 @@ button, input, select {
   min-height: 44px;
 }
 
+.filter-select {
+  min-height: 44px;
+  padding: 0.5rem var(--space-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+}
+
 /* Kachel-/Listenansicht-Umschalter, siehe app/static/js/view-toggle.js */
 .view-toggle {
   display: flex;

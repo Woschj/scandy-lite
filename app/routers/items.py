@@ -54,10 +54,17 @@ async def _staff_departments(session: AsyncSession, user: User):
     return [d for d in all_accessible if d.id in dept_ids]
 
 
+ITEM_SORT_COLUMNS = {"name": Item.name, "barcode": Item.barcode, "status": Item.status}
+
+
 @router.get("")
 async def list_items(
     request: Request,
     q: str = "",
+    status: str = "",
+    category: str = "",
+    location: str = "",
+    sort: str = "name",
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
@@ -68,7 +75,12 @@ async def list_items(
 
     linked_worker = await get_linked_worker(session, user)
 
-    stmt = select(Item).where(Item.deleted_at.is_(None)).order_by(Item.name).options(selectinload(Item.department))
+    stmt = (
+        select(Item)
+        .where(Item.deleted_at.is_(None))
+        .order_by(ITEM_SORT_COLUMNS.get(sort, Item.name))
+        .options(selectinload(Item.department))
+    )
 
     staff_department_ids: set = set()
     if user.is_admin:
@@ -83,8 +95,30 @@ async def list_items(
         like = f"%{q}%"
         stmt = stmt.where((Item.name.ilike(like)) | (Item.barcode.ilike(like)))
 
+    if status:
+        try:
+            stmt = stmt.where(Item.status == ItemStatus(status))
+        except ValueError:
+            pass  # ungültiger Wert (z.B. manipulierte URL) - Filter einfach ignorieren statt 500er
+    if category:
+        stmt = stmt.where(Item.category == category)
+    if location:
+        stmt = stmt.where(Item.location == location)
+
     result = await session.exec(stmt)
     items = result.all()
+
+    # Kategorie-/Standort-Werte fürs Filter-Dropdown: unabhängig von den
+    # aktuell gesetzten Filtern/der Suche, damit Optionen nicht verschwinden,
+    # sobald ein anderer Filter aktiv ist - nur an dieselbe Abteilungs-
+    # Sichtbarkeit gebunden wie die Liste selbst.
+    category_stmt = select(Item.category).where(Item.deleted_at.is_(None), Item.category.is_not(None)).distinct()
+    location_stmt = select(Item.location).where(Item.deleted_at.is_(None), Item.location.is_not(None)).distinct()
+    if not user.is_admin:
+        category_stmt = category_stmt.where(Item.department_id.in_(visible_ids))
+        location_stmt = location_stmt.where(Item.department_id.in_(visible_ids))
+    available_categories = sorted((await session.exec(category_stmt)).all())
+    available_locations = sorted((await session.exec(location_stmt)).all())
 
     # Offene Reservierungen der angezeigten Items (für "Reserviert"-Chip + Button-Logik)
     reserved_ids: set = set()
@@ -103,6 +137,8 @@ async def list_items(
         "items/list.html",
         {
             "user": user, "items": items, "q": q, "ok": ok, "error": error,
+            "status": status, "category": category, "location": location, "sort": sort,
+            "available_categories": available_categories, "available_locations": available_locations,
             "reserved_ids": reserved_ids, "linked_worker": linked_worker,
             "staff_department_ids": staff_department_ids,
         },

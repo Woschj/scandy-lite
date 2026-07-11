@@ -31,10 +31,15 @@ async def _staff_departments(session: AsyncSession, user: User):
     return [d for d in all_accessible if d.id in dept_ids]
 
 
+WORKER_SORT_COLUMNS = {"name": Worker.last_name, "barcode": Worker.barcode}
+
+
 @router.get("")
 async def list_workers(
     request: Request,
     q: str = "",
+    status: str = "",
+    sort: str = "name",
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
@@ -42,7 +47,12 @@ async def list_workers(
 ):
     from sqlalchemy.orm import selectinload
 
-    stmt = select(Worker).where(Worker.deleted_at.is_(None)).order_by(Worker.last_name).options(selectinload(Worker.department))
+    stmt = (
+        select(Worker)
+        .where(Worker.deleted_at.is_(None))
+        .order_by(WORKER_SORT_COLUMNS.get(sort, Worker.last_name))
+        .options(selectinload(Worker.department))
+    )
     staff_department_ids: set = set()
     if not user.is_admin:
         roles = await get_department_roles(session, user)
@@ -54,6 +64,10 @@ async def list_workers(
         stmt = stmt.where(
             (Worker.first_name.ilike(like)) | (Worker.last_name.ilike(like)) | (Worker.barcode.ilike(like))
         )
+    if status == "aktiv":
+        stmt = stmt.where(Worker.is_active == True)  # noqa: E712
+    elif status == "inaktiv":
+        stmt = stmt.where(Worker.is_active == False)  # noqa: E712
 
     result = await session.exec(stmt)
     workers = result.all()
@@ -61,7 +75,10 @@ async def list_workers(
     return templates.TemplateResponse(
         request,
         "workers/list.html",
-        {"user": user, "workers": workers, "q": q, "ok": ok, "error": error, "staff_department_ids": staff_department_ids},
+        {
+            "user": user, "workers": workers, "q": q, "ok": ok, "error": error,
+            "status": status, "sort": sort, "staff_department_ids": staff_department_ids,
+        },
     )
 
 

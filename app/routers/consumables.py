@@ -52,10 +52,17 @@ async def _staff_departments(session: AsyncSession, user: User):
     return [d for d in all_accessible if d.id in dept_ids]
 
 
+CONSUMABLE_SORT_COLUMNS = {"name": Consumable.name, "barcode": Consumable.barcode, "quantity": Consumable.quantity}
+
+
 @router.get("")
 async def list_consumables(
     request: Request,
     q: str = "",
+    status: str = "",
+    category: str = "",
+    location: str = "",
+    sort: str = "name",
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
@@ -65,9 +72,15 @@ async def list_consumables(
 
     linked_worker = await get_linked_worker(session, user)
 
-    stmt = select(Consumable).where(Consumable.deleted_at.is_(None)).order_by(Consumable.name).options(selectinload(Consumable.department))
+    stmt = (
+        select(Consumable)
+        .where(Consumable.deleted_at.is_(None))
+        .order_by(CONSUMABLE_SORT_COLUMNS.get(sort, Consumable.name))
+        .options(selectinload(Consumable.department))
+    )
 
     staff_department_ids: set = set()
+    visible_ids = None
     if not user.is_admin:
         roles = await get_department_roles(session, user)
         staff_department_ids = {r.department_id for r in roles if r.role == UserRole.MITARBEITER}
@@ -78,14 +91,35 @@ async def list_consumables(
         like = f"%{q}%"
         stmt = stmt.where((Consumable.name.ilike(like)) | (Consumable.barcode.ilike(like)))
 
+    if status == "verfuegbar":
+        stmt = stmt.where(Consumable.quantity > 0)
+    elif status == "mindestbestand":
+        stmt = stmt.where(Consumable.quantity <= Consumable.min_quantity)
+    elif status == "leer":
+        stmt = stmt.where(Consumable.quantity == 0)
+    if category:
+        stmt = stmt.where(Consumable.category == category)
+    if location:
+        stmt = stmt.where(Consumable.location == location)
+
     result = await session.exec(stmt)
     consumables = result.all()
+
+    category_stmt = select(Consumable.category).where(Consumable.deleted_at.is_(None), Consumable.category.is_not(None)).distinct()
+    location_stmt = select(Consumable.location).where(Consumable.deleted_at.is_(None), Consumable.location.is_not(None)).distinct()
+    if not user.is_admin:
+        category_stmt = category_stmt.where(Consumable.department_id.in_(visible_ids))
+        location_stmt = location_stmt.where(Consumable.department_id.in_(visible_ids))
+    available_categories = sorted((await session.exec(category_stmt)).all())
+    available_locations = sorted((await session.exec(location_stmt)).all())
 
     return templates.TemplateResponse(
         request,
         "consumables/list.html",
         {
             "user": user, "consumables": consumables, "q": q, "ok": ok, "error": error,
+            "status": status, "category": category, "location": location, "sort": sort,
+            "available_categories": available_categories, "available_locations": available_locations,
             "linked_worker": linked_worker, "staff_department_ids": staff_department_ids,
         },
     )
