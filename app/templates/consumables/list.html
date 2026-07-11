@@ -17,6 +17,7 @@
 <form class="list-toolbar" method="get" action="/consumables">
   <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Name oder Barcode…" class="search-input">
   <button type="submit" class="btn btn-ghost">Suchen</button>
+  {% include "partials/view_toggle.html" %}
 </form>
 
 {% if consumables %}

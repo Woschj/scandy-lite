@@ -512,10 +512,79 @@ button, input, select {
   min-height: 44px;
 }
 
+/* Kachel-/Listenansicht-Umschalter, siehe app/static/js/view-toggle.js */
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.view-toggle-btn {
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  background: #fff;
+  color: var(--ink-soft);
+  font-size: 1.125rem;
+  cursor: pointer;
+}
+.view-toggle-btn + .view-toggle-btn { border-left: 1px solid var(--line-strong); }
+.view-toggle-btn.active { background: var(--brand); color: #fff; }
+
 .item-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--space-4);
+}
+
+/* Kompakte Listenansicht: eine Spalte, deutlich weniger Platz pro Eintrag.
+   Sekundärinfos (Kategorie/Standort/Notizen, Zusatz-Chips, Bestands-
+   Stepper) werden bewusst ausgeblendet - Fokus auf Name/Barcode/Status +
+   Aktionen; Details bleiben über "Bearbeiten" weiterhin erreichbar. */
+.item-grid.view-list {
+  display: block;
+}
+.item-grid.view-list .item-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+}
+.item-grid.view-list .item-card:first-child {
+  border-top: 1px solid var(--line);
+}
+.item-grid.view-list .item-card::before {
+  display: none;
+}
+.item-grid.view-list .item-card-top {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.item-grid.view-list .item-card-top h3 {
+  font-size: 0.875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-grid.view-list .item-card .item-thumb,
+.item-grid.view-list .item-card .item-thumb-placeholder {
+  width: 36px;
+  height: 36px;
+}
+.item-grid.view-list .item-card > *:not(.item-card-top):not(.item-card-actions) {
+  display: none;
+}
+.item-grid.view-list .item-card-actions {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+  flex-shrink: 0;
 }
 
 .item-card {

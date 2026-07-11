@@ -80,7 +80,15 @@ window.ScandyCamera = (function () {
       scanner = new Html5Qrcode(cfg.videoContainerId);
       scanner.start(
         { facingMode: "environment" }, // Rückkamera bevorzugen (Barcodes werden selten mit der Frontkamera gescannt)
-        { fps: 10, qrbox: { width: 250, height: 150 } },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 200 }, // etwas quadratischer als vorher (250x150) - mehr Fläche für schräg/gedreht liegende Barcodes
+          // Nutzt die native Browser-BarcodeDetector-API, wo verfügbar (Chrome/Edge auf
+          // Android u.a.) - deutlich toleranter gegenüber Rotation/Winkel als der
+          // mitgelieferte JS-Decoder. Fällt automatisch auf diesen zurück, wo nicht
+          // unterstützt (u.a. Safari/iOS) - kein Nachteil, nur potenzieller Zusatznutzen.
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        },
         function (decodedText) {
           vibrate(80);
           cfg.input.value = decodedText;

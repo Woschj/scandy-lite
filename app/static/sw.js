@@ -10,7 +10,7 @@
  * /static/sw.js - sonst kontrolliert der Service Worker nur /static/*
  * statt der eigentlichen App-Seiten. Siehe die /sw.js-Route in app/main.py.
  */
-const CACHE_NAME = "scandy-lite-shell-v1";
+const CACHE_NAME = "scandy-lite-shell-v2";
 
 const SHELL_ASSETS = [
   "/static/css/app.css",
@@ -20,6 +20,7 @@ const SHELL_ASSETS = [
   "/static/js/form-guard.js",
   "/static/js/qty-stepper.js",
   "/static/js/cart.js",
+  "/static/js/view-toggle.js",
   "/static/js/barcode-camera.js",
   "/static/js/signature.js",
   "/static/js/offline-banner.js",
