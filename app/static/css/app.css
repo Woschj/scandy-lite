@@ -321,7 +321,7 @@ button, input, select {
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
   .topnav-links { display: none; }
 
   /* Top-Leiste lief früher über den rechten Rand hinaus (Abteilungs-Select +
@@ -662,7 +662,7 @@ button, input, select {
   border-bottom-color: transparent !important;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
   .tab-bar a.scan-fab {
     position: relative;
   }
@@ -1090,7 +1090,7 @@ button, input, select {
   margin-top: var(--space-6);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
   .mobile-fixed-cta {
     position: fixed;
     left: 0;

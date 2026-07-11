@@ -93,6 +93,17 @@ Rückmeldung "klein und fiddly zu bedienen": größere Icons (26px statt
 22px), größere Schrift, mehr Höhe (72px statt 64px), plus sichtbares
 Tap-Feedback (kurzes Aufhellen beim Antippen statt nur Farbwechsel des Texts).
 
+**Bugfix (per Screenshot gemeldet):** Die obigen Anpassungen liefen zunächst
+ins Leere, weil das komplette Mobil-Layout (Nav/Tab-Bar) bis dahin NUR über
+`max-width: 720px` aktiviert wurde - ein Handy im Querformat ist aber
+*breiter* als 720px (z.B. ~850px bei einem iPhone), fiel also komplett aus
+dem Mobil-Modus raus und zeigte die volle Desktop-Navigation mit
+ausgeschriebenen Menüpunkten nebeneinander, riesigem leerem Weißraum rechts
+und keiner Tab-Bar - "wie eine Desktop-App, die krampfhaft auf einen
+Handyscreen soll". Fix: alle drei betroffenen Media Queries lösen jetzt
+zusätzlich bei knapper Höhe im Querformat aus (`(max-width: 720px), (max-height:
+500px) and (orientation: landscape)`), unabhängig von der Breite.
+
 ### Fixes nach echtem Geräte-Test (iPhone-Screenshot)
 
 Zwei konkrete, per Screenshot gemeldete Probleme behoben:
