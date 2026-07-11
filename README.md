@@ -69,6 +69,15 @@ Deploy geht nichts verloren.
   drehen"-Hinweis - auf Nutzer-Feedback hin durch echte Querformat-
   Unterstützung ersetzt (siehe nächster Abschnitt).
 
+**Kamera-Ansicht zentriert, kein Scrollen mehr nötig (per Screenshot gemeldet):**
+Auf der Haupt-Scan-Seite blieben Überschrift und Beschreibungstext bisher stehen,
+auch nachdem sich das Barcode-Formular beim Kamera-Start ausblendete - dadurch
+musste man trotzdem scrollen, um die Kamera-Vorschau ganz zu sehen. Jetzt
+blendet sich beim Kamera-Start die GESAMTE Seiten-Chrome (Überschrift, Text,
+Formular) aus, nicht nur das Formular - übrig bleiben nur Kamera-Vorschau und
+"Kamera schließen"-Button, vertikal zentriert im verfügbaren Platz (per
+`body.camera-active`-Klasse, von `barcode-camera.js` gesetzt).
+
 ### Querformat-Unterstützung (statt Blockieren)
 
 Ursprünglich gab es einen Overlay, der Handys im Querformat komplett

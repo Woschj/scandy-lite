@@ -1218,3 +1218,21 @@ details.pickup-row[open] summary::after { transform: rotate(180deg); }
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
+
+/* -------------------------------------------------------------------------
+   Kamera aktiv: Rest der Seite (Überschrift, Formular) wird per JS
+   ausgeblendet (hideWhileActive in barcode-camera.js) - hier zusätzlich die
+   Kamera-Karte im verbleibenden Platz vertikal zentrieren, statt einfach
+   oben kleben zu bleiben. body.camera-active wird von barcode-camera.js
+   gesetzt/entfernt.
+   ------------------------------------------------------------------------- */
+body.camera-active .main-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(100dvh - var(--nav-height) - var(--tab-bar-height));
+}
+
+@media (min-width: 721px) {
+  body.camera-active .main-content { min-height: calc(100dvh - var(--nav-height)); }
+}

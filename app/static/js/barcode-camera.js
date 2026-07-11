@@ -34,6 +34,7 @@ window.ScandyCamera = (function () {
       cfg.wrap.style.display = "none";
       cfg.startBtn.style.display = "block";
       if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = ""; }
+      document.body.classList.remove("camera-active");
       if (scanner) {
         var s = scanner;
         scanner = null;
@@ -60,6 +61,7 @@ window.ScandyCamera = (function () {
       cfg.startBtn.style.display = "none";
       cfg.wrap.style.display = "block";
       if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = "none"; }
+      document.body.classList.add("camera-active");
       cfg.wrap.scrollIntoView({ behavior: "smooth", block: "start" });
 
       scanner = new Html5Qrcode(cfg.videoContainerId);
@@ -82,6 +84,7 @@ window.ScandyCamera = (function () {
         cfg.wrap.style.display = "none";
         cfg.startBtn.style.display = "block";
         if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = ""; }
+        document.body.classList.remove("camera-active");
         scanner = null;
       });
     });
