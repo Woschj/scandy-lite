@@ -523,6 +523,121 @@ button, input, select {
   font-size: 0.875rem;
 }
 
+/* -------------------------------------------------------------------------
+   Kompakte Filter-Leiste (Mobile): Suche + Filter-Button (öffnet ein
+   Bottom Sheet mit Status/Kategorie/Standort/Sortierung) + Kachel-/
+   Listen-Umschalter in EINER schmalen Zeile, statt Suche + 4 Selects +
+   Umschalter über mehrere Zeilen verteilt. Ab 721px verschwindet der
+   Filter-Button wieder und das Sheet rendert stattdessen inline (siehe
+   Media Query unten) - auf Desktop ist der Platz kein Problem.
+   ------------------------------------------------------------------------- */
+.list-toolbar-compact {
+  margin-bottom: var(--space-6);
+}
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.icon-btn {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.icon-btn svg { width: 20px; height: 20px; }
+.filter-active-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 1.5px solid #fff;
+}
+
+.filter-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 32, 29, 0.4);
+  z-index: 40;
+}
+.filter-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 41;
+  background: var(--bg-raised);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  box-shadow: 0 -4px 24px rgba(20, 32, 29, 0.15);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-6);
+  padding-bottom: calc(var(--space-6) + env(safe-area-inset-bottom));
+}
+.filter-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+.filter-sheet-header h3 { margin: 0; }
+.filter-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.filter-sheet-body .filter-select { width: 100%; }
+.filter-sheet-body label { display: block; }
+/* Nur der Text wird auf Desktop ausgeblendet (siehe Media Query unten) -
+   NICHT das <label> selbst, das würde sonst auch das darin verschachtelte
+   <select> mitverstecken. */
+.filter-sheet-body .filter-label-text {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin-bottom: var(--space-1);
+}
+
+@media (min-width: 721px) {
+  .filter-sheet-backdrop { display: none !important; }
+  .filter-trigger-btn { display: none; }
+  .filter-sheet {
+    position: static;
+    transform: none !important;
+    display: block !important;
+    box-shadow: none;
+    border-radius: 0;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    margin-top: var(--space-3);
+  }
+  .filter-sheet-header { display: none; }
+  .filter-sheet-body {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  .filter-sheet-body .filter-label-text { display: none; }
+  .filter-sheet-body .filter-select { width: auto; }
+}
+
 /* Kachel-/Listenansicht-Umschalter, siehe app/static/js/view-toggle.js */
 .view-toggle {
   display: flex;

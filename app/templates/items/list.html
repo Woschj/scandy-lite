@@ -14,42 +14,75 @@
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
-<form class="list-toolbar" method="get" action="/items">
-  <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Name oder Barcode…" class="search-input">
-  <button type="submit" class="btn btn-ghost">Suchen</button>
-  <select name="status" class="filter-select" onchange="this.form.requestSubmit()">
-    <option value="">Alle Status</option>
-    <option value="verfuegbar" {% if status == "verfuegbar" %}selected{% endif %}>Verfügbar</option>
-    <option value="ausgeliehen" {% if status == "ausgeliehen" %}selected{% endif %}>Ausgeliehen</option>
-    <option value="defekt" {% if status == "defekt" %}selected{% endif %}>Defekt</option>
-    <option value="ausgemustert" {% if status == "ausgemustert" %}selected{% endif %}>Ausgemustert</option>
-  </select>
-  {% if available_categories %}
-    <select name="category" class="filter-select" onchange="this.form.requestSubmit()">
-      <option value="">Alle Kategorien</option>
-      {% for c in available_categories %}
-        <option value="{{ c }}" {% if category == c %}selected{% endif %}>{{ c }}</option>
-      {% endfor %}
-    </select>
-  {% endif %}
-  {% if available_locations %}
-    <select name="location" class="filter-select" onchange="this.form.requestSubmit()">
-      <option value="">Alle Standorte</option>
-      {% for l in available_locations %}
-        <option value="{{ l }}" {% if location == l %}selected{% endif %}>{{ l }}</option>
-      {% endfor %}
-    </select>
-  {% endif %}
-  <select name="sort" class="filter-select" onchange="this.form.requestSubmit()">
-    <option value="name" {% if sort == "name" %}selected{% endif %}>Sortierung: Name</option>
-    <option value="barcode" {% if sort == "barcode" %}selected{% endif %}>Sortierung: Barcode</option>
-    <option value="status" {% if sort == "status" %}selected{% endif %}>Sortierung: Status</option>
-  </select>
-  {% if q or status or category or location %}
-    <a href="/items" class="link-btn">Filter zurücksetzen</a>
-  {% endif %}
-  {% include "partials/view_toggle.html" %}
-</form>
+<div class="list-toolbar-compact" x-data="{ filterOpen: false }">
+  <form class="search-row" method="get" action="/items">
+    <input type="search" name="q" value="{{ q }}" placeholder="Suche nach Name oder Barcode…" class="search-input">
+    <input type="hidden" name="status" value="{{ status }}">
+    <input type="hidden" name="category" value="{{ category }}">
+    <input type="hidden" name="location" value="{{ location }}">
+    <input type="hidden" name="sort" value="{{ sort }}">
+    <button type="submit" class="icon-btn" aria-label="Suchen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    </button>
+    <button type="button" class="icon-btn filter-trigger-btn" @click="filterOpen = true" aria-label="Filter &amp; Sortierung">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+      {% if status or category or location %}<span class="filter-active-dot"></span>{% endif %}
+    </button>
+    {% include "partials/view_toggle.html" %}
+  </form>
+
+  <div class="filter-sheet-backdrop" x-show="filterOpen" @click="filterOpen = false" x-cloak></div>
+  <div class="filter-sheet" x-show="filterOpen" x-cloak>
+    <div class="filter-sheet-header">
+      <h3>Filter &amp; Sortierung</h3>
+      <button type="button" class="icon-btn" @click="filterOpen = false" aria-label="Schließen">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <form class="filter-sheet-body" method="get" action="/items">
+      <input type="hidden" name="q" value="{{ q }}">
+      <label for="filter-status"><span class="filter-label-text">Status</span>
+        <select name="status" id="filter-status" class="filter-select" onchange="this.form.requestSubmit()">
+          <option value="">Alle Status</option>
+          <option value="verfuegbar" {% if status == "verfuegbar" %}selected{% endif %}>Verfügbar</option>
+          <option value="ausgeliehen" {% if status == "ausgeliehen" %}selected{% endif %}>Ausgeliehen</option>
+          <option value="defekt" {% if status == "defekt" %}selected{% endif %}>Defekt</option>
+          <option value="ausgemustert" {% if status == "ausgemustert" %}selected{% endif %}>Ausgemustert</option>
+        </select>
+      </label>
+      {% if available_categories %}
+        <label for="filter-category"><span class="filter-label-text">Kategorie</span>
+          <select name="category" id="filter-category" class="filter-select" onchange="this.form.requestSubmit()">
+            <option value="">Alle Kategorien</option>
+            {% for c in available_categories %}
+              <option value="{{ c }}" {% if category == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% endif %}
+      {% if available_locations %}
+        <label for="filter-location"><span class="filter-label-text">Standort</span>
+          <select name="location" id="filter-location" class="filter-select" onchange="this.form.requestSubmit()">
+            <option value="">Alle Standorte</option>
+            {% for l in available_locations %}
+              <option value="{{ l }}" {% if location == l %}selected{% endif %}>{{ l }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      {% endif %}
+      <label for="filter-sort"><span class="filter-label-text">Sortierung</span>
+        <select name="sort" id="filter-sort" class="filter-select" onchange="this.form.requestSubmit()">
+          <option value="name" {% if sort == "name" %}selected{% endif %}>Name</option>
+          <option value="barcode" {% if sort == "barcode" %}selected{% endif %}>Barcode</option>
+          <option value="status" {% if sort == "status" %}selected{% endif %}>Status</option>
+        </select>
+      </label>
+      {% if q or status or category or location %}
+        <a href="/items" class="link-btn">Filter zurücksetzen</a>
+      {% endif %}
+    </form>
+  </div>
+</div>
 
 {% if items %}
   <div class="item-grid">
