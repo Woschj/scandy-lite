@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/_status_chips.html" import item_status_chip %}
 {% block title %}Gegenstände — Scandy-Lite{% endblock %}
 
 {% block content %}
@@ -107,23 +108,7 @@
               <span class="item-barcode">{{ item.barcode }}</span>
             </a>
           </div>
-          {% if item.id in reserved_ids %}
-            <span class="chip chip-neutral">Reserviert</span>
-          {% elif can_manage_item %}
-            {% if item.status.value == "verfuegbar" %}
-              <span class="chip chip-success">Verfügbar</span>
-            {% elif item.status.value == "ausgeliehen" %}
-              <span class="chip chip-neutral">Ausgeliehen</span>
-            {% elif item.status.value == "defekt" %}
-              <span class="chip chip-danger">Defekt</span>
-            {% else %}
-              <span class="chip chip-neutral">Ausgemustert</span>
-            {% endif %}
-          {% elif item.status.value == "verfuegbar" %}
-            <span class="chip chip-success">Verfügbar</span>
-          {% else %}
-            <span class="chip chip-danger">Nicht verfügbar</span>
-          {% endif %}
+          {{ item_status_chip(item, can_manage_item, is_reserved=(item.id in reserved_ids)) }}
         </div>
         {% if item.category or item.location %}
           <p class="item-meta list-view-hide">

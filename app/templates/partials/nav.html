@@ -28,7 +28,10 @@
   <div class="user-chip">
     {% if user %}
       <span class="username-text">{{ user.username }}</span>
-      <a href="/auth/logout" class="btn btn-ghost" style="min-height:36px; padding:0.375rem 0.75rem;">Abmelden</a>
+      <form method="post" action="/auth/logout" style="margin:0;">
+        {% include "partials/csrf_field.html" %}
+        <button type="submit" class="btn btn-ghost" style="min-height:36px; padding:0.375rem 0.75rem;">Abmelden</button>
+      </form>
     {% endif %}
   </div>
 </header>

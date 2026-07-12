@@ -103,11 +103,21 @@ async def list_consumables(
         stmt = stmt.where(Consumable.quantity > 0)
     elif status in ("leer", "nicht_verfuegbar"):
         stmt = stmt.where(Consumable.quantity == 0)
-    elif status == "mindestbestand" and has_any_staff_role:
-        stmt = stmt.where(Consumable.quantity <= Consumable.min_quantity)
-    # status == "mindestbestand" ohne Mitarbeiter-Rolle: Filter wird bewusst
-    # ignoriert (keine Einschränkung) - der Mindestbestand-Hinweis ist
-    # "firmeninterna" und darf auch über die URL nicht filterbar sein.
+    elif status == "mindestbestand":
+        if user.is_admin:
+            stmt = stmt.where(Consumable.quantity <= Consumable.min_quantity)
+        else:
+            # WICHTIG: abteilungsspezifisch, nicht global (siehe items.py -
+            # ein globales has_any_staff_role-Flag hätte einem User, der nur
+            # in EINER Abteilung Mitarbeiter ist, erlaubt, den Mindestbestand-
+            # Filter fälschlich auch für Abteilungen zu nutzen, in denen er
+            # nur Nutzer-Rolle hat). Für nicht-Mitarbeiter-Abteilungen liefert
+            # der Filter schlicht keine Treffer, statt den Hinweis zu leaken.
+            stmt = stmt.where(
+                Consumable.department_id.in_(staff_department_ids) & (Consumable.quantity <= Consumable.min_quantity)
+            )
+    # status == "mindestbestand": der Hinweis ist "firmeninterna" und darf
+    # auch über die URL nicht abteilungsübergreifend filterbar sein.
     if category:
         stmt = stmt.where(Consumable.category == category)
     if location:

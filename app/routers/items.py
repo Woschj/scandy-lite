@@ -107,11 +107,28 @@ async def list_items(
 
     if status == "nicht_verfuegbar":
         stmt = stmt.where(Item.status != ItemStatus.VERFUEGBAR)
-    elif status in ("ausgeliehen", "defekt", "ausgemustert") and not has_any_staff_role:
-        # Genauer Grund ("firmeninterna") ist fuer reine Nutzer-Rolle nicht
-        # sichtbar/filterbar - selbst bei manuell manipulierter URL auf die
-        # binaere Verfuegbar/Nicht-verfuegbar-Unterscheidung heruntergestuft.
-        stmt = stmt.where(Item.status != ItemStatus.VERFUEGBAR)
+    elif status in ("ausgeliehen", "defekt", "ausgemustert"):
+        try:
+            target_status = ItemStatus(status)
+        except ValueError:
+            target_status = None
+        if target_status is not None:
+            if user.is_admin:
+                stmt = stmt.where(Item.status == target_status)
+            else:
+                # Genauer Grund ("firmeninterna") ist fuer reine Nutzer-Rolle
+                # nicht sichtbar/filterbar - WICHTIG: das muss ABTEILUNGS-
+                # SPEZIFISCH gelten, nicht global. Ein User kann Mitarbeiter
+                # in Abteilung A und nur Nutzer in Abteilung B sein - ein
+                # globales "hat irgendwo Mitarbeiter-Rolle"-Flag (frueherer
+                # Bug) haette diesem User erlaubt, den granularen Filter auch
+                # fuer Abteilung B zu nutzen. Deshalb hier: granularer Filter
+                # nur innerhalb von staff_department_ids, in allen anderen
+                # sichtbaren Abteilungen auf die binaere Grenze heruntergestuft.
+                stmt = stmt.where(
+                    (Item.department_id.in_(staff_department_ids) & (Item.status == target_status))
+                    | (Item.department_id.not_in(staff_department_ids) & (Item.status != ItemStatus.VERFUEGBAR))
+                )
     elif status:
         try:
             stmt = stmt.where(Item.status == ItemStatus(status))

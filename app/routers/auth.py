@@ -14,6 +14,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_session
+from app.core.deps import verify_csrf
 from app.core.security import create_access_token, verify_password
 from app.core.templating import templates
 from app.models.user import User
@@ -100,9 +101,15 @@ async def login_submit(
     return response
 
 
-@router.get("/logout")
-@router.post("/logout")
+@router.post("/logout", dependencies=[Depends(verify_csrf)])
 async def logout():
+    # Bewusst NUR POST (kein GET mehr): ein GET-Logout ist klassisches
+    # "Zero-Click-CSRF" - z.B. ein <img src="/auth/logout"> auf einer fremden
+    # Seite hätte jeden eingeloggten Besucher kommentarlos ausgeloggt, ganz
+    # ohne Interaktion. verify_csrf ist hier gezielt NUR auf diese Route
+    # gesetzt (nicht auf den ganzen Router), da /login weiterhin ohne Token
+    # funktionieren muss (vor dem Login existiert noch kein Session-Cookie,
+    # aus dem sich eins ableiten ließe - siehe app.core.deps.verify_csrf).
     response = RedirectResponse(url="/auth/login", status_code=303)
     response.delete_cookie(settings.SESSION_COOKIE_NAME)
     return response

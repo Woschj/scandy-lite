@@ -67,8 +67,14 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        // Nur echte Erfolgsantworten cachen - ein voruebergehender 404/500
+        // (z.B. Deploy-Race) darf nicht als "guter" Offline-Fallback
+        // gespeichert werden, sonst wird die Fehlerantwort spaeter beim
+        // naechsten echten Offline-Zustand ausgeliefert.
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
         return response;
       })
       .catch(() => caches.match(event.request))

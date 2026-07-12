@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/_status_chips.html" import item_status_chip %}
 {% block title %}{{ item.name }} — Scandy-Lite{% endblock %}
 
 {% block content %}
@@ -15,23 +16,7 @@
 
   <div class="item-card-top" style="margin-bottom: var(--space-3);">
     <span class="item-barcode">{{ item.barcode }}</span>
-    {% if reservation %}
-      <span class="chip chip-neutral">Reserviert</span>
-    {% elif can_manage %}
-      {% if item.status.value == "verfuegbar" %}
-        <span class="chip chip-success">Verfügbar</span>
-      {% elif item.status.value == "ausgeliehen" %}
-        <span class="chip chip-neutral">Ausgeliehen</span>
-      {% elif item.status.value == "defekt" %}
-        <span class="chip chip-danger">Defekt</span>
-      {% else %}
-        <span class="chip chip-neutral">Ausgemustert</span>
-      {% endif %}
-    {% elif item.status.value == "verfuegbar" %}
-      <span class="chip chip-success">Verfügbar</span>
-    {% else %}
-      <span class="chip chip-danger">Nicht verfügbar</span>
-    {% endif %}
+    {{ item_status_chip(item, can_manage, is_reserved=(reservation is not none)) }}
   </div>
 
   {% if can_manage and reservation and reservation.worker %}

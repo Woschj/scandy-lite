@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/_status_chips.html" import consumable_status_chip %}
 {% block title %}Verbrauchsmaterial — Scandy-Lite{% endblock %}
 
 {% block content %}
@@ -107,13 +108,7 @@
               <span class="item-barcode">{{ c.barcode }}</span>
             </a>
           </div>
-          {% if can_manage %}
-            <span class="qty-badge {% if c.quantity <= c.min_quantity %}qty-low{% endif %}">{{ c.quantity }} {{ c.unit }}</span>
-          {% elif c.quantity > 0 %}
-            <span class="chip chip-success">Verfügbar</span>
-          {% else %}
-            <span class="chip chip-danger">Nicht verfügbar</span>
-          {% endif %}
+          {{ consumable_status_chip(c, can_manage) }}
         </div>
         {% if c.category or c.location %}
           <p class="item-meta list-view-hide">

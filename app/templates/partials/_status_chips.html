@@ -1,0 +1,38 @@
+{#
+  Gemeinsame Status-Chip-Logik für Gegenstände/Verbrauchsmaterial - vorher
+  in items/list.html, items/detail.html, consumables/list.html und
+  consumables/detail.html separat dupliziert (4 Kopien derselben
+  Sichtbarkeitsregel: genauer Status nur für can_manage, sonst nur
+  Verfügbar/Nicht verfügbar). An EINER Stelle zentralisiert, damit eine
+  künftige Änderung der Regel nicht an einer der vier Kopien vergessen
+  werden kann.
+#}
+{% macro item_status_chip(item, can_manage_item, is_reserved=false) %}
+  {% if is_reserved %}
+    <span class="chip chip-neutral">Reserviert</span>
+  {% elif can_manage_item %}
+    {% if item.status.value == "verfuegbar" %}
+      <span class="chip chip-success">Verfügbar</span>
+    {% elif item.status.value == "ausgeliehen" %}
+      <span class="chip chip-neutral">Ausgeliehen</span>
+    {% elif item.status.value == "defekt" %}
+      <span class="chip chip-danger">Defekt</span>
+    {% else %}
+      <span class="chip chip-neutral">Ausgemustert</span>
+    {% endif %}
+  {% elif item.status.value == "verfuegbar" %}
+    <span class="chip chip-success">Verfügbar</span>
+  {% else %}
+    <span class="chip chip-danger">Nicht verfügbar</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro consumable_status_chip(consumable, can_manage) %}
+  {% if can_manage %}
+    <span class="qty-badge {% if consumable.quantity <= consumable.min_quantity %}qty-low{% endif %}">{{ consumable.quantity }} {{ consumable.unit }}</span>
+  {% elif consumable.quantity > 0 %}
+    <span class="chip chip-success">Verfügbar</span>
+  {% else %}
+    <span class="chip chip-danger">Nicht verfügbar</span>
+  {% endif %}
+{% endmacro %}
