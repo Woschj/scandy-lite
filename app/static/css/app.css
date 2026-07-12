@@ -47,6 +47,14 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* Defensiv gegen horizontales Scrollen der ganzen Seite, falls irgendwo
+   ein Flex-/Grid-Container mit fixen min-width-Kindern auf schmalen
+   Viewports überläuft (siehe .search-row Fix weiter unten - dort war es
+   konkret schon mal der Fall). */
+html, body {
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -343,7 +351,12 @@ button, input, select {
 
   /* Tab-Bar generell großzügiger - war zu klein/"fiddly" zu treffen.
      Größere Tap-Fläche (72px statt 64px), größere Icons/Schrift, sichtbares
-     Tap-Feedback (kurzes Aufhellen beim Antippen statt nur Farbwechsel). */
+     Tap-Feedback (kurzes Aufhellen beim Antippen statt nur Farbwechsel).
+     Icons/Text bekommen zusätzlich etwas Abstand von der Bar-Oberkante
+     (padding-top), damit sie nicht "geklebt" wirken, plus ein garantierter
+     Mindestabstand nach unten auch auf Geräten ohne Safe-Area-Inset. */
+  :root { --tab-bar-height: 72px; }
+
   .tab-bar {
     display: flex;
     position: fixed;
@@ -354,7 +367,7 @@ button, input, select {
     background: var(--bg-raised);
     border-top: 1px solid var(--line);
     z-index: 20;
-    padding-bottom: env(safe-area-inset-bottom);
+    padding-bottom: max(env(safe-area-inset-bottom), 8px);
   }
 
   .tab-bar a {
@@ -364,6 +377,7 @@ button, input, select {
     align-items: center;
     justify-content: center;
     gap: 4px;
+    padding-top: var(--space-2);
     text-decoration: none;
     color: var(--ink-soft);
     font-family: var(--font-display);
@@ -538,6 +552,14 @@ button, input, select {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+.search-row .search-input {
+  /* Override der Desktop-Regel (min-width: 200px) - in der kompakten
+     Leiste muss das Suchfeld neben Filter-/Umschalter-Buttons auf
+     schmalen Screens schrumpfen können, sonst läuft die Zeile über und
+     die ganze Seite bekommt horizontales Scrollen. */
+  min-width: 0;
+  flex: 1 1 auto;
 }
 .icon-btn {
   position: relative;
@@ -722,7 +744,7 @@ button, input, select {
   gap: var(--space-2);
   min-width: 0;
 }
-.item-grid.view-list .item-card-top .main > div {
+.item-grid.view-list .item-card-top .main .item-card-link {
   min-width: 0;
   flex: 1 1 auto;
 }
@@ -778,6 +800,16 @@ button, input, select {
 }
 
 .item-card h3 { margin: 0 0 2px; }
+
+/* Name+Barcode-Block ist ein Link zur Detailseite (Bild-Klick öffnet
+   stattdessen die Lightbox, siehe lightbox.js - beide koexistieren
+   konfliktfrei, da es getrennte Elemente sind). */
+.item-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.item-card-link:hover h3 { text-decoration: underline; }
 
 .item-barcode {
   font-family: var(--font-display);

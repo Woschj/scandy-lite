@@ -11,6 +11,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
+from sqlalchemy import case
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlmodel import select, update
@@ -52,7 +53,13 @@ async def _staff_departments(session: AsyncSession, user: User):
     return [d for d in all_accessible if d.id in dept_ids]
 
 
-CONSUMABLE_SORT_COLUMNS = {"name": Consumable.name, "barcode": Consumable.barcode, "quantity": Consumable.quantity}
+CONSUMABLE_AVAILABILITY_RANK = case((Consumable.quantity > 0, 0), else_=1)
+CONSUMABLE_SORT_COLUMNS = {
+    "status": (CONSUMABLE_AVAILABILITY_RANK, Consumable.name),
+    "name": (Consumable.name,),
+    "barcode": (Consumable.barcode,),
+    "quantity": (Consumable.quantity,),
+}
 
 
 @router.get("")
@@ -62,7 +69,7 @@ async def list_consumables(
     status: str = "",
     category: str = "",
     location: str = "",
-    sort: str = "name",
+    sort: str = "status",
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
@@ -71,11 +78,12 @@ async def list_consumables(
     from app.routers.reservations import get_linked_worker
 
     linked_worker = await get_linked_worker(session, user)
+    has_any_staff_role = getattr(request.state, "has_any_staff_role", False)
 
     stmt = (
         select(Consumable)
         .where(Consumable.deleted_at.is_(None))
-        .order_by(CONSUMABLE_SORT_COLUMNS.get(sort, Consumable.name))
+        .order_by(*CONSUMABLE_SORT_COLUMNS.get(sort, CONSUMABLE_SORT_COLUMNS["status"]))
         .options(selectinload(Consumable.department))
     )
 
@@ -93,10 +101,13 @@ async def list_consumables(
 
     if status == "verfuegbar":
         stmt = stmt.where(Consumable.quantity > 0)
-    elif status == "mindestbestand":
-        stmt = stmt.where(Consumable.quantity <= Consumable.min_quantity)
-    elif status == "leer":
+    elif status in ("leer", "nicht_verfuegbar"):
         stmt = stmt.where(Consumable.quantity == 0)
+    elif status == "mindestbestand" and has_any_staff_role:
+        stmt = stmt.where(Consumable.quantity <= Consumable.min_quantity)
+    # status == "mindestbestand" ohne Mitarbeiter-Rolle: Filter wird bewusst
+    # ignoriert (keine Einschränkung) - der Mindestbestand-Hinweis ist
+    # "firmeninterna" und darf auch über die URL nicht filterbar sein.
     if category:
         stmt = stmt.where(Consumable.category == category)
     if location:
@@ -121,6 +132,7 @@ async def list_consumables(
             "status": status, "category": category, "location": location, "sort": sort,
             "available_categories": available_categories, "available_locations": available_locations,
             "linked_worker": linked_worker, "staff_department_ids": staff_department_ids,
+            "has_any_staff_role": has_any_staff_role,
         },
     )
 
@@ -191,6 +203,44 @@ async def create_consumable(
         await session.rollback()
         return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/consumables", status_code=303)
+
+
+@router.get("/{consumable_id}")
+async def consumable_detail(
+    request: Request,
+    consumable_id: uuid.UUID,
+    ok: str = "",
+    error: str = "",
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    from app.routers.reservations import get_linked_worker
+
+    result = await session.exec(
+        select(Consumable)
+        .where(Consumable.id == consumable_id, Consumable.deleted_at.is_(None))
+        .options(selectinload(Consumable.department))
+    )
+    consumable = result.first()
+    if not consumable:
+        raise Forbidden()
+
+    if not user.is_admin:
+        visible_ids = await get_visible_department_ids(session, user)
+        if consumable.department_id not in visible_ids:
+            raise Forbidden()
+
+    can_manage = await is_staff_in_department(session, user, consumable.department_id)
+    linked_worker = await get_linked_worker(session, user)
+
+    return templates.TemplateResponse(
+        request,
+        "consumables/detail.html",
+        {
+            "user": user, "consumable": consumable, "ok": ok, "error": error,
+            "can_manage": can_manage, "linked_worker": linked_worker,
+        },
+    )
 
 
 @router.get("/{consumable_id}/edit")

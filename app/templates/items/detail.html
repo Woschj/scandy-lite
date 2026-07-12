@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }} — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{% if item.department %}{{ item.department.name }}{% else %}Gegenstand{% endif %}</span>
+<h1>{{ item.name }}</h1>
+
+{% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
+{% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+<div class="tag-card form-card">
+  {% if has_image("items", item.id) %}
+    <img src="{{ image_url('items', item.id) }}" alt="" class="image-upload-preview">
+  {% endif %}
+
+  <div class="item-card-top" style="margin-bottom: var(--space-3);">
+    <span class="item-barcode">{{ item.barcode }}</span>
+    {% if reservation %}
+      <span class="chip chip-neutral">Reserviert</span>
+    {% elif can_manage %}
+      {% if item.status.value == "verfuegbar" %}
+        <span class="chip chip-success">Verfügbar</span>
+      {% elif item.status.value == "ausgeliehen" %}
+        <span class="chip chip-neutral">Ausgeliehen</span>
+      {% elif item.status.value == "defekt" %}
+        <span class="chip chip-danger">Defekt</span>
+      {% else %}
+        <span class="chip chip-neutral">Ausgemustert</span>
+      {% endif %}
+    {% elif item.status.value == "verfuegbar" %}
+      <span class="chip chip-success">Verfügbar</span>
+    {% else %}
+      <span class="chip chip-danger">Nicht verfügbar</span>
+    {% endif %}
+  </div>
+
+  {% if can_manage and reservation and reservation.worker %}
+    <p class="item-meta">Reserviert für {{ reservation.worker.full_name }}.</p>
+  {% endif %}
+  {% if can_manage and active_lending and active_lending.worker %}
+    <p class="item-meta">Aktuell ausgeliehen an {{ active_lending.worker.full_name }} seit {{ active_lending.lent_at.strftime("%d.%m.%Y %H:%M") }}.</p>
+  {% endif %}
+
+  {% if item.category or item.location %}
+    <p class="item-meta">
+      {% if item.category %}{{ item.category }}{% endif %}
+      {% if item.category and item.location %} · {% endif %}
+      {% if item.location %}{{ item.location }}{% endif %}
+    </p>
+  {% endif %}
+
+  {% if item.notes %}
+    <p style="margin-top: var(--space-3);">{{ item.notes }}</p>
+  {% endif %}
+
+  {% if linked_worker and item.status.value == "verfuegbar" and not reservation %}
+    <button type="button" class="link-btn cart-toggle-btn" data-cart-toggle data-item-id="{{ item.id }}" style="margin-top: var(--space-4);">In den Warenkorb</button>
+  {% endif %}
+
+  {% if can_manage %}
+    <div class="item-card-actions">
+      <a href="/items/{{ item.id }}/edit" class="link-btn">Bearbeiten</a>
+      <form method="post" action="/items/{{ item.id }}/delete" onsubmit="return confirm('{{ item.name }} wirklich entfernen?')">
+        {% include "partials/csrf_field.html" %}
+        <button type="submit" class="link-btn danger">Entfernen</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+
+<p style="margin-top: var(--space-4);"><a href="/items" class="link-btn">← Zurück zur Übersicht</a></p>
+{% endblock %}

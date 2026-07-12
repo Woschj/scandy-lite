@@ -45,8 +45,10 @@
         <select name="status" id="filter-status" class="filter-select" onchange="this.form.requestSubmit()">
           <option value="">Alle Status</option>
           <option value="verfuegbar" {% if status == "verfuegbar" %}selected{% endif %}>Verfügbar</option>
-          <option value="mindestbestand" {% if status == "mindestbestand" %}selected{% endif %}>Mindestbestand erreicht</option>
-          <option value="leer" {% if status == "leer" %}selected{% endif %}>Leer</option>
+          {% if has_any_staff_role %}
+            <option value="mindestbestand" {% if status == "mindestbestand" %}selected{% endif %}>Mindestbestand erreicht</option>
+          {% endif %}
+          <option value="leer" {% if status == "leer" %}selected{% endif %}>{% if has_any_staff_role %}Leer{% else %}Nicht verfügbar{% endif %}</option>
         </select>
       </label>
       {% if available_categories %}
@@ -71,9 +73,12 @@
       {% endif %}
       <label for="filter-sort"><span class="filter-label-text">Sortierung</span>
         <select name="sort" id="filter-sort" class="filter-select" onchange="this.form.requestSubmit()">
+          <option value="status" {% if sort == "status" %}selected{% endif %}>Verfügbar zuerst</option>
           <option value="name" {% if sort == "name" %}selected{% endif %}>Name</option>
           <option value="barcode" {% if sort == "barcode" %}selected{% endif %}>Barcode</option>
-          <option value="quantity" {% if sort == "quantity" %}selected{% endif %}>Bestand</option>
+          {% if has_any_staff_role %}
+            <option value="quantity" {% if sort == "quantity" %}selected{% endif %}>Bestand</option>
+          {% endif %}
         </select>
       </label>
       {% if q or status or category or location %}
@@ -97,10 +102,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
               </div>
             {% endif %}
-            <div>
+            <a href="/consumables/{{ c.id }}" class="item-card-link">
               <h3>{{ c.name }}</h3>
               <span class="item-barcode">{{ c.barcode }}</span>
-            </div>
+            </a>
           </div>
           {% if can_manage %}
             <span class="qty-badge {% if c.quantity <= c.min_quantity %}qty-low{% endif %}">{{ c.quantity }} {{ c.unit }}</span>

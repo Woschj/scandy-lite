@@ -45,9 +45,13 @@
         <select name="status" id="filter-status" class="filter-select" onchange="this.form.requestSubmit()">
           <option value="">Alle Status</option>
           <option value="verfuegbar" {% if status == "verfuegbar" %}selected{% endif %}>Verfügbar</option>
-          <option value="ausgeliehen" {% if status == "ausgeliehen" %}selected{% endif %}>Ausgeliehen</option>
-          <option value="defekt" {% if status == "defekt" %}selected{% endif %}>Defekt</option>
-          <option value="ausgemustert" {% if status == "ausgemustert" %}selected{% endif %}>Ausgemustert</option>
+          {% if has_any_staff_role %}
+            <option value="ausgeliehen" {% if status == "ausgeliehen" %}selected{% endif %}>Ausgeliehen</option>
+            <option value="defekt" {% if status == "defekt" %}selected{% endif %}>Defekt</option>
+            <option value="ausgemustert" {% if status == "ausgemustert" %}selected{% endif %}>Ausgemustert</option>
+          {% else %}
+            <option value="nicht_verfuegbar" {% if status == "nicht_verfuegbar" %}selected{% endif %}>Nicht verfügbar</option>
+          {% endif %}
         </select>
       </label>
       {% if available_categories %}
@@ -72,9 +76,9 @@
       {% endif %}
       <label for="filter-sort"><span class="filter-label-text">Sortierung</span>
         <select name="sort" id="filter-sort" class="filter-select" onchange="this.form.requestSubmit()">
+          <option value="status" {% if sort == "status" %}selected{% endif %}>Verfügbar zuerst</option>
           <option value="name" {% if sort == "name" %}selected{% endif %}>Name</option>
           <option value="barcode" {% if sort == "barcode" %}selected{% endif %}>Barcode</option>
-          <option value="status" {% if sort == "status" %}selected{% endif %}>Status</option>
         </select>
       </label>
       {% if q or status or category or location %}
@@ -87,6 +91,7 @@
 {% if items %}
   <div class="item-grid">
     {% for item in items %}
+      {% set can_manage_item = user.is_admin or item.department_id in staff_department_ids %}
       <div class="item-card">
         <div class="item-card-top">
           <div class="main">
@@ -97,21 +102,27 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
               </div>
             {% endif %}
-            <div>
+            <a href="/items/{{ item.id }}" class="item-card-link">
               <h3>{{ item.name }}</h3>
               <span class="item-barcode">{{ item.barcode }}</span>
-            </div>
+            </a>
           </div>
           {% if item.id in reserved_ids %}
             <span class="chip chip-neutral">Reserviert</span>
+          {% elif can_manage_item %}
+            {% if item.status.value == "verfuegbar" %}
+              <span class="chip chip-success">Verfügbar</span>
+            {% elif item.status.value == "ausgeliehen" %}
+              <span class="chip chip-neutral">Ausgeliehen</span>
+            {% elif item.status.value == "defekt" %}
+              <span class="chip chip-danger">Defekt</span>
+            {% else %}
+              <span class="chip chip-neutral">Ausgemustert</span>
+            {% endif %}
           {% elif item.status.value == "verfuegbar" %}
             <span class="chip chip-success">Verfügbar</span>
-          {% elif item.status.value == "ausgeliehen" %}
-            <span class="chip chip-neutral">Ausgeliehen</span>
-          {% elif item.status.value == "defekt" %}
-            <span class="chip chip-danger">Defekt</span>
           {% else %}
-            <span class="chip chip-neutral">Ausgemustert</span>
+            <span class="chip chip-danger">Nicht verfügbar</span>
           {% endif %}
         </div>
         {% if item.category or item.location %}

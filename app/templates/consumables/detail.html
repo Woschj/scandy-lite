@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}{{ consumable.name }} — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">{% if consumable.department %}{{ consumable.department.name }}{% else %}Verbrauchsmaterial{% endif %}</span>
+<h1>{{ consumable.name }}</h1>
+
+{% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
+{% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+<div class="tag-card form-card">
+  {% if has_image("consumables", consumable.id) %}
+    <img src="{{ image_url('consumables', consumable.id) }}" alt="" class="image-upload-preview">
+  {% endif %}
+
+  <div class="item-card-top" style="margin-bottom: var(--space-3);">
+    <span class="item-barcode">{{ consumable.barcode }}</span>
+    {% if can_manage %}
+      <span class="qty-badge {% if consumable.quantity <= consumable.min_quantity %}qty-low{% endif %}">{{ consumable.quantity }} {{ consumable.unit }}</span>
+    {% elif consumable.quantity > 0 %}
+      <span class="chip chip-success">Verfügbar</span>
+    {% else %}
+      <span class="chip chip-danger">Nicht verfügbar</span>
+    {% endif %}
+  </div>
+
+  {% if can_manage and consumable.quantity <= consumable.min_quantity %}
+    <p class="item-meta">Mindestbestand erreicht.</p>
+  {% endif %}
+
+  {% if consumable.category or consumable.location %}
+    <p class="item-meta">
+      {% if consumable.category %}{{ consumable.category }}{% endif %}
+      {% if consumable.category and consumable.location %} · {% endif %}
+      {% if consumable.location %}{{ consumable.location }}{% endif %}
+    </p>
+  {% endif %}
+
+  {% if consumable.notes %}
+    <p style="margin-top: var(--space-3);">{{ consumable.notes }}</p>
+  {% endif %}
+
+  {% if linked_worker and consumable.quantity > 0 %}
+    <div class="qty-stepper" style="max-width: 220px; margin-top: var(--space-4);">
+      <button type="button" data-step="-1" aria-label="Menge verringern">–</button>
+      <input type="number" data-cart-quantity-for="{{ consumable.id }}" value="1" min="1" {% if can_manage %}max="{{ consumable.quantity }}"{% endif %} inputmode="numeric">
+      <button type="button" data-step="1" aria-label="Menge erhöhen">+</button>
+    </div>
+    <button type="button" class="link-btn cart-toggle-btn" data-cart-toggle-consumable data-consumable-id="{{ consumable.id }}" style="margin-top: var(--space-2);">In den Warenkorb</button>
+  {% endif %}
+
+  {% if can_manage %}
+    <div class="item-card-actions">
+      <a href="/consumables/{{ consumable.id }}/edit" class="link-btn">Bearbeiten</a>
+      <form method="post" action="/consumables/{{ consumable.id }}/delete" onsubmit="return confirm('{{ consumable.name }} wirklich entfernen?')">
+        {% include "partials/csrf_field.html" %}
+        <button type="submit" class="link-btn danger">Entfernen</button>
+      </form>
+    </div>
+  {% endif %}
+</div>
+
+<p style="margin-top: var(--space-4);"><a href="/consumables" class="link-btn">← Zurück zur Übersicht</a></p>
+{% endblock %}

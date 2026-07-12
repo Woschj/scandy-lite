@@ -12,6 +12,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
+from sqlalchemy import case
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
@@ -54,7 +55,15 @@ async def _staff_departments(session: AsyncSession, user: User):
     return [d for d in all_accessible if d.id in dept_ids]
 
 
-ITEM_SORT_COLUMNS = {"name": Item.name, "barcode": Item.barcode, "status": Item.status}
+# "status"-Sortierung bedeutet NICHT alphabetisch nach dem rohen Enum-String
+# (da käme "ausgeliehen" vor "verfuegbar") - stattdessen "verfügbar zuerst,
+# dann alphabetisch nach Name". Default-Sortierung der Liste.
+ITEM_AVAILABILITY_RANK = case((Item.status == ItemStatus.VERFUEGBAR, 0), else_=1)
+ITEM_SORT_COLUMNS = {
+    "status": (ITEM_AVAILABILITY_RANK, Item.name),
+    "name": (Item.name,),
+    "barcode": (Item.barcode,),
+}
 
 
 @router.get("")
@@ -64,7 +73,7 @@ async def list_items(
     status: str = "",
     category: str = "",
     location: str = "",
-    sort: str = "name",
+    sort: str = "status",
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
@@ -74,11 +83,12 @@ async def list_items(
     from app.routers.reservations import get_linked_worker
 
     linked_worker = await get_linked_worker(session, user)
+    has_any_staff_role = getattr(request.state, "has_any_staff_role", False)
 
     stmt = (
         select(Item)
         .where(Item.deleted_at.is_(None))
-        .order_by(ITEM_SORT_COLUMNS.get(sort, Item.name))
+        .order_by(*ITEM_SORT_COLUMNS.get(sort, ITEM_SORT_COLUMNS["status"]))
         .options(selectinload(Item.department))
     )
 
@@ -95,7 +105,14 @@ async def list_items(
         like = f"%{q}%"
         stmt = stmt.where((Item.name.ilike(like)) | (Item.barcode.ilike(like)))
 
-    if status:
+    if status == "nicht_verfuegbar":
+        stmt = stmt.where(Item.status != ItemStatus.VERFUEGBAR)
+    elif status in ("ausgeliehen", "defekt", "ausgemustert") and not has_any_staff_role:
+        # Genauer Grund ("firmeninterna") ist fuer reine Nutzer-Rolle nicht
+        # sichtbar/filterbar - selbst bei manuell manipulierter URL auf die
+        # binaere Verfuegbar/Nicht-verfuegbar-Unterscheidung heruntergestuft.
+        stmt = stmt.where(Item.status != ItemStatus.VERFUEGBAR)
+    elif status:
         try:
             stmt = stmt.where(Item.status == ItemStatus(status))
         except ValueError:
@@ -140,7 +157,7 @@ async def list_items(
             "status": status, "category": category, "location": location, "sort": sort,
             "available_categories": available_categories, "available_locations": available_locations,
             "reserved_ids": reserved_ids, "linked_worker": linked_worker,
-            "staff_department_ids": staff_department_ids,
+            "staff_department_ids": staff_department_ids, "has_any_staff_role": has_any_staff_role,
         },
     )
 
@@ -208,6 +225,63 @@ async def create_item(
         await session.rollback()
         return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/items", status_code=303)
+
+
+@router.get("/{item_id}")
+async def item_detail(
+    request: Request,
+    item_id: uuid.UUID,
+    ok: str = "",
+    error: str = "",
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    from app.models.lending import Lending
+    from app.models.reservation import Reservation
+    from app.routers.reservations import get_linked_worker
+
+    result = await session.exec(
+        select(Item).where(Item.id == item_id, Item.deleted_at.is_(None)).options(selectinload(Item.department))
+    )
+    item = result.first()
+    if not item:
+        raise Forbidden()
+
+    if not user.is_admin:
+        visible_ids = await get_visible_department_ids(session, user)
+        if item.department_id not in visible_ids:
+            raise Forbidden()
+
+    can_manage = await is_staff_in_department(session, user, item.department_id)
+    linked_worker = await get_linked_worker(session, user)
+
+    reservation = (
+        await session.exec(
+            select(Reservation)
+            .where(Reservation.item_id == item.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
+            .options(selectinload(Reservation.worker))
+        )
+    ).first()
+
+    active_lending = None
+    if can_manage and item.status == ItemStatus.AUSGELIEHEN:
+        active_lending = (
+            await session.exec(
+                select(Lending)
+                .where(Lending.item_id == item.id, Lending.returned_at.is_(None))
+                .options(selectinload(Lending.worker))
+            )
+        ).first()
+
+    return templates.TemplateResponse(
+        request,
+        "items/detail.html",
+        {
+            "user": user, "item": item, "ok": ok, "error": error,
+            "can_manage": can_manage, "linked_worker": linked_worker,
+            "reservation": reservation, "active_lending": active_lending,
+        },
+    )
 
 
 @router.get("/{item_id}/edit")
