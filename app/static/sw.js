@@ -10,7 +10,7 @@
  * /static/sw.js - sonst kontrolliert der Service Worker nur /static/*
  * statt der eigentlichen App-Seiten. Siehe die /sw.js-Route in app/main.py.
  */
-const CACHE_NAME = "scandy-lite-shell-v2";
+const CACHE_NAME = "scandy-lite-shell-v3";
 
 const SHELL_ASSETS = [
   "/static/css/app.css",
@@ -55,14 +55,21 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-first (nicht cache-first!): bei jedem Request wird zuerst
+  // versucht, die aktuelle Datei vom Server zu holen - nur wenn das
+  // fehlschlaegt (offline), wird auf den Cache zurueckgefallen. Cache-first
+  // hat bereits einen echten Bug verursacht: nach einem CSS-Fix zeigte ein
+  // Geraet mit bereits installiertem Service Worker weiterhin die ALTE,
+  // kaputte app.css, weil "einmal gecacht" nie wieder mit dem Server
+  // abgeglichen wurde. Network-first heilt sich bei jedem Deploy von selbst,
+  // ohne dass CACHE_NAME manuell erhoeht werden muss.
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
+    fetch(event.request)
+      .then((response) => {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(event.request))
   );
 });
