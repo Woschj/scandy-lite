@@ -735,8 +735,8 @@ button, input, select {
 }
 .item-grid.view-list .item-card .item-thumb,
 .item-grid.view-list .item-card .item-thumb-placeholder {
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
 }
 .item-grid.view-list .item-card-actions {
   margin-top: var(--space-1);
@@ -1195,18 +1195,19 @@ button, input, select {
    ------------------------------------------------------------------------- */
 
 .item-thumb {
-  width: 56px;
-  height: 56px;
+  width: 80px;
+  height: 80px;
   border-radius: var(--radius);
   object-fit: cover;
   border: 1px solid var(--line);
   background: var(--bg);
   flex-shrink: 0;
+  cursor: pointer;
 }
 
 .item-thumb-placeholder {
-  width: 56px;
-  height: 56px;
+  width: 80px;
+  height: 80px;
   border-radius: var(--radius);
   background: var(--bg);
   border: 1px dashed var(--line-strong);
@@ -1219,12 +1220,46 @@ button, input, select {
 .item-thumb-placeholder svg { width: 24px; height: 24px; }
 
 .image-upload-preview {
+  cursor: pointer;
   width: 100%;
   max-width: 240px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
   margin-bottom: var(--space-3);
   display: block;
+}
+
+/* -------------------------------------------------------------------------
+   Lightbox (Klick-Vorschau), siehe app/static/js/lightbox.js
+   ------------------------------------------------------------------------- */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+.lightbox-overlay img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius);
+  object-fit: contain;
+}
+.lightbox-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 1.125rem;
+  cursor: pointer;
 }
 
 .image-upload-row {

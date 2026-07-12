@@ -21,6 +21,7 @@ const SHELL_ASSETS = [
   "/static/js/qty-stepper.js",
   "/static/js/cart.js",
   "/static/js/view-toggle.js",
+  "/static/js/lightbox.js",
   "/static/js/barcode-camera.js",
   "/static/js/signature.js",
   "/static/js/offline-banner.js",
