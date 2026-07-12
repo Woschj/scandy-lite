@@ -43,8 +43,8 @@
           </div>
           {% if not w.is_active %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
         </div>
-        {% if w.department %}<span class="chip chip-neutral">{{ w.department.name }}</span>{% endif %}
-        {% if w.user_id %}<span class="chip chip-neutral">Login verknüpft</span>{% endif %}
+        {% if w.department %}<span class="chip chip-neutral list-view-hide">{{ w.department.name }}</span>{% endif %}
+        {% if w.user_id %}<span class="chip chip-neutral list-view-hide">Login verknüpft</span>{% endif %}
         {% if user.is_admin or w.department_id in staff_department_ids %}
         <div class="item-card-actions">
           <a href="/workers/{{ w.id }}/edit" class="link-btn">Bearbeiten</a>

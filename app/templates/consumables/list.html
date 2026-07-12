@@ -78,21 +78,21 @@
           {% endif %}
         </div>
         {% if c.category or c.location %}
-          <p class="item-meta">
+          <p class="item-meta list-view-hide">
             {% if c.category %}{{ c.category }}{% endif %}
             {% if c.category and c.location %} · {% endif %}
             {% if c.location %}{{ c.location }}{% endif %}
           </p>
         {% endif %}
         {% if c.department %}
-          <span class="chip chip-neutral" style="margin-top: var(--space-1);">{{ c.department.name }}</span>
+          <span class="chip chip-neutral list-view-hide" style="margin-top: var(--space-1);">{{ c.department.name }}</span>
         {% endif %}
         {% if can_manage and c.quantity <= c.min_quantity %}
-          <span class="chip chip-danger">Mindestbestand erreicht</span>
+          <span class="chip chip-danger list-view-hide">Mindestbestand erreicht</span>
         {% endif %}
 
         {% if linked_worker and c.quantity > 0 %}
-          <div class="qty-stepper" style="max-width: 220px; margin-top: var(--space-3);">
+          <div class="qty-stepper list-view-hide" style="max-width: 220px; margin-top: var(--space-3);">
             <button type="button" data-step="-1" aria-label="Menge verringern">–</button>
             <input type="number" data-cart-quantity-for="{{ c.id }}" value="1" min="1" {% if can_manage %}max="{{ c.quantity }}"{% endif %} inputmode="numeric">
             <button type="button" data-step="1" aria-label="Menge erhöhen">+</button>
@@ -101,7 +101,7 @@
         {% endif %}
 
         {% if can_manage %}
-        <form method="post" action="/consumables/{{ c.id }}/adjust" style="margin-top: var(--space-3);" data-guard
+        <form method="post" action="/consumables/{{ c.id }}/adjust" class="list-view-hide" style="margin-top: var(--space-3);" data-guard
               title="Nur Nachschub - Entnahmen bitte über Scannen erfassen, damit sie in der Historie landen">
           {% include "partials/csrf_field.html" %}
           <div class="qty-stepper" style="max-width: 220px;">

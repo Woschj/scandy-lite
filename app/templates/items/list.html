@@ -82,17 +82,17 @@
           {% endif %}
         </div>
         {% if item.category or item.location %}
-          <p class="item-meta">
+          <p class="item-meta list-view-hide">
             {% if item.category %}{{ item.category }}{% endif %}
             {% if item.category and item.location %} · {% endif %}
             {% if item.location %}{{ item.location }}{% endif %}
           </p>
         {% endif %}
         {% if item.department %}
-          <span class="chip chip-neutral" style="margin-top: var(--space-1);">{{ item.department.name }}</span>
+          <span class="chip chip-neutral list-view-hide" style="margin-top: var(--space-1);">{{ item.department.name }}</span>
         {% endif %}
         {% if item.notes %}
-          <p class="item-meta" style="font-style: italic;">{{ item.notes }}</p>
+          <p class="item-meta list-view-hide" style="font-style: italic;">{{ item.notes }}</p>
         {% endif %}
         <div class="item-card-actions">
           {% if linked_worker and item.status.value == "verfuegbar" and item.id not in reserved_ids %}

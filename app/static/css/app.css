@@ -550,18 +550,26 @@ button, input, select {
 }
 
 /* Kompakte Listenansicht: eine Spalte, deutlich weniger Platz pro Eintrag.
-   Sekundärinfos (Kategorie/Standort/Notizen, Zusatz-Chips, Bestands-
-   Stepper) werden bewusst ausgeblendet - Fokus auf Name/Barcode/Status +
-   Aktionen; Details bleiben über "Bearbeiten" weiterhin erreichbar. */
+   Sekundärinfos werden ausgeblendet - aber NICHT pauschal "alles außer
+   Top-Zeile/Aktionen" (das hat in der Praxis auch Elemente erwischt, die
+   sichtbar bleiben mussten, z.B. den Warenkorb-Button bei Verbrauchs-
+   material, der bei diesem Template NICHT in .item-card-actions sitzt).
+   Stattdessen tragen genau die Elemente, die in der Listenansicht weg
+   sollen, explizit die Klasse .list-view-hide (siehe items/list.html,
+   consumables/list.html, workers/list.html) - alles andere bleibt sichtbar. */
 .item-grid.view-list {
   display: block;
+}
+.item-grid.view-list .list-view-hide {
+  display: none;
 }
 /* Bewusst KEIN display:flex auf .item-card selbst: .item-card-actions
    enthält teils Buttons mit width:100% (siehe .cart-toggle-btn), die als
    Kind eines auto-breiten Flex-Items unvorhersehbar überlaufen/überlappen
    können (auf iOS Safari beobachtet). .item-card bleibt daher ein
-   normaler Block mit zwei gestapelten Zeilen (Top-Zeile, Aktionen-Zeile) -
-   genau wie in der Kachelansicht, nur mit deutlich weniger Abstand. */
+   normaler Block mit gestapelten Zeilen (Top-Zeile, ggf. Warenkorb-Button,
+   Aktionen-Zeile) - genau wie in der Kachelansicht, nur mit deutlich
+   weniger Abstand. */
 .item-grid.view-list .item-card {
   padding: var(--space-2) var(--space-3);
   border-radius: 0;
@@ -576,7 +584,22 @@ button, input, select {
   display: none;
 }
 .item-grid.view-list .item-card-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin-bottom: var(--space-1);
+}
+/* Text-Spalte (Name+Barcode, ggf. mit Thumbnail via .main) darf schrumpfen
+   und bekommt den Platz, den die Status-Chip-Spalte übrig lässt - vorher
+   wurde die Chip-Spalte NIE gestaucht (kein min-width:0), wodurch die
+   Text-Spalte bei jeder Enge die volle Wucht abbekam und der Name viel zu
+   aggressiv abgeschnitten wurde. */
+.item-grid.view-list .item-card-top > *:first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.item-grid.view-list .item-card-top > *:last-child {
+  flex-shrink: 0;
 }
 .item-grid.view-list .item-card-top .main {
   display: flex;
@@ -586,26 +609,27 @@ button, input, select {
 }
 .item-grid.view-list .item-card-top .main > div {
   min-width: 0;
-  flex: 1;
+  flex: 1 1 auto;
 }
 .item-grid.view-list .item-card-top h3 {
   font-size: 0.875rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin: 0;
 }
 .item-grid.view-list .item-card .item-thumb,
 .item-grid.view-list .item-card .item-thumb-placeholder {
   width: 32px;
   height: 32px;
 }
-.item-grid.view-list .item-card > *:not(.item-card-top):not(.item-card-actions) {
-  display: none;
-}
 .item-grid.view-list .item-card-actions {
   margin-top: var(--space-1);
   padding-top: 0;
   border-top: none;
+}
+.item-grid.view-list .cart-toggle-btn {
+  margin-top: var(--space-1) !important;
 }
 
 .item-card {
