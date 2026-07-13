@@ -3,7 +3,19 @@ Zentrale Konfiguration von Scandy-Lite.
 Werte kommen aus Umgebungsvariablen / .env, niemals hartkodiert.
 """
 from functools import lru_cache
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Bekannte, öffentlich in diesem Repo sichtbare Platzhalter (Code-Default hier,
+# docker-compose.yml-Fallback) - wer SECRET_KEY vergisst zu setzen, bekommt
+# sonst eine App, die nach außen normal funktioniert, aber komplett
+# kompromittierbar ist: SECRET_KEY sichert Login-Sessions (JWT), CSRF-Tokens
+# UND den Fernet-Schlüssel für verschlüsselt gespeicherte SMTP-Passwörter
+# (siehe app/core/crypto.py) - alles drei wäre mit dem bekannten Standardwert
+# für jeden nachvollziehbar, der dieses Repo kennt.
+_INSECURE_SECRET_KEYS = {"change-me-in-production", "change_me_secret_key", ""}
+_MIN_SECRET_KEY_LENGTH = 32  # openssl rand -hex 32 erzeugt 64 Zeichen - großzügige Untergrenze
 
 
 class Settings(BaseSettings):
@@ -36,6 +48,22 @@ class Settings(BaseSettings):
     UPLOADS_DIR: str = "uploads"
     MAX_UPLOAD_BYTES: int = 8 * 1024 * 1024  # 8 MB - vor der Pillow-Verarbeitung
     IMAGE_MAX_DIMENSION: int = 900  # px, längere Kante - hält Dateien klein & Karten einheitlich
+
+    @model_validator(mode="after")
+    def _require_real_secret_key_in_production(self) -> "Settings":
+        """Fail-fast statt still-unsicher: eine vergessene SECRET_KEY in
+        Produktion darf nicht zu einer scheinbar normal funktionierenden,
+        aber komplett kompromittierbaren App führen (siehe Modul-Kommentar
+        oben). In development/Tests bleibt der bequeme Default erlaubt."""
+        if self.ENV == "production" and (
+            self.SECRET_KEY in _INSECURE_SECRET_KEYS or len(self.SECRET_KEY) < _MIN_SECRET_KEY_LENGTH
+        ):
+            raise ValueError(
+                "SECRET_KEY ist nicht sicher gesetzt (Standardwert oder kürzer als "
+                f"{_MIN_SECRET_KEY_LENGTH} Zeichen), ENV=production verlangt aber einen echten Schlüssel. "
+                "Erzeugen mit: openssl rand -hex 32 - siehe INSTALL.md."
+            )
+        return self
 
 
 @lru_cache

@@ -33,7 +33,7 @@ Im gleichen Formular unter "Environment variables":
 | `POSTGRES_USER` | Datenbank-User | `scandy` |
 | `POSTGRES_PASSWORD` | Datenbank-Passwort | **echtes Passwort setzen** |
 | `POSTGRES_DB` | Datenbankname | `scandy_lite` |
-| `SECRET_KEY` | Signierschlüssel für Login-Sessions | **setzen!** z. B. mit `openssl rand -hex 32` erzeugen |
+| `SECRET_KEY` | Signierschlüssel für Login-Sessions | **setzen!** z. B. mit `openssl rand -hex 32` erzeugen - die App startet ohne einen echten Wert absichtlich nicht (siehe Fehlerbehebung unten) |
 | `SESSION_COOKIE_SECURE` | Cookie nur über HTTPS | `false` lassen (funktioniert für HTTP **und** HTTPS gleichzeitig) |
 | `ADMIN_USERNAME` | Login-Name des ersten Admins | z. B. `admin` |
 | `ADMIN_PASSWORD` | Passwort dazu | **sicheres Passwort**, nach dem ersten Deploy wieder leeren |
@@ -94,3 +94,4 @@ Neustart automatisch mit - kein manueller Schritt nötig.
 | Login-Loop (immer zurück zu `/auth/login`) | `SESSION_COOKIE_SECURE=true` bei reinem HTTP-Zugriff | auf `false` setzen |
 | Container "unhealthy", App reagiert nicht/langsam | Meist Host-Ressourcen-Engpass (I/O, CPU), kein App-Bug | `cat /proc/pressure/io` auf dem Host prüfen |
 | Kamera-Button zeigt "benötigt HTTPS" | Zugriff über `APP_PORT` (HTTP) statt `APP_HTTPS_PORT` | über `https://...:8443` aufrufen |
+| App-Container startet gar nicht, Log zeigt "SECRET_KEY ist nicht sicher gesetzt" | `SECRET_KEY` fehlt oder ist noch der Standardwert | echten Wert setzen (`openssl rand -hex 32`), Stack neu deployen - **Absicht**, kein Bug: ein vergessener Schlüssel würde sonst Logins/CSRF-Schutz/gespeicherte SMTP-Passwörter angreifbar machen |
