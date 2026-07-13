@@ -37,6 +37,7 @@
         {% else %}
           x-data="{
             selectedDepartmentId: {{ (selected_department_id or (departments[0].id if departments else '')) | string | tojson }},
+            selectedCategory: '',
             categoriesByDepartment: {{ categories_by_department | tojson }},
             locationsByDepartment: {{ locations_by_department | tojson }}
           }"
@@ -112,7 +113,7 @@
     {% else %}
       <div class="field">
         <label for="category">Kategorie</label>
-        <select id="category" name="category">
+        <select id="category" name="category" x-model="selectedCategory">
           <option value="">— keine —</option>
           <template x-for="name in (categoriesByDepartment[selectedDepartmentId] || [])" :key="name">
             <option :value="name" x-text="name"></option>
@@ -131,6 +132,32 @@
       <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:calc(-1 * var(--space-2)); margin-bottom: var(--space-4);">
         Zeigt die für die gewählte Abteilung hinterlegten Vorschläge. Fehlt eine Kategorie/ein Standort, erst unter Einstellungen → Kategorien/Standorte anlegen.
       </p>
+      {% for dept_id, cats in custom_fields_by_department_category.items() %}
+        {% for cat_name, fields in cats.items() %}
+          <div x-show="selectedDepartmentId === {{ dept_id | tojson }} && selectedCategory === {{ cat_name | tojson }}" x-cloak>
+            {% for f in fields %}
+              <div class="field">
+                <label for="cf-{{ f.id }}">{{ f.name }}</label>
+                {% if f.field_type.value == "select" %}
+                  <select id="cf-{{ f.id }}" name="custom_field_{{ f.id }}">
+                    <option value="">—</option>
+                    {% for opt in (f.options or "").split(",") %}
+                      {% set opt = opt.strip() %}
+                      {% if opt %}<option value="{{ opt }}">{{ opt }}</option>{% endif %}
+                    {% endfor %}
+                  </select>
+                {% elif f.field_type.value == "number" %}
+                  <input type="number" step="any" id="cf-{{ f.id }}" name="custom_field_{{ f.id }}">
+                {% elif f.field_type.value == "date" %}
+                  <input type="date" id="cf-{{ f.id }}" name="custom_field_{{ f.id }}">
+                {% else %}
+                  <input type="text" id="cf-{{ f.id }}" name="custom_field_{{ f.id }}">
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      {% endfor %}
     {% endif %}
     <div class="field">
       <label for="notes">Bemerkungen</label>

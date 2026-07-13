@@ -48,6 +48,19 @@ async def get_definitions_by_category(session: AsyncSession, department_id) -> d
     return grouped
 
 
+async def get_definitions_by_department_and_category(
+    session: AsyncSession, department_ids: list
+) -> dict[str, dict[str, list[CustomFieldDefinition]]]:
+    """Wie get_definitions_by_category, aber für mehrere Abteilungen auf
+    einmal - fürs Anlegen-Formular, wo neben der Kategorie auch die
+    Abteilung selbst erst im Formular gewählt wird (siehe items/form.html:
+    Alpine blendet die zu Abteilung UND Kategorie passende Gruppe ein)."""
+    return {
+        str(department_id): await get_definitions_by_category(session, department_id)
+        for department_id in department_ids
+    }
+
+
 async def get_definitions_for_item(session: AsyncSession, item: Item) -> list[CustomFieldDefinition]:
     """Nur die Definitionen, die tatsächlich zur aktuellen Kategorie DIESES
     Gegenstands passen (für Detailseite + zum Validieren beim Speichern)."""

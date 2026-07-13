@@ -31,14 +31,21 @@
 <div class="tag-card form-card">
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
-  <form data-guard method="post" action="{% if consumable %}/consumables/{{ consumable.id }}/edit{% else %}/consumables/new{% endif %}">
+  <form data-guard method="post" action="{% if consumable %}/consumables/{{ consumable.id }}/edit{% else %}/consumables/new{% endif %}"
+        {% if not consumable %}
+          x-data="{
+            selectedDepartmentId: {{ (selected_department_id or (departments[0].id if departments else '')) | string | tojson }},
+            categoriesByDepartment: {{ categories_by_department | tojson }},
+            locationsByDepartment: {{ locations_by_department | tojson }}
+          }"
+        {% endif %}>
     {% include "partials/csrf_field.html" %}
     {% if not consumable %}
       <div class="field">
         <label for="department_id">Abteilung</label>
-        <select id="department_id" name="department_id" required>
+        <select id="department_id" name="department_id" x-model="selectedDepartmentId" required>
           {% for d in departments %}
-            <option value="{{ d.id }}">{{ d.name }}</option>
+            <option value="{{ d.id }}" {% if selected_department_id and d.id == selected_department_id %}selected{% endif %}>{{ d.name }}</option>
           {% endfor %}
         </select>
       </div>
@@ -79,12 +86,25 @@
     {% else %}
       <div class="field">
         <label for="category">Kategorie</label>
-        <input type="text" id="category" name="category" placeholder="frei wählbar">
+        <select id="category" name="category">
+          <option value="">— keine —</option>
+          <template x-for="name in (categoriesByDepartment[selectedDepartmentId] || [])" :key="name">
+            <option :value="name" x-text="name"></option>
+          </template>
+        </select>
       </div>
       <div class="field">
         <label for="location">Standort</label>
-        <input type="text" id="location" name="location" placeholder="frei wählbar">
+        <select id="location" name="location">
+          <option value="">— keiner —</option>
+          <template x-for="name in (locationsByDepartment[selectedDepartmentId] || [])" :key="name">
+            <option :value="name" x-text="name"></option>
+          </template>
+        </select>
       </div>
+      <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:calc(-1 * var(--space-2)); margin-bottom: var(--space-4);">
+        Zeigt die für die gewählte Abteilung hinterlegten Vorschläge. Fehlt eine Kategorie/ein Standort, erst unter Einstellungen → Kategorien/Standorte anlegen.
+      </p>
     {% endif %}
     <div class="field">
       <label for="unit">Einheit</label>

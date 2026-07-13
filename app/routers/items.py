@@ -19,7 +19,13 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
-from app.core.custom_fields import get_definitions_by_category, get_definitions_for_item, get_values_for_item, save_values_for_item
+from app.core.custom_fields import (
+    get_definitions_by_category,
+    get_definitions_by_department_and_category,
+    get_definitions_for_item,
+    get_values_for_item,
+    save_values_for_item,
+)
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
 from app.core.responses import redirect_with_query
@@ -214,6 +220,7 @@ async def new_item_form(
         raise Forbidden()  # keine Abteilung, in der dieser User Mitarbeiter-Rolle hat
 
     categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
+    custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
     return templates.TemplateResponse(
         request,
         "items/form.html",
@@ -222,6 +229,7 @@ async def new_item_form(
             "departments": departments,
             "categories_by_department": categories_by_department,
             "locations_by_department": locations_by_department,
+            "custom_fields_by_department_category": custom_fields_by_department_category,
         },
     )
 
@@ -245,6 +253,7 @@ async def create_item(
     if result.first():
         departments = await _staff_departments(session, user)
         categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
+        custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
         return templates.TemplateResponse(
             request,
             "items/form.html",
@@ -254,6 +263,7 @@ async def create_item(
                 "departments": departments,
                 "categories_by_department": categories_by_department,
                 "locations_by_department": locations_by_department,
+                "custom_fields_by_department_category": custom_fields_by_department_category,
                 "selected_department_id": department_id,
             },
             status_code=409,
@@ -265,6 +275,42 @@ async def create_item(
         department_id=department_id,
     )
     session.add(item)
+    try:
+        # Flush BEVOR die Zusatzfeld-Werte angelegt werden: ohne eine explizite
+        # SQLModel-Relationship zwischen Item und CustomFieldValue sortiert
+        # SQLAlchemy die INSERTs beim finalen Commit nicht zuverlässig nach
+        # Fremdschlüssel-Abhängigkeit - der Gegenstand muss in der DB existieren,
+        # bevor eine CustomFieldValue-Zeile mit derselben item_id eingefügt wird
+        # (sonst Fremdschlüssel-Verletzung, siehe Regressionstest in
+        # tests/test_custom_fields.py). Der Flush kann theoretisch selbst an
+        # der Barcode-Eindeutigkeit scheitern (Race mit der SELECT-Prüfung
+        # oben) - deshalb hier schon abgesichert, nicht erst beim Commit.
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
+
+    form_data = await request.form()
+    custom_field_errors = await save_values_for_item(session, item, form_data)
+    if custom_field_errors:
+        departments = await _staff_departments(session, user)
+        categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
+        custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
+        return templates.TemplateResponse(
+            request,
+            "items/form.html",
+            {
+                "user": user, "item": None,
+                "error": " ".join(custom_field_errors),
+                "departments": departments,
+                "categories_by_department": categories_by_department,
+                "locations_by_department": locations_by_department,
+                "custom_fields_by_department_category": custom_fields_by_department_category,
+                "selected_department_id": department_id,
+            },
+            status_code=400,
+        )
+
     try:
         await session.commit()
     except IntegrityError:

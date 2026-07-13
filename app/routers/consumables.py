@@ -42,6 +42,28 @@ async def _presets(session: AsyncSession, department_id):
     return categories, locations
 
 
+async def _presets_by_department(session: AsyncSession, department_ids: list) -> tuple[dict, dict]:
+    """Wie app.routers.items._presets_by_department - Kategorie-/Standort-
+    Vorschläge ALLER übergebenen Abteilungen, gruppiert nach (als String)
+    Abteilungs-ID, fürs Anlegen-Formular (Abteilung wird dort erst im
+    Formular selbst gewählt, Alpine blendet die passende Gruppe ein)."""
+    if not department_ids:
+        return {}, {}
+    categories = (await session.exec(
+        select(Category).where(Category.department_id.in_(department_ids)).order_by(Category.name)
+    )).all()
+    locations = (await session.exec(
+        select(Location).where(Location.department_id.in_(department_ids)).order_by(Location.name)
+    )).all()
+    categories_by_department: dict = {}
+    for c in categories:
+        categories_by_department.setdefault(str(c.department_id), []).append(c.name)
+    locations_by_department: dict = {}
+    for l in locations:
+        locations_by_department.setdefault(str(l.department_id), []).append(l.name)
+    return categories_by_department, locations_by_department
+
+
 async def _staff_departments(session: AsyncSession, user: User):
     if user.is_admin:
         return await get_accessible_departments(session, user)
@@ -157,12 +179,15 @@ async def new_consumable_form(
     if not departments:
         raise Forbidden()
 
+    categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
     return templates.TemplateResponse(
         request,
         "consumables/form.html",
         {
             "user": user, "consumable": None, "error": None,
-            "departments": departments, "categories": [], "locations": [],
+            "departments": departments,
+            "categories_by_department": categories_by_department,
+            "locations_by_department": locations_by_department,
         },
     )
 
@@ -189,14 +214,17 @@ async def create_consumable(
     )
     if result.first():
         departments = await _staff_departments(session, user)
-        categories, locations = await _presets(session, department_id)
+        categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
         return templates.TemplateResponse(
             request,
             "consumables/form.html",
             {
                 "user": user, "consumable": None,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
-                "departments": departments, "categories": categories, "locations": locations,
+                "departments": departments,
+                "categories_by_department": categories_by_department,
+                "locations_by_department": locations_by_department,
+                "selected_department_id": department_id,
             },
             status_code=409,
         )

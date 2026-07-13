@@ -50,6 +50,7 @@ async def _create_field(admin_client, category_id, *, name="MAC-Adresse", field_
         },
     )
     assert resp.status_code == 303
+    assert "error=" not in resp.headers["location"], resp.headers["location"]
     return resp
 
 
@@ -68,6 +69,37 @@ async def _create_item(admin_client, department_id, *, barcode="LAPTOP-1", categ
     )
     assert resp.status_code == 303
     return resp
+
+
+async def test_custom_field_value_can_be_set_at_creation(admin_client, session_maker, seed_data, laptops_category):
+    """Zusatzfelder sollen nicht erst beim spaeteren Bearbeiten setzbar sein,
+    sondern schon beim Anlegen des Gegenstands direkt (gleiche Kategorie wie
+    beim Bearbeiten - siehe items/form.html)."""
+    await _create_field(admin_client, laptops_category.id, visible_to_all=True)
+
+    async with session_maker() as session:
+        field = (await session.exec(select(CustomFieldDefinition).where(CustomFieldDefinition.category_id == laptops_category.id))).first()
+
+    create_resp = await admin_client.post(
+        "/items/new",
+        data={
+            "department_id": str(seed_data["department_id"]),
+            "barcode": "LAPTOP-2",
+            "name": "ThinkPad",
+            "category": "Laptops",
+            "location": "",
+            "notes": "",
+            f"custom_field_{field.id}": "11:22:33:44:55:66",
+            "csrf_token": csrf_value(admin_client),
+        },
+    )
+    assert create_resp.status_code == 303
+
+    async with session_maker() as session:
+        item = (await session.exec(select(Item).where(Item.barcode == "LAPTOP-2"))).first()
+
+    detail_resp = await admin_client.get(f"/items/{item.id}")
+    assert "11:22:33:44:55:66" in detail_resp.text
 
 
 async def test_custom_field_value_appears_on_detail_page(admin_client, session_maker, seed_data, laptops_category):
