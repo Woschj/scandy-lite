@@ -72,12 +72,12 @@
     <div class="settings-list">
       {% for g in open_groups %}
         <details class="pickup-row" style="padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line);">
-          <summary style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; list-style:none;">
-            <span style="display:flex; align-items:center; gap: var(--space-3);">
+          <summary style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; row-gap: var(--space-1); cursor:pointer; list-style:none;">
+            <span style="display:flex; flex-wrap:wrap; align-items:center; gap: var(--space-2); min-width:0;">
               <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">{{ g.worker.full_name }}</span>
               <span class="meta">{{ g.worker.barcode }}</span>
             </span>
-            <span style="display:flex; align-items:center; gap: var(--space-2);">
+            <span style="display:flex; flex-wrap:wrap; align-items:center; gap: var(--space-2);">
               {% if g.item_reservations %}<span class="chip chip-neutral">{{ g.item_reservations | length }} Gegenstand/-stände</span>{% endif %}
               {% if g.consumables %}<span class="chip chip-neutral">{{ g.consumables | length }} Material-Vormerkung(en)</span>{% endif %}
             </span>

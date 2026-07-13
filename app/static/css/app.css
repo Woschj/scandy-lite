@@ -1389,7 +1389,14 @@ button, input, select {
   color: #fff !important;
   border-radius: var(--radius);
   padding: 0 var(--space-4) !important;
-  width: 100%;
+  /* flex-basis statt width:100% - als Kind eines flex-wrap-Containers
+     (.item-card-actions) sorgt nur flex-basis zuverlässig dafür, dass der
+     Button seine eigene volle Zeile bekommt. width:100% ließ die
+     benachbarten Links (Bearbeiten/Entfernen) weiterhin in den
+     Flex-Berechnungen derselben Zeile landen, obwohl der Button optisch
+     die volle Breite einnahm - Ergebnis: sichtbare Überlappung (siehe
+     Mobil-Screenshots, Listenansicht Gegenstände). */
+  flex: 1 0 100%;
   font-weight: 700;
   min-height: 48px !important;
 }

@@ -69,14 +69,7 @@ window.ScandyCamera = (function () {
       return;
     }
 
-    cfg.startBtn.addEventListener("click", function () {
-      cfg.startBtn.style.display = "none";
-      cfg.wrap.style.display = "block";
-      if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = "none"; }
-      document.body.classList.add("camera-active");
-      if (centerContent) { document.body.classList.add("camera-active-centered"); }
-      cfg.wrap.scrollIntoView({ behavior: "smooth", block: "start" });
-
+    function startScanner() {
       scanner = new Html5Qrcode(cfg.videoContainerId);
       scanner.start(
         { facingMode: "environment" }, // Rückkamera bevorzugen (Barcodes werden selten mit der Frontkamera gescannt)
@@ -108,6 +101,28 @@ window.ScandyCamera = (function () {
         document.body.classList.remove("camera-active");
         if (centerContent) { document.body.classList.remove("camera-active-centered"); }
         scanner = null;
+      });
+    }
+
+    cfg.startBtn.addEventListener("click", function () {
+      cfg.startBtn.style.display = "none";
+      cfg.wrap.style.display = "block";
+      if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = "none"; }
+      document.body.classList.add("camera-active");
+      if (centerContent) { document.body.classList.add("camera-active-centered"); }
+      cfg.wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      // html5-qrcode liest beim Start die tatsächliche Breite/Höhe des
+      // Video-Containers aus, um Video-/Viewfinder-Größe zu berechnen - der
+      // Container war bis eben "display:none" (Breite/Höhe 0). Ohne diese
+      // Verzögerung hat der Browser oft noch keinen Layout-Durchlauf für
+      // "display:block" abgeschlossen, wenn html5-qrcode misst, wodurch das
+      // Kamerabild auf einen viel zu kleinen Bereich zusammenschrumpft statt
+      // den Container zu füllen (auf iOS Safari beobachtet). Zwei
+      // verschachtelte requestAnimationFrame-Aufrufe warten zuverlässig auf
+      // den nächsten fertigen Layout-/Paint-Zyklus.
+      requestAnimationFrame(function () {
+        requestAnimationFrame(startScanner);
       });
     });
 
