@@ -1,4 +1,4 @@
-﻿#!/bin/sh
+#!/bin/sh
 # Entrypoint fÃ¼r den App-Container:
 #   1. Warten, bis Postgres erreichbar ist
 #   2. Alembic-Migrationen anwenden (Schema ist danach immer aktuell)
