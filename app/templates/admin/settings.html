@@ -18,6 +18,7 @@
   <a href="#access" @click.prevent="tab = 'access'" :class="{active: tab === 'access'}">Zugriff</a>
   <a href="#categories" @click.prevent="tab = 'categories'" :class="{active: tab === 'categories'}">Kategorien <span class="count">{{ categories | length }}</span></a>
   <a href="#locations" @click.prevent="tab = 'locations'" :class="{active: tab === 'locations'}">Standorte <span class="count">{{ locations | length }}</span></a>
+  <a href="#email" @click.prevent="tab = 'email'" :class="{active: tab === 'email'}">E-Mail</a>
 </nav>
 
 {% if department %}
@@ -139,6 +140,10 @@
     <div class="field">
       <label for="u-barcode">Barcode (Ausweis)</label>
       <input type="text" id="u-barcode" name="barcode" required>
+    </div>
+    <div class="field">
+      <label for="u-email">E-Mail (optional)</label>
+      <input type="email" id="u-email" name="email" placeholder="für Willkommens-Mail mit Passwort-Link">
     </div>
     <div class="field">
       <label for="u-home-department">Heimat-Abteilung (Ausweis)</label>
@@ -308,6 +313,63 @@
       <input type="text" id="loc-name" name="name" placeholder="z.B. Regal A1" required>
     </div>
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
+  </form>
+</section>
+
+{# ================= E-Mail (SMTP-Konto für System-Mails) ================= #}
+<section class="settings-section" x-show="tab === 'email'" x-cloak>
+  <p class="settings-hint">
+    SMTP-Konto, von dem aus Scandy-Lite System-Mails verschickt (Passwort-
+    zurücksetzen, Willkommens-Mail bei neuem Benutzer). Ohne Konfiguration
+    bzw. solange "Aktiv" nicht angehakt ist, werden keine Mails verschickt -
+    betroffene Aktionen (z.B. Benutzer anlegen) funktionieren trotzdem
+    weiter, nur ohne Mail-Versand.
+  </p>
+
+  <form class="settings-add-inline" method="post" action="/admin/email-settings">
+    {% include "partials/csrf_field.html" %}
+    <div class="field">
+      <label for="email-host">SMTP-Server</label>
+      <input type="text" id="email-host" name="smtp_host" placeholder="smtp.beispiel.de" value="{{ email_settings.smtp_host if email_settings else '' }}" required>
+    </div>
+    <div class="field">
+      <label for="email-port">Port</label>
+      <input type="number" id="email-port" name="smtp_port" value="{{ email_settings.smtp_port if email_settings else 587 }}" required>
+    </div>
+    <div class="field">
+      <label for="email-username">Benutzername</label>
+      <input type="text" id="email-username" name="smtp_username" value="{{ email_settings.smtp_username if email_settings else '' }}">
+    </div>
+    <div class="field">
+      <label for="email-password">Passwort {% if email_settings and email_settings.smtp_password_encrypted %}(leer lassen = unverändert){% endif %}</label>
+      <input type="password" id="email-password" name="smtp_password" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label for="email-from-address">Absender-Adresse</label>
+      <input type="email" id="email-from-address" name="from_address" value="{{ email_settings.from_address if email_settings else '' }}" required>
+    </div>
+    <div class="field">
+      <label for="email-from-name">Absender-Name</label>
+      <input type="text" id="email-from-name" name="from_name" value="{{ email_settings.from_name if email_settings else 'Scandy-Lite' }}">
+    </div>
+    <div class="checkbox-field">
+      <input type="checkbox" id="email-use-tls" name="use_tls" value="true" {% if not email_settings or email_settings.use_tls %}checked{% endif %}>
+      <label for="email-use-tls">STARTTLS verwenden</label>
+    </div>
+    <div class="checkbox-field" style="margin-bottom: 0;">
+      <input type="checkbox" id="email-enabled" name="enabled" value="true" {% if email_settings and email_settings.enabled %}checked{% endif %}>
+      <label for="email-enabled">Aktiv (E-Mail-Versand einschalten)</label>
+    </div>
+    <button type="submit" class="btn btn-primary">Speichern</button>
+  </form>
+
+  <form class="settings-add-inline" method="post" action="/admin/email-settings/test" style="margin-top: var(--space-4);">
+    {% include "partials/csrf_field.html" %}
+    <div class="field">
+      <label for="email-test-to">Test-Mail an</label>
+      <input type="email" id="email-test-to" name="test_to" required>
+    </div>
+    <button type="submit" class="btn btn-ghost">Test-Mail senden</button>
   </form>
 </section>
 

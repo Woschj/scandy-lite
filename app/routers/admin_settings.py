@@ -16,8 +16,11 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.crypto import encrypt_secret
 from app.core.database import get_session
 from app.core.deps import require_admin, populate_nav_context, verify_csrf
+from app.core.email import get_email_settings, send_email
+from app.core.password_reset import create_reset_token
 from app.core.responses import redirect_with_query
 from app.core.security import hash_password
 from app.core.templating import templates
@@ -25,6 +28,7 @@ from app.models.common import UserRole, utcnow
 from app.models.consumable import Consumable
 from app.models.consumable_reservation import ConsumableReservation
 from app.models.department import Department
+from app.models.email_settings import EmailSettings
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.preset import Category, Location
@@ -67,6 +71,8 @@ async def settings_page(
     worker_result = await session.exec(select(Worker).where(Worker.user_id.is_not(None), Worker.deleted_at.is_(None)))
     worker_by_user = {w.user_id: w for w in worker_result.all()}
 
+    email_settings = await get_email_settings(session)
+
     return templates.TemplateResponse(
         request,
         "admin/settings.html",
@@ -79,6 +85,7 @@ async def settings_page(
             "access_by_user": access_by_user,
             "all_access": all_access,
             "worker_by_user": worker_by_user,
+            "email_settings": email_settings,
             "ok": ok,
             "error": error,
         },
@@ -89,6 +96,7 @@ async def settings_page(
 
 @router.post("/users/new")
 async def create_user(
+    request: Request,
     username: str = Form(...),
     password: str = Form(...),
     first_name: str = Form(...),
@@ -97,6 +105,7 @@ async def create_user(
     home_department_id: uuid.UUID = Form(...),
     initial_role: str = Form(""),
     is_admin: str = Form(""),
+    email: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -117,6 +126,7 @@ async def create_user(
     Abteilungen/Rollen bleiben über den 'Zugriff'-Tab verwaltbar."""
     username = username.strip()
     barcode = barcode.strip()
+    email = email.strip()
 
     existing_user = await session.exec(select(User).where(User.username == username))
     if existing_user.first():
@@ -130,6 +140,7 @@ async def create_user(
 
     new_user = User(
         username=username,
+        email=email or None,
         is_admin=bool(is_admin),
         hashed_password=hash_password(password),
     )
@@ -145,6 +156,25 @@ async def create_user(
     )
     session.add(worker)
     await session.commit()
+
+    # Willkommens-Mail ist optional/best-effort: schlägt der Versand fehl
+    # (SMTP nicht konfiguriert, falsche Zugangsdaten, ...), bleibt der Login
+    # trotzdem angelegt - nur eine Warnung statt eines harten Fehlers, siehe
+    # app.core.email.send_email-Docstring.
+    if email:
+        raw_token = await create_reset_token(session, new_user)
+        await session.commit()
+        set_password_url = str(request.base_url).rstrip("/") + f"/auth/reset-password/{raw_token}"
+        html_body = templates.get_template("email/welcome.html").render(
+            username=new_user.username, set_password_url=set_password_url
+        )
+        sent = await send_email(session, email, "Willkommen bei Scandy-Lite", html_body)
+        if not sent:
+            return redirect_with_query(
+                "/admin/settings", fragment="users",
+                error=f"{username} wurde angelegt, die Willkommens-Mail konnte aber nicht verschickt werden.",
+            )
+
     return RedirectResponse(url="/admin/settings#users", status_code=303)
 
 
@@ -447,3 +477,59 @@ async def delete_access(
         await session.delete(entry)
         await session.commit()
     return RedirectResponse(url="/admin/settings#access", status_code=303)
+
+
+# --- E-Mail (SMTP-Konto für System-Mails) -------------------------------
+
+@router.post("/email-settings")
+async def update_email_settings(
+    smtp_host: str = Form(...),
+    smtp_port: int = Form(587),
+    smtp_username: str = Form(""),
+    smtp_password: str = Form(""),
+    use_tls: str = Form(""),
+    from_address: str = Form(...),
+    from_name: str = Form("Scandy-Lite"),
+    enabled: str = Form(""),
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    existing = await get_email_settings(session)
+    if not existing:
+        existing = EmailSettings(smtp_host=smtp_host, from_address=from_address)
+        session.add(existing)
+
+    existing.smtp_host = smtp_host.strip()
+    existing.smtp_port = smtp_port
+    existing.smtp_username = smtp_username.strip() or None
+    if smtp_password:
+        # Leer gelassen = vorhandenes Passwort behalten - wird nie im
+        # Klartext zurück ins Formular gerendert, ein leeres Feld darf das
+        # gespeicherte Passwort also nicht versehentlich löschen.
+        existing.smtp_password_encrypted = encrypt_secret(smtp_password)
+    existing.use_tls = bool(use_tls)
+    existing.from_address = from_address.strip()
+    existing.from_name = from_name.strip() or "Scandy-Lite"
+    existing.enabled = bool(enabled)
+
+    session.add(existing)
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="email", ok="E-Mail-Einstellungen gespeichert.")
+
+
+@router.post("/email-settings/test")
+async def test_email_settings(
+    test_to: str = Form(...),
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    html_body = templates.get_template("email/password_reset.html").render(
+        username=None, reset_url="https://example.invalid/nur-ein-test"
+    )
+    sent = await send_email(session, test_to.strip(), "Scandy-Lite: Test-Mail", html_body)
+    if sent:
+        return redirect_with_query("/admin/settings", fragment="email", ok=f"Test-Mail an {test_to} verschickt.")
+    return redirect_with_query(
+        "/admin/settings", fragment="email",
+        error="Test-Mail konnte nicht verschickt werden - Zugangsdaten/Einstellungen prüfen (Details im Server-Log).",
+    )
