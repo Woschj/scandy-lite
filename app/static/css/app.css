@@ -1198,18 +1198,29 @@ button, input, select {
   min-width: 0;
 }
 
-/* Checkboxen bekommen IMMER eine eigene volle Zeile statt in dieselben
-   schmalen Spalten wie Text-/Auswahlfelder gepresst zu werden - deren
-   (oft längere) Label sonst im Spalten-Raster umbricht und gequetscht wirkt. */
+/* Checkboxen bleiben normale Grid-Items (kein erzwungenes volles Spannen
+   über die ganze Breite) - dadurch landen z.B. zwei aufeinanderfolgende
+   Checkboxen nebeneinander in derselben Zeile statt je eine eigene,
+   größtenteils leere Zeile zu belegen. Ihr Inhalt (Kästchen + kurzes Label)
+   ist ohnehin viel schmaler als eine volle Spalte. */
 .settings-add-inline .checkbox-field {
-  grid-column: 1 / -1;
   margin-bottom: 0;
+  align-self: center;
 }
 
 .settings-add-inline select,
-.settings-add-inline input {
+.settings-add-inline input:not([type="checkbox"]) {
   min-height: 40px;
   width: 100%;
+}
+
+/* Die generische Breiten-Regel oben zielt eigentlich auf Text-/Auswahlfelder -
+   ohne :not([type="checkbox"]) hätte sie (spätere Stelle im Stylesheet,
+   gleiche Spezifität wie die 20px-Regel bei .checkbox-field) auch die
+   Kästchen selbst verzerrt. */
+.settings-add-inline .checkbox-field input {
+  width: 20px;
+  height: 20px;
 }
 
 .settings-add-inline > button[type="submit"] {
