@@ -7,6 +7,7 @@ bzw. beim Alembic-Autogenerate). Deshalb hier bündeln statt verstreut importier
 """
 from app.models.consumable import Consumable, ConsumableUsage  # noqa: F401
 from app.models.consumable_reservation import ConsumableReservation  # noqa: F401
+from app.models.custom_field import CustomFieldDefinition, CustomFieldValue  # noqa: F401
 from app.models.department import Department  # noqa: F401
 from app.models.email_settings import EmailSettings  # noqa: F401
 from app.models.item import Item  # noqa: F401
@@ -23,6 +24,8 @@ __all__ = [
     "Consumable",
     "ConsumableReservation",
     "ConsumableUsage",
+    "CustomFieldDefinition",
+    "CustomFieldValue",
     "Department",
     "EmailSettings",
     "Item",

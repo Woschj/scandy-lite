@@ -18,6 +18,7 @@
   <a href="#access" @click.prevent="tab = 'access'" :class="{active: tab === 'access'}">Zugriff</a>
   <a href="#categories" @click.prevent="tab = 'categories'" :class="{active: tab === 'categories'}">Kategorien <span class="count">{{ categories | length }}</span></a>
   <a href="#locations" @click.prevent="tab = 'locations'" :class="{active: tab === 'locations'}">Standorte <span class="count">{{ locations | length }}</span></a>
+  <a href="#custom-fields" @click.prevent="tab = 'custom-fields'" :class="{active: tab === 'custom-fields'}">Zusatzfelder <span class="count">{{ custom_fields | length }}</span></a>
   <a href="#email" @click.prevent="tab = 'email'" :class="{active: tab === 'email'}">E-Mail</a>
 </nav>
 
@@ -311,6 +312,87 @@
     <div class="field">
       <label for="loc-name">Name</label>
       <input type="text" id="loc-name" name="name" placeholder="z.B. Regal A1" required>
+    </div>
+    <button type="submit" class="btn btn-primary">+ Anlegen</button>
+  </form>
+</section>
+
+{# ================= Zusatzfelder (pro Kategorie, nur Gegenstände) ================= #}
+<section class="settings-section" x-show="tab === 'custom-fields'" x-cloak>
+  <p class="settings-hint">
+    Frei definierbare Zusatzfelder pro Kategorie (z.B. "MAC-Adresse" bei
+    Kategorie "Laptops") - gelten nur für Gegenstände, nicht für
+    Verbrauchsmaterial. Erscheinen im Bearbeiten-Formular eines Gegenstands,
+    sobald die passende Kategorie gewählt ist. Kategorien ohne Zusatzfelder
+    werden hier nicht aufgelistet - erst im Tab "Kategorien" anlegen.
+  </p>
+
+  <div class="settings-list">
+    {% for d in ordered_departments %}
+      {% set dept_categories = categories | selectattr("department_id", "equalto", d.id) | list %}
+      {% for c in dept_categories %}
+        {% set cat_fields = custom_fields | selectattr("category_id", "equalto", c.id) | list %}
+        {% if cat_fields %}
+          <div class="settings-group-label">{{ d.name }} — {{ c.name }}</div>
+          {% for f in cat_fields %}
+            <div class="settings-row">
+              <div class="main">
+                <span class="name">{{ f.name }}</span>
+                <span class="meta">{{ f.field_type.value }}</span>
+                {% if f.field_type.value == "select" and f.options %}<span class="meta">{{ f.options }}</span>{% endif %}
+                {% if f.visible_to_all %}<span class="chip chip-success">Für alle sichtbar</span>{% else %}<span class="chip chip-neutral">Nur Mitarbeiter</span>{% endif %}
+              </div>
+              <div class="actions">
+                <form method="post" action="/admin/custom-fields/{{ f.id }}/delete" onsubmit="return confirm('{{ f.name }} wirklich entfernen? Vorhandene Werte an Gegenständen gehen dabei verloren.')">
+                  {% include "partials/csrf_field.html" %}
+                  <button type="submit" class="link-btn danger">Entfernen</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+    {% if not custom_fields %}
+      <div class="settings-empty">Noch keine Zusatzfelder.</div>
+    {% endif %}
+  </div>
+
+  <form class="settings-add-inline" method="post" action="/admin/custom-fields/new" x-data="{ fieldType: 'text' }">
+    {% include "partials/csrf_field.html" %}
+    <div class="field">
+      <label for="cf-category">Kategorie</label>
+      <select id="cf-category" name="category_id" required>
+        {% for d in ordered_departments %}
+          {% for c in categories | selectattr("department_id", "equalto", d.id) | list %}
+            <option value="{{ c.id }}">{{ d.name }} – {{ c.name }}</option>
+          {% endfor %}
+        {% endfor %}
+      </select>
+      {% if not categories %}
+        <p style="font-size:0.75rem; color:var(--ink-soft); margin-top: var(--space-1);">Noch keine Kategorien - erst im Tab "Kategorien" anlegen.</p>
+      {% endif %}
+    </div>
+    <div class="field">
+      <label for="cf-name">Name</label>
+      <input type="text" id="cf-name" name="name" placeholder="z.B. MAC-Adresse" required>
+    </div>
+    <div class="field">
+      <label for="cf-type">Typ</label>
+      <select id="cf-type" name="field_type" x-model="fieldType">
+        <option value="text">Text</option>
+        <option value="number">Zahl</option>
+        <option value="date">Datum</option>
+        <option value="select">Auswahl</option>
+      </select>
+    </div>
+    <div class="field" x-show="fieldType === 'select'" x-cloak>
+      <label for="cf-options">Optionen (kommagetrennt)</label>
+      <input type="text" id="cf-options" name="options" placeholder="z.B. Ja, Nein, Unbekannt">
+    </div>
+    <div class="checkbox-field" style="margin-bottom: 0;">
+      <input type="checkbox" id="cf-visible" name="visible_to_all" value="true">
+      <label for="cf-visible">Für alle sichtbar (nicht nur Mitarbeiter)</label>
     </div>
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>

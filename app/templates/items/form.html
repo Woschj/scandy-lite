@@ -31,7 +31,8 @@
 <div class="tag-card form-card">
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
-  <form data-guard method="post" action="{% if item %}/items/{{ item.id }}/edit{% else %}/items/new{% endif %}">
+  <form data-guard method="post" action="{% if item %}/items/{{ item.id }}/edit{% else %}/items/new{% endif %}"
+        {% if item %}x-data="{ selectedCategory: {{ (item.category or '') | tojson }} }"{% endif %}>
     {% include "partials/csrf_field.html" %}
     {% if not item %}
       <div class="field">
@@ -54,7 +55,7 @@
     {% if item %}
       <div class="field">
         <label for="category">Kategorie</label>
-        <select id="category" name="category">
+        <select id="category" name="category" x-model="selectedCategory">
           <option value="">— keine —</option>
           {% for c in categories %}
             <option value="{{ c.name }}" {% if item.category == c.name %}selected{% endif %}>{{ c.name }}</option>
@@ -76,6 +77,30 @@
           {% endif %}
         </select>
       </div>
+      {% for cat_name, fields in custom_fields_by_category.items() %}
+        <div x-show="selectedCategory === {{ cat_name | tojson }}" x-cloak>
+          {% for f in fields %}
+            <div class="field">
+              <label for="cf-{{ f.id }}">{{ f.name }}</label>
+              {% if f.field_type.value == "select" %}
+                <select id="cf-{{ f.id }}" name="custom_field_{{ f.id }}">
+                  <option value="">—</option>
+                  {% for opt in (f.options or "").split(",") %}
+                    {% set opt = opt.strip() %}
+                    {% if opt %}<option value="{{ opt }}" {% if custom_field_values.get(f.id) == opt %}selected{% endif %}>{{ opt }}</option>{% endif %}
+                  {% endfor %}
+                </select>
+              {% elif f.field_type.value == "number" %}
+                <input type="number" step="any" id="cf-{{ f.id }}" name="custom_field_{{ f.id }}" value="{{ custom_field_values.get(f.id, '') }}">
+              {% elif f.field_type.value == "date" %}
+                <input type="date" id="cf-{{ f.id }}" name="custom_field_{{ f.id }}" value="{{ custom_field_values.get(f.id, '') }}">
+              {% else %}
+                <input type="text" id="cf-{{ f.id }}" name="custom_field_{{ f.id }}" value="{{ custom_field_values.get(f.id, '') }}">
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endfor %}
     {% else %}
       <div class="field">
         <label for="category">Kategorie</label>

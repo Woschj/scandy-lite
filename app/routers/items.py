@@ -19,6 +19,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
+from app.core.custom_fields import get_definitions_by_category, get_definitions_for_item, get_values_for_item, save_values_for_item
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
 from app.core.responses import redirect_with_query
@@ -290,6 +291,18 @@ async def item_detail(
             )
         ).first()
 
+    # Zusatzfelder: nur die mit tatsächlich gesetztem Wert, zusätzlich auf
+    # visible_to_all beschränkt für alle ohne can_manage - dieselbe Regel wie
+    # bei Status/Mindestbestand, aber pro Feld statt pauschal (siehe
+    # app/models/custom_field.py).
+    field_definitions = await get_definitions_for_item(session, item)
+    field_values = await get_values_for_item(session, item.id)
+    custom_fields = [
+        (f, field_values[f.id])
+        for f in field_definitions
+        if field_values.get(f.id) and (can_manage or f.visible_to_all)
+    ]
+
     return templates.TemplateResponse(
         request,
         "items/detail.html",
@@ -297,6 +310,7 @@ async def item_detail(
             "user": user, "item": item, "ok": ok, "error": error,
             "can_manage": can_manage, "linked_worker": linked_worker,
             "reservation": reservation, "active_lending": active_lending,
+            "custom_fields": custom_fields,
         },
     )
 
@@ -317,6 +331,8 @@ async def edit_item_form(
         raise Forbidden()
 
     categories, locations = await _presets(session, item.department_id)
+    custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
+    custom_field_values = await get_values_for_item(session, item.id)
     return templates.TemplateResponse(
         request,
         "items/form.html",
@@ -324,6 +340,8 @@ async def edit_item_form(
             "ok": ok, "error": error,
             "user": user, "item": item,
             "categories": categories, "locations": locations,
+            "custom_fields_by_category": custom_fields_by_category,
+            "custom_field_values": custom_field_values,
         },
     )
 
@@ -352,6 +370,8 @@ async def update_item(
     )
     if result.first():
         categories, locations = await _presets(session, item.department_id)
+        custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
+        custom_field_values = await get_values_for_item(session, item.id)
         return templates.TemplateResponse(
             request,
             "items/form.html",
@@ -359,6 +379,8 @@ async def update_item(
                 "user": user, "item": item,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
                 "categories": categories, "locations": locations,
+                "custom_fields_by_category": custom_fields_by_category,
+                "custom_field_values": custom_field_values,
             },
             status_code=409,
         )
@@ -369,6 +391,26 @@ async def update_item(
     item.location = location or None
     item.notes = notes or None
     item.status = ItemStatus(status)
+
+    form_data = await request.form()
+    custom_field_errors = await save_values_for_item(session, item, form_data)
+    if custom_field_errors:
+        categories, locations = await _presets(session, item.department_id)
+        custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
+        custom_field_values = await get_values_for_item(session, item.id)
+        return templates.TemplateResponse(
+            request,
+            "items/form.html",
+            {
+                "user": user, "item": item,
+                "error": " ".join(custom_field_errors),
+                "categories": categories, "locations": locations,
+                "custom_fields_by_category": custom_fields_by_category,
+                "custom_field_values": custom_field_values,
+            },
+            status_code=400,
+        )
+
     session.add(item)
     try:
         await session.commit()

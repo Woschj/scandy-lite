@@ -40,6 +40,16 @@ class ItemStatus(str, Enum):
     AUSGEMUSTERT = "ausgemustert"
 
 
+class CustomFieldType(str, Enum):
+    """Typ eines admin-definierten Zusatzfelds (siehe app.models.custom_field) -
+    bestimmt sowohl den Eingabetyp im Formular als auch die Validierung beim
+    Speichern (app.core.custom_fields.save_values_for_item)."""
+    TEXT = "text"
+    NUMBER = "number"
+    DATE = "date"
+    SELECT = "select"
+
+
 class TimestampMixin(SQLModel):
     created_at: datetime = Field(default_factory=utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=utcnow, nullable=False, sa_column_kwargs={"onupdate": utcnow})

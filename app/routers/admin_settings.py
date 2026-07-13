@@ -1,11 +1,11 @@
 """
 Admin-Einstellungen: Abteilungen anlegen/umbenennen/deaktivieren,
-Kategorien-/Standort-Vorschläge pflegen, Benutzer verwalten, und die
-Abteilungs-Rollen-Zuordnung (wer darf was in welcher Abteilung).
+Kategorien-/Standort-Vorschläge und Zusatzfelder pflegen, Benutzer verwalten,
+und die Abteilungs-Rollen-Zuordnung (wer darf was in welcher Abteilung).
 
-Bewusst schlank gehalten (ggü. dem Original-Scandy2-Systembereich): keine
-Feature-Flags, kein Custom-Fields-System, kein Notification-Center - nur die
-Presets, die die Formulare tatsächlich brauchen.
+Bewusst schlank gehalten (ggü. dem Original-Scandy2-Systembereich): kein
+Feature-Flags-System, kein Notification-Center - nur die Presets, die die
+Formulare tatsächlich brauchen.
 """
 import uuid
 
@@ -24,9 +24,10 @@ from app.core.password_reset import create_reset_token
 from app.core.responses import redirect_with_query
 from app.core.security import hash_password
 from app.core.templating import templates
-from app.models.common import UserRole, utcnow
+from app.models.common import CustomFieldType, UserRole, utcnow
 from app.models.consumable import Consumable
 from app.models.consumable_reservation import ConsumableReservation
+from app.models.custom_field import CustomFieldDefinition, CustomFieldValue
 from app.models.department import Department
 from app.models.email_settings import EmailSettings
 from app.models.item import Item
@@ -73,6 +74,9 @@ async def settings_page(
 
     email_settings = await get_email_settings(session)
 
+    custom_fields_result = await session.exec(select(CustomFieldDefinition).order_by(CustomFieldDefinition.name))
+    custom_fields = custom_fields_result.all()
+
     return templates.TemplateResponse(
         request,
         "admin/settings.html",
@@ -86,6 +90,7 @@ async def settings_page(
             "all_access": all_access,
             "worker_by_user": worker_by_user,
             "email_settings": email_settings,
+            "custom_fields": custom_fields,
             "ok": ok,
             "error": error,
         },
@@ -441,10 +446,77 @@ async def delete_category(
     session: AsyncSession = Depends(get_session),
 ):
     category = await session.get(Category, category_id)
-    if category:
-        await session.delete(category)
-        await session.commit()
+    if not category:
+        return RedirectResponse(url="/admin/settings#categories", status_code=303)
+
+    # Zusatzfelder hängen per Fremdschlüssel an der Kategorie (siehe
+    # app/models/custom_field.py) - ohne diese Prüfung würde das Löschen
+    # entweder an der FK-Constraint scheitern (Postgres) oder verwaiste
+    # Referenzen hinterlassen. Gleiches Blocker-Muster wie delete_department oben.
+    field_count = (
+        await session.exec(
+            select(func.count()).select_from(CustomFieldDefinition).where(CustomFieldDefinition.category_id == category_id)
+        )
+    ).one()
+    if field_count:
+        message = (
+            f"'{category.name}' kann nicht gelöscht werden, hat noch {field_count} Zusatzfeld(er). "
+            "Erst im Tab 'Zusatzfelder' entfernen."
+        )
+        return redirect_with_query("/admin/settings", fragment="categories", error=message)
+
+    await session.delete(category)
+    await session.commit()
     return RedirectResponse(url="/admin/settings#categories", status_code=303)
+
+
+# --- Zusatzfelder (pro Kategorie, nur Gegenstände) ----------------------
+
+@router.post("/custom-fields/new")
+async def create_custom_field(
+    category_id: uuid.UUID = Form(...),
+    name: str = Form(...),
+    field_type: str = Form(...),
+    options: str = Form(""),
+    visible_to_all: str = Form(""),
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        parsed_type = CustomFieldType(field_type)
+    except ValueError:
+        return redirect_with_query("/admin/settings", fragment="custom-fields", error="Ungültiger Feldtyp.")
+
+    session.add(
+        CustomFieldDefinition(
+            category_id=category_id,
+            name=name.strip(),
+            field_type=parsed_type,
+            options=options.strip() or None,
+            visible_to_all=bool(visible_to_all),
+        )
+    )
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="custom-fields", ok="Zusatzfeld angelegt.")
+
+
+@router.post("/custom-fields/{field_id}/delete")
+async def delete_custom_field(
+    field_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    field = await session.get(CustomFieldDefinition, field_id)
+    if field:
+        # Zugehörige Werte an Gegenständen gehören zu diesem Feld - werden
+        # mitgelöscht statt verwaist zu bleiben (kein eigenständiger Sinn
+        # ohne die Definition, die Typ/Optionen vorgibt).
+        values_result = await session.exec(select(CustomFieldValue).where(CustomFieldValue.field_id == field_id))
+        for value in values_result.all():
+            await session.delete(value)
+        await session.delete(field)
+        await session.commit()
+    return redirect_with_query("/admin/settings", fragment="custom-fields", ok="Zusatzfeld entfernt.")
 
 
 # --- Standorte ---------------------------------------------------------

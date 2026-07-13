@@ -38,6 +38,14 @@
     <p style="margin-top: var(--space-3);">{{ item.notes }}</p>
   {% endif %}
 
+  {% if custom_fields %}
+    <div style="margin-top: var(--space-3);">
+      {% for f, value in custom_fields %}
+        <p class="item-meta"><strong>{{ f.name }}:</strong> {{ value }}</p>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   {% if linked_worker and item.status.value == "verfuegbar" and not reservation %}
     <button type="button" class="link-btn cart-toggle-btn" data-cart-toggle data-item-id="{{ item.id }}" style="margin-top: var(--space-4);">In den Warenkorb</button>
   {% endif %}
