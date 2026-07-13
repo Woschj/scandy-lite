@@ -14,6 +14,10 @@
     <input type="text" id="edit-username" name="username" value="{{ target.username }}" required>
   </div>
   <div class="field">
+    <label for="edit-email">E-Mail (optional)</label>
+    <input type="email" id="edit-email" name="email" value="{{ target.email or '' }}">
+  </div>
+  <div class="field">
     <label for="edit-password">Neues Passwort (leer lassen = unverändert)</label>
     <input type="password" id="edit-password" name="new_password" minlength="8" placeholder="min. 8 Zeichen, nur ausfüllen um zu ändern">
   </div>
@@ -27,13 +31,37 @@
   {% endif %}
 
   {% if linked_worker %}
-    <div class="chip chip-neutral" style="margin-bottom: var(--space-4);">
-      Verknüpfter Ausweis: {{ linked_worker.full_name }} · {{ linked_worker.barcode }}
-      — <a href="/workers/{{ linked_worker.id }}/edit">dort bearbeiten</a>
+    <hr style="border-color: var(--line); margin: var(--space-4) 0;">
+    <p class="settings-hint" style="margin-top: 0;">Stammdaten des verknüpften Mitarbeiter-Ausweises — an derselben Stelle wie der Login, kein separates Formular mehr nötig.</p>
+    <div class="field">
+      <label for="edit-worker-first-name">Vorname</label>
+      <input type="text" id="edit-worker-first-name" name="worker_first_name" value="{{ linked_worker.first_name }}" required>
+    </div>
+    <div class="field">
+      <label for="edit-worker-last-name">Nachname</label>
+      <input type="text" id="edit-worker-last-name" name="worker_last_name" value="{{ linked_worker.last_name }}" required>
+    </div>
+    <div class="field">
+      <label for="edit-worker-barcode">Barcode (Ausweis)</label>
+      <input type="text" id="edit-worker-barcode" name="worker_barcode" value="{{ linked_worker.barcode }}" required>
+    </div>
+    <div class="field">
+      <label for="edit-worker-department">Abteilung (Ausweis)</label>
+      <select id="edit-worker-department" name="worker_department_id" required>
+        {% for d in departments %}<option value="{{ d.id }}" {% if d.id == linked_worker.department_id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="checkbox-field" style="margin-bottom: 0;">
+      <input type="checkbox" id="edit-worker-is-active" name="worker_is_active" value="true" {% if linked_worker.is_active %}checked{% endif %}>
+      <label for="edit-worker-is-active">Ausweis aktiv</label>
+    </div>
+  {% else %}
+    <div class="chip chip-danger" style="margin-top: var(--space-4);">
+      Kein verknüpfter Mitarbeiter-Ausweis — <a href="/workers/new">jetzt anlegen</a>
     </div>
   {% endif %}
 
-  <button type="submit" class="btn btn-primary btn-block">Speichern</button>
+  <button type="submit" class="btn btn-primary btn-block" style="margin-top: var(--space-4);">Speichern</button>
 </form>
 
 <p style="margin-top: var(--space-4);">

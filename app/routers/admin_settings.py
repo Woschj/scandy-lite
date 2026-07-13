@@ -215,10 +215,11 @@ async def edit_user_form(
 
     worker_result = await session.exec(select(Worker).where(Worker.user_id == user_id, Worker.deleted_at.is_(None)))
     linked_worker = worker_result.first()
+    departments = (await session.exec(select(Department).order_by(Department.name))).all()
 
     return templates.TemplateResponse(
         request, "admin/user_edit.html",
-        {"user": user, "target": target, "linked_worker": linked_worker, "error": error},
+        {"user": user, "target": target, "linked_worker": linked_worker, "departments": departments, "error": error},
     )
 
 
@@ -226,8 +227,14 @@ async def edit_user_form(
 async def update_user(
     user_id: uuid.UUID,
     username: str = Form(...),
+    email: str = Form(""),
     new_password: str = Form(""),
     is_admin: str = Form(""),
+    worker_first_name: str = Form(""),
+    worker_last_name: str = Form(""),
+    worker_barcode: str = Form(""),
+    worker_department_id: str = Form(""),
+    worker_is_active: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -236,6 +243,7 @@ async def update_user(
         return RedirectResponse(url="/admin/settings#users", status_code=303)
 
     username = username.strip()
+    email = email.strip()
     if not username:
         return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Benutzername+darf+nicht+leer+sein.", status_code=303)
 
@@ -246,12 +254,41 @@ async def update_user(
     if new_password and len(new_password) < 8:
         return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Neues+Passwort+zu+kurz+(min.+8+Zeichen).", status_code=303)
 
+    # Stammdaten (Name/Barcode/Abteilung) des verknüpften Mitarbeiter-Ausweises
+    # werden auf DERSELBEN Seite mitbearbeitet, statt an einer separaten
+    # Mitarbeiter-Bearbeiten-Seite - vorher mussten Admins für einen Login +
+    # Ausweis zwei getrennte Formulare pflegen, obwohl beides zur selben
+    # Person gehört (siehe create_user, das ebenfalls beides in einem Schritt anlegt).
+    worker_result = await session.exec(select(Worker).where(Worker.user_id == user_id, Worker.deleted_at.is_(None)))
+    linked_worker = worker_result.first()
+    if linked_worker:
+        worker_barcode = worker_barcode.strip()
+        if not worker_barcode:
+            return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Barcode+darf+nicht+leer+sein.", status_code=303)
+        barcode_conflict = await session.exec(
+            select(Worker).where(Worker.barcode == worker_barcode, Worker.id != linked_worker.id, Worker.deleted_at.is_(None))
+        )
+        if barcode_conflict.first():
+            return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Barcode+ist+bereits+vergeben.", status_code=303)
+        try:
+            department_id = uuid.UUID(worker_department_id)
+        except ValueError:
+            return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Ungültige+Abteilung.", status_code=303)
+
+        linked_worker.first_name = worker_first_name.strip() or linked_worker.first_name
+        linked_worker.last_name = worker_last_name.strip() or linked_worker.last_name
+        linked_worker.barcode = worker_barcode
+        linked_worker.department_id = department_id
+        linked_worker.is_active = bool(worker_is_active)
+        session.add(linked_worker)
+
     # Sich selbst die Admin-Rechte zu entziehen wäre eine Selbstaussperrung -
     # verhindern, genau wie beim Deaktivieren/Löschen des eigenen Kontos.
     if user_id == user.id and not bool(is_admin):
         return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Eigene+Admin-Rechte+können+nicht+selbst+entzogen+werden.", status_code=303)
 
     target.username = username
+    target.email = email or None
     target.is_admin = bool(is_admin)
     if new_password:
         target.hashed_password = hash_password(new_password)
