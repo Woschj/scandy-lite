@@ -150,6 +150,24 @@ async def test_category_with_custom_fields_cannot_be_deleted(admin_client, lapto
     assert "error=" in resp.headers["location"]
 
 
+async def test_new_and_edit_item_forms_render_without_error(admin_client, session_maker, seed_data, laptops_category):
+    """Rendert tatsächlich (nicht nur POST) - deckt Template-/Filter-Fehler ab
+    (z.B. das Alpine-x-data-JSON in items/form.html), die ein reiner POST-Test
+    nicht bemerkt hätte, weil GET-Formulare vorher nie gerendert wurden."""
+    await _create_field(admin_client, laptops_category.id)
+
+    new_resp = await admin_client.get("/items/new")
+    assert new_resp.status_code == 200
+
+    await _create_item(admin_client, seed_data["department_id"])
+    async with session_maker() as session:
+        item = (await session.exec(select(Item).where(Item.barcode == "LAPTOP-1"))).first()
+
+    edit_resp = await admin_client.get(f"/items/{item.id}/edit")
+    assert edit_resp.status_code == 200
+    assert "MAC-Adresse" in edit_resp.text
+
+
 async def test_number_field_rejects_non_numeric_value(admin_client, session_maker, seed_data, laptops_category):
     await _create_field(admin_client, laptops_category.id, name="RAM (GB)", field_type="number")
     await _create_item(admin_client, seed_data["department_id"])

@@ -1,4 +1,5 @@
 """Zentrale Jinja2Templates-Instanz, damit alle Router dieselbe Konfiguration nutzen."""
+import json
 from pathlib import Path
 
 from fastapi import Request
@@ -43,3 +44,11 @@ templates = Jinja2Templates(
 templates.env.globals["has_image"] = has_image
 templates.env.globals["image_url"] = image_url
 templates.env.globals["csrf_token"] = csrf_token
+# `tojson` ist eine Flask-Eigenheit, kein Jinja2-Kernfilter - wird hier für
+# Alpine.js-`x-data`-Attribute gebraucht (JSON aus Python-Werten in HTML-
+# Attribute einbetten, siehe items/form.html). Bewusst KEIN Markup/safe-
+# Wrapping: das automatische HTML-Escaping der Templates (aktiv für .html-
+# Dateien) escaped z.B. Anführungszeichen zu &quot; - das ist innerhalb eines
+# doppelt gequoteten Attributs korrekt und sicher, der Browser dekodiert es
+# beim Parsen des Attributwerts wieder zurück.
+templates.env.filters["tojson"] = json.dumps

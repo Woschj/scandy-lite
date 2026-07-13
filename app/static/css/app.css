@@ -1177,8 +1177,8 @@ button, input, select {
 
 .settings-add-inline {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: var(--space-3);
+  grid-template-columns: repeat(auto-fill, minmax(160px, 220px));
+  gap: var(--space-4) var(--space-3);
   align-items: end;
   padding: var(--space-4);
   background: var(--bg);
@@ -1190,15 +1190,20 @@ button, input, select {
 /* Grid statt Flex-Wrap, damit mehrzeilige Formulare (z.B. E-Mail-Einstellungen,
    Zusatzfelder) sauber in Spalten fluchten - Flex-Wrap richtete vorher jede
    Zeile unabhängig aus, wodurch unterschiedlich breite Felder (z.B. durch
-   längere Labels) die Reihen gegeneinander verschoben. */
+   längere Labels) die Reihen gegeneinander verschoben. Spalten sind auf
+   220px gedeckelt (statt bis 1fr zu strecken), damit einzelne Felder bei
+   viel Platz nicht unschön breitgezogen werden.*/
 .settings-add-inline .field {
   margin-bottom: 0;
   min-width: 0;
 }
 
+/* Checkboxen bekommen IMMER eine eigene volle Zeile statt in dieselben
+   schmalen Spalten wie Text-/Auswahlfelder gepresst zu werden - deren
+   (oft längere) Label sonst im Spalten-Raster umbricht und gequetscht wirkt. */
 .settings-add-inline .checkbox-field {
+  grid-column: 1 / -1;
   margin-bottom: 0;
-  align-self: center;
 }
 
 .settings-add-inline select,
