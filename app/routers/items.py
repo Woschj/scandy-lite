@@ -19,6 +19,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
+from app.core.barcodes import barcode_taken_by_other_kind
 from app.core.custom_fields import (
     get_definitions_by_category,
     get_definitions_by_department_and_category,
@@ -33,6 +34,7 @@ from app.core.templating import templates
 from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
 from app.models.common import ItemStatus, UserRole, utcnow
 from app.models.item import Item
+from app.models.lending import Lending
 from app.models.preset import Category, Location
 from app.models.user import User
 
@@ -250,7 +252,7 @@ async def create_item(
         raise Forbidden()
 
     result = await session.exec(select(Item).where(Item.barcode == barcode, Item.deleted_at.is_(None)))
-    if result.first():
+    if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="item"):
         departments = await _staff_departments(session, user)
         categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
         custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
@@ -328,7 +330,6 @@ async def item_detail(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    from app.models.lending import Lending
     from app.models.reservation import Reservation
     from app.routers.reservations import get_linked_worker
 
@@ -442,7 +443,7 @@ async def update_item(
     result = await session.exec(
         select(Item).where(Item.barcode == barcode, Item.id != item_id, Item.deleted_at.is_(None))
     )
-    if result.first():
+    if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="item"):
         categories, locations = await _presets(session, item.department_id)
         custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
         custom_field_values = await get_values_for_item(session, item.id)
@@ -459,12 +460,42 @@ async def update_item(
             status_code=409,
         )
 
+    # Lending bleibt die alleinige Quelle der Wahrheit für "ausgeliehen"
+    # (siehe app/models/lending.py) - eine offene Lending darf nicht durch
+    # eine Statusänderung im Formular stillschweigend übergangen werden,
+    # sonst bliebe sie offen und über den normalen Scan-Rückgabe-Weg nicht
+    # mehr erreichbar (das Formular selbst bietet "ausgeliehen" nur an, wenn
+    # der Gegenstand das aktuell schon ist - dieser Fall wird also nur bei
+    # manipulierten Formulardaten oder einer parallel begonnenen Ausleihe
+    # überhaupt erreicht).
+    new_status = ItemStatus(status)
+    if new_status != ItemStatus.AUSGELIEHEN:
+        open_lending = await session.exec(
+            select(Lending).where(Lending.item_id == item.id, Lending.returned_at.is_(None))
+        )
+        if open_lending.first():
+            categories, locations = await _presets(session, item.department_id)
+            custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
+            custom_field_values = await get_values_for_item(session, item.id)
+            return templates.TemplateResponse(
+                request,
+                "items/form.html",
+                {
+                    "user": user, "item": item,
+                    "error": "Gegenstand hat noch eine offene Ausleihe - erst über Scannen zurückgeben, dann Status ändern.",
+                    "categories": categories, "locations": locations,
+                    "custom_fields_by_category": custom_fields_by_category,
+                    "custom_field_values": custom_field_values,
+                },
+                status_code=409,
+            )
+
     item.barcode = barcode
     item.name = name
     item.category = category or None
     item.location = location or None
     item.notes = notes or None
-    item.status = ItemStatus(status)
+    item.status = new_status
 
     form_data = await request.form()
     custom_field_errors = await save_values_for_item(session, item, form_data)

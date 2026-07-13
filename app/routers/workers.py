@@ -85,7 +85,13 @@ async def list_workers(
 async def _linkable_users(session: AsyncSession, exclude_worker_user_id: uuid.UUID | None = None) -> list[User]:
     """User-Logins, die noch mit keinem (anderen) Mitarbeiter-Ausweis verknüpft
     sind - fürs Verknüpfen-Dropdown beim Anlegen UND Bearbeiten."""
-    linked_ids_result = await session.exec(select(Worker.user_id).where(Worker.user_id.is_not(None)))
+    # deleted_at IS NULL: ein soft-gelöschter Ausweis darf seinen Login nicht
+    # dauerhaft aus diesem Dropdown sperren (delete_worker nullt user_id nicht
+    # selbst, siehe dort - das Gegenstück delete_user in admin_settings.py
+    # macht das schon korrekt, bevor es den Worker soft-deleted).
+    linked_ids_result = await session.exec(
+        select(Worker.user_id).where(Worker.user_id.is_not(None), Worker.deleted_at.is_(None))
+    )
     linked_ids = {uid for uid in linked_ids_result.all() if uid != exclude_worker_user_id}
     users_result = await session.exec(select(User).where(User.is_active == True).order_by(User.username))  # noqa: E712
     return [u for u in users_result.all() if u.id not in linked_ids]
@@ -244,6 +250,11 @@ async def delete_worker(
     if not await is_staff_in_department(session, user, worker.department_id):
         raise Forbidden()
 
+    # user_id NULL setzen, bevor der Ausweis soft-gelöscht wird - sonst bleibt
+    # der verknüpfte Login über _linkable_users hinaus für immer "vergeben"
+    # und kann nie wieder mit einem neuen Ausweis verknüpft werden (gleiches
+    # Prinzip wie delete_user in admin_settings.py, nur umgekehrte Richtung).
+    worker.user_id = None
     worker.deleted_at = utcnow()
     session.add(worker)
     await session.commit()

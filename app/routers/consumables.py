@@ -18,6 +18,7 @@ from sqlmodel import select, update
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
+from app.core.barcodes import barcode_taken_by_other_kind
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
 from app.core.responses import redirect_with_query
@@ -212,7 +213,7 @@ async def create_consumable(
     result = await session.exec(
         select(Consumable).where(Consumable.barcode == barcode, Consumable.deleted_at.is_(None))
     )
-    if result.first():
+    if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="consumable"):
         departments = await _staff_departments(session, user)
         categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
         return templates.TemplateResponse(
@@ -335,7 +336,7 @@ async def update_consumable(
             Consumable.barcode == barcode, Consumable.id != consumable_id, Consumable.deleted_at.is_(None)
         )
     )
-    if result.first():
+    if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="consumable"):
         categories, locations = await _presets(session, consumable.department_id)
         return templates.TemplateResponse(
             request,

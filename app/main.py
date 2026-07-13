@@ -7,6 +7,7 @@ Lending folgen in Phase 3/4.
 """
 from contextlib import asynccontextmanager
 import os
+import socket
 
 import logging
 
@@ -22,15 +23,28 @@ from app.routers import admin_import, admin_settings, auth, consumables, history
 settings = get_settings()
 logger = logging.getLogger("scandy-lite")
 
+# Name des Caddy-Reverse-Proxy-Containers in docker-compose.yml. Uvicorn läuft
+# ohne --proxy-headers: request.client.host wäre für JEDEN über Caddy
+# laufenden Request (zwingend für Kamera-Scan, siehe INSTALL.md) sonst die
+# interne Docker-IP des Caddy-Containers, nicht die echte Client-IP - macht
+# das IP-basierte Rate-Limiting in auth.py wirkungslos (ein Nutzer mit
+# Tippfehlern sperrt versehentlich ALLE HTTPS-Nutzer). Einmal beim Start
+# aufgelöst statt pro Request (Docker-DNS-Lookups sind zwar schnell, aber
+# synchron/blockierend - unnötig auf dem Hot Path).
+_TRUSTED_PROXY_HOSTNAME = "caddy"
+_trusted_proxy_ips: set[str] = set()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if settings.ENV == "production" and settings.SECRET_KEY == "change-me-in-production":
-        logger.warning(
-            "SECRET_KEY steht noch auf dem Default-Wert! Login-Sessions sind damit fälschbar. "
-            "Bitte in der Portainer-Stack-Konfiguration SECRET_KEY setzen (z.B. mit `openssl rand -hex 32`)."
-        )
-    # In Produktion managt Alembic das Schema, nicht die App selbst.
+    global _trusted_proxy_ips
+    try:
+        _trusted_proxy_ips = {info[4][0] for info in socket.getaddrinfo(_TRUSTED_PROXY_HOSTNAME, None)}
+    except socket.gaierror:
+        # Caddy-Service nicht im Compose-Stack (siehe Kommentar dort: "bei
+        # Nichtgebrauch einfach entfernen") - dann gibt es auch keinen
+        # Reverse-Proxy, dessen Header vertraut werden müsste.
+        _trusted_proxy_ips = set()
     yield
 
 
@@ -39,6 +53,27 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def trust_forwarded_for_from_caddy(request: Request, call_next):
+    """Ersetzt request.client.host durch die per X-Forwarded-For gemeldete
+    echte Client-IP - aber NUR, wenn die Verbindung tatsächlich vom
+    Caddy-Container kommt (siehe _trusted_proxy_ips oben). Ein Client, der
+    APP_PORT direkt anspricht (am Proxy vorbei), kann sich nicht als "caddy"
+    ausgeben - Docker bestimmt die Peer-IP über die echte TCP-Verbindung,
+    nicht über selbst gesetzte Header. Ohne diesen Check würde ein beliebiger
+    direkter Client per X-Forwarded-For das Rate-Limiting in auth.py umgehen/
+    fälschen können."""
+    client = request.client
+    if client and client.host in _trusted_proxy_ips:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            real_ip = forwarded_for.split(",")[0].strip()
+            if real_ip:
+                request.scope["client"] = (real_ip, client.port)
+    return await call_next(request)
+
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 

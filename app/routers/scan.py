@@ -24,7 +24,7 @@ from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
 from app.models.worker import Worker
-from app.routers.reservations import get_open_reservation
+from app.routers.reservations import get_open_consumable_reservation_for_worker, get_open_reservation
 
 router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_nav_context), Depends(require_staff), Depends(verify_csrf)])
 
@@ -215,6 +215,16 @@ async def scan_consume(
 
     usage = ConsumableUsage(consumable_id=consumable.id, worker_id=worker.id, quantity=quantity, department_id=consumable.department_id)
     session.add(usage)
+
+    # Eigene offene Vormerkung mit der Entnahme abschließen - sonst bliebe sie
+    # für immer "offen" und würde _try_reserve_consumable irgendwann jede
+    # neue Vormerkung für dieses Material blockieren (already_reserved
+    # akkumuliert nur, wird aber nie durch eine echte Entnahme reduziert).
+    own_reservation = await get_open_consumable_reservation_for_worker(session, consumable.id, worker.id)
+    if own_reservation:
+        own_reservation.fulfilled_at = utcnow()
+        session.add(own_reservation)
+
     await session.commit()
 
     return redirect_with_query("/scan", ok=f"{quantity}x {consumable.name} für {worker.full_name} entnommen.")

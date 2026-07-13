@@ -70,6 +70,11 @@ async def history_index(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    # page=0 oder negativ (z.B. per manipuliertem Query-Parameter) würde sonst
+    # über Pythons negative Slice-Indizierung ein falsches/leeres Ergebnis
+    # liefern statt auf Seite 1 zu klemmen.
+    page = max(page, 1)
+
     entries: list[HistoryEntry] = []
     visible_ids = await get_visible_department_ids(session, user)  # None = Admin (alles)
 

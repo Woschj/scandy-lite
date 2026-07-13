@@ -223,3 +223,87 @@ async def test_number_field_rejects_non_numeric_value(admin_client, session_make
     )
     assert resp.status_code == 400
     assert "Zahl erwartet" in resp.text
+
+
+async def test_number_field_normalizes_comma_decimal(admin_client, session_maker, seed_data, laptops_category):
+    """'3,5' (deutsches Format) muss als '3.5' gespeichert werden - sonst
+    driften Dezimal-Schreibweisen je nach eingebender Person auseinander."""
+    await _create_field(admin_client, laptops_category.id, name="Gewicht (kg)", field_type="number")
+    await _create_item(admin_client, seed_data["department_id"])
+
+    async with session_maker() as session:
+        item = (await session.exec(select(Item).where(Item.barcode == "LAPTOP-1"))).first()
+        field = (await session.exec(select(CustomFieldDefinition).where(CustomFieldDefinition.category_id == laptops_category.id))).first()
+
+    resp = await admin_client.post(
+        f"/items/{item.id}/edit",
+        data={
+            "barcode": "LAPTOP-1",
+            "name": "ThinkPad",
+            "category": "Laptops",
+            "location": "",
+            "notes": "",
+            "status": "verfuegbar",
+            f"custom_field_{field.id}": "3,5",
+            "csrf_token": csrf_value(admin_client),
+        },
+    )
+    assert resp.status_code == 303
+
+    detail_resp = await admin_client.get(f"/items/{item.id}")
+    assert "3.5" in detail_resp.text
+    assert "3,5" not in detail_resp.text
+
+
+async def test_custom_field_value_removed_after_category_change_and_back(admin_client, session_maker, seed_data, laptops_category):
+    """Ein Wert, der zu einer FRÜHEREN Kategorie gehört, darf nach dem
+    Zurückwechseln nicht unbeabsichtigt wieder als 'aktueller Wert'
+    auftauchen (siehe app.core.custom_fields.save_values_for_item)."""
+    await _create_field(admin_client, laptops_category.id, name="Seriennummer")
+    await _create_item(admin_client, seed_data["department_id"])
+
+    async with session_maker() as session:
+        other_category = Category(name="Büromaterial", department_id=seed_data["department_id"])
+        session.add(other_category)
+        await session.commit()
+        await session.refresh(other_category)
+
+        item = (await session.exec(select(Item).where(Item.barcode == "LAPTOP-1"))).first()
+        field = (await session.exec(select(CustomFieldDefinition).where(CustomFieldDefinition.category_id == laptops_category.id))).first()
+
+    # 1) Wert unter Kategorie "Laptops" setzen
+    resp1 = await admin_client.post(
+        f"/items/{item.id}/edit",
+        data={
+            "barcode": "LAPTOP-1", "name": "ThinkPad", "category": "Laptops",
+            "location": "", "notes": "", "status": "verfuegbar",
+            f"custom_field_{field.id}": "SN-12345",
+            "csrf_token": csrf_value(admin_client),
+        },
+    )
+    assert resp1.status_code == 303
+
+    # 2) Kategorie wechseln, ohne das Feld neu zu setzen (existiert dort auch nicht)
+    resp2 = await admin_client.post(
+        f"/items/{item.id}/edit",
+        data={
+            "barcode": "LAPTOP-1", "name": "ThinkPad", "category": "Büromaterial",
+            "location": "", "notes": "", "status": "verfuegbar",
+            "csrf_token": csrf_value(admin_client),
+        },
+    )
+    assert resp2.status_code == 303
+
+    # 3) Zurück zu "Laptops" wechseln, ohne das Feld erneut einzutragen
+    resp3 = await admin_client.post(
+        f"/items/{item.id}/edit",
+        data={
+            "barcode": "LAPTOP-1", "name": "ThinkPad", "category": "Laptops",
+            "location": "", "notes": "", "status": "verfuegbar",
+            "csrf_token": csrf_value(admin_client),
+        },
+    )
+    assert resp3.status_code == 303
+
+    detail_resp = await admin_client.get(f"/items/{item.id}")
+    assert "SN-12345" not in detail_resp.text

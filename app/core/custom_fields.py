@@ -106,22 +106,28 @@ async def get_values_for_item(session: AsyncSession, item_id) -> dict:
     return {v.field_id: v.value for v in result.all()}
 
 
-def _validate(definition: CustomFieldDefinition, raw_value: str) -> str | None:
-    """Gibt eine Fehlermeldung zurück, oder None wenn der Wert gültig ist."""
+def _validate_and_normalize(definition: CustomFieldDefinition, raw_value: str) -> tuple[str | None, str]:
+    """Gibt (Fehlermeldung, normalisierter Wert) zurück - Fehlermeldung ist
+    None, wenn der Wert gültig ist. Normalisierung ist aktuell nur für
+    NUMBER relevant: "3,5" und "3.5" sind derselbe Wert und müssen auch
+    gleich gespeichert werden, sonst driften Dezimal-Schreibweisen je nach
+    eingebender Person auseinander und sind später nicht mehr vergleichbar."""
     if definition.field_type == CustomFieldType.NUMBER:
+        normalized = raw_value.replace(",", ".")
         try:
-            float(raw_value.replace(",", "."))
+            float(normalized)
         except ValueError:
-            return f"'{definition.name}': Zahl erwartet."
+            return f"'{definition.name}': Zahl erwartet.", raw_value
+        return None, normalized
     elif definition.field_type == CustomFieldType.DATE:
         import re
         if not re.match(r"^\d{4}-\d{2}-\d{2}$", raw_value):
-            return f"'{definition.name}': Datum im Format JJJJ-MM-TT erwartet."
+            return f"'{definition.name}': Datum im Format JJJJ-MM-TT erwartet.", raw_value
     elif definition.field_type == CustomFieldType.SELECT:
         options = [o.strip() for o in (definition.options or "").split(",") if o.strip()]
         if raw_value not in options:
-            return f"'{definition.name}': ungültige Auswahl."
-    return None
+            return f"'{definition.name}': ungültige Auswahl.", raw_value
+    return None, raw_value
 
 
 async def save_values_for_item(session: AsyncSession, item: Item, form_data: FormData) -> list[str]:
@@ -131,11 +137,22 @@ async def save_values_for_item(session: AsyncSession, item: Item, form_data: For
     (leer = alles gespeichert) - Aufrufer entscheidet, ob bei Fehlern
     trotzdem committet wird (hier: nicht, siehe items.py update_item)."""
     definitions = await get_definitions_for_item(session, item)
-    if not definitions:
-        return []
+    definition_ids = {d.id for d in definitions}
 
     existing = await session.exec(select(CustomFieldValue).where(CustomFieldValue.item_id == item.id))
-    existing_by_field = {v.field_id: v for v in existing.all()}
+    existing_rows = existing.all()
+    existing_by_field = {v.field_id: v for v in existing_rows}
+
+    # Werte zu Feldern, die NICHT (mehr) zur aktuellen Kategorie gehören
+    # (z.B. weil die Kategorie zwischenzeitlich gewechselt wurde) räumen wir
+    # immer auf - sonst könnten sie beim Zurückwechseln auf die alte
+    # Kategorie unbeabsichtigt wieder als "aktueller Wert" auftauchen.
+    for row in existing_rows:
+        if row.field_id not in definition_ids:
+            await session.delete(row)
+
+    if not definitions:
+        return []
 
     errors: list[str] = []
     for definition in definitions:
@@ -147,7 +164,7 @@ async def save_values_for_item(session: AsyncSession, item: Item, form_data: For
                 await session.delete(row)
             continue
 
-        error = _validate(definition, raw_value)
+        error, raw_value = _validate_and_normalize(definition, raw_value)
         if error:
             errors.append(error)
             continue

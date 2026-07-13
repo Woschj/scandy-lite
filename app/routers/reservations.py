@@ -64,6 +64,27 @@ async def get_open_consumable_reservations(session: AsyncSession, consumable_id:
     return list(result.all())
 
 
+async def get_open_consumable_reservation_for_worker(
+    session: AsyncSession, consumable_id: uuid.UUID, worker_id: uuid.UUID
+) -> ConsumableReservation | None:
+    """Für scan.py scan_consume: wird die eigene offene Vormerkung durch eine
+    Entnahme erfüllt? Vormerkungen bei Verbrauchsmaterial sind bewusst "weich"
+    (siehe app/models/consumable_reservation.py) - anders als bei Gegenständen
+    blockiert eine fremde offene Vormerkung die Entnahme nicht, aber die
+    EIGENE soll danach nicht ewig als "offen" stehen bleiben."""
+    result = await session.exec(
+        select(ConsumableReservation)
+        .where(
+            ConsumableReservation.consumable_id == consumable_id,
+            ConsumableReservation.worker_id == worker_id,
+            ConsumableReservation.fulfilled_at.is_(None),
+            ConsumableReservation.cancelled_at.is_(None),
+        )
+        .order_by(ConsumableReservation.created_at)
+    )
+    return result.first()
+
+
 @router.get("")
 async def my_reservations(
     request: Request,

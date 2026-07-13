@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
+from sqlalchemy import Index, text
 from sqlmodel import Field, Relationship
 
 from app.models.common import TimestampMixin, new_uuid, utcnow
@@ -24,6 +25,20 @@ if TYPE_CHECKING:
 
 class Lending(TimestampMixin, table=True):
     __tablename__ = "lendings"
+    __table_args__ = (
+        # Muss zur Migration bd20e573cbb2 passen (dort per rohem SQL
+        # angelegt) - hier zusätzlich im Modell deklariert, damit
+        # SQLModel.metadata.create_all (Tests, siehe tests/conftest.py) den
+        # Schutz auch tatsächlich abbildet. Ohne das würde z.B. ein Test für
+        # den IntegrityError-Handling-Pfad in pickup.py stillschweigend
+        # erfolgreich durchlaufen, obwohl er in Postgres/Produktion an genau
+        # diesem Constraint scheitern würde.
+        Index(
+            "uq_lendings_open_item", "item_id", unique=True,
+            postgresql_where=text("returned_at IS NULL"),
+            sqlite_where=text("returned_at IS NULL"),
+        ),
+    )
 
     id: uuid.UUID = Field(default_factory=new_uuid, primary_key=True)
 

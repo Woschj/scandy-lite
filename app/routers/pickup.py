@@ -14,6 +14,7 @@ durchgereicht, bis am Ende die eigentlichen Lendings angelegt werden.
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -228,5 +229,17 @@ async def pickup_confirm(
         session.add(reservation)
         count += 1
 
-    await session.commit()
+    try:
+        await session.commit()
+    except IntegrityError:
+        # Partial-Unique-Index (uq_lendings_open_item) hat zugeschlagen: einer
+        # der geprüften Gegenstände wurde zwischen der Status-Prüfung oben und
+        # diesem Commit über einen anderen Weg (normaler Scan-Workflow)
+        # ausgeliehen. Sauber melden statt die ganze Charge mit einem
+        # unbehandelten 500er zu verlieren - gleiches Muster wie scan.py scan_lend.
+        await session.rollback()
+        return redirect_with_query(
+            f"/scan/pickup/{worker_id}",
+            error="Mindestens ein Gegenstand wurde zwischenzeitlich anderweitig ausgeliehen - bitte erneut prüfen.",
+        )
     return redirect_with_query("/scan/pickup", ok=f"{count} Gegenstand(e) an {worker.full_name} ausgegeben.")
