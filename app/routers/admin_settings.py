@@ -81,6 +81,18 @@ async def settings_page(
     worker_result = await session.exec(select(Worker).where(Worker.user_id.is_not(None), Worker.deleted_at.is_(None)))
     worker_by_user = {w.user_id: w for w in worker_result.all()}
 
+    # Für den "Benutzer anlegen"-Dialog: bereits bestehende Ausweise ohne
+    # Login, damit ein neuer Login damit verknüpft werden kann statt (wie
+    # bisher zwangsläufig) einen zweiten, doppelten Ausweis für dieselbe
+    # Person anzulegen - genau das führte dazu, dass sich Mitarbeiter und
+    # Benutzer scheinbar nicht verknüpfen ließen (der echte Ausweis blieb im
+    # Verknüpfen-Dropdown der Mitarbeiter-Seite unerreichbar, weil der Login
+    # längst an den neu angelegten Doppel-Ausweis gebunden war).
+    unlinked_workers_result = await session.exec(
+        select(Worker).where(Worker.user_id.is_(None), Worker.deleted_at.is_(None)).order_by(Worker.last_name)
+    )
+    unlinked_workers = unlinked_workers_result.all()
+
     email_settings = await get_email_settings(session)
 
     custom_fields_result = await session.exec(select(CustomFieldDefinition).order_by(CustomFieldDefinition.name))
@@ -100,6 +112,7 @@ async def settings_page(
             "access_by_user": access_by_user,
             "all_access": all_access,
             "worker_by_user": worker_by_user,
+            "unlinked_workers": unlinked_workers,
             "email_settings": email_settings,
             "custom_fields": custom_fields,
             "trash_items": trash_items,
@@ -118,33 +131,36 @@ async def create_user(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
-    first_name: str = Form(...),
-    last_name: str = Form(...),
-    barcode: str = Form(...),
-    home_department_id: uuid.UUID = Form(...),
+    link_mode: str = Form("new"),
+    existing_worker_id: str = Form(""),
+    first_name: str = Form(""),
+    last_name: str = Form(""),
+    barcode: str = Form(""),
+    home_department_id: str = Form(""),
     initial_role: str = Form(""),
     is_admin: str = Form(""),
     email: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    """Legt Login UND den zugehörigen Mitarbeiter-Ausweis (Worker) in einem
-    Schritt an - jeder Benutzer IST auch ein Mitarbeiter, der selbst
-    ausleihen/reservieren kann. Kein manuelles Verknüpfen mehr nötig (anders
-    als vorher, wo beides getrennte Schritte waren, obwohl praktisch jeder
-    Login auch einen Ausweis brauchte).
+    """Legt einen Login an - entweder zusammen mit einem NEUEN Mitarbeiter-
+    Ausweis (link_mode="new", Standard) oder verknüpft ihn mit einem
+    BESTEHENDEN, noch nicht verknüpften Ausweis (link_mode="existing",
+    existing_worker_id). Letzteres ist nötig, wenn der Ausweis schon vorher
+    über "Mitarbeiter" angelegt wurde - vorher legte dieser Endpunkt
+    IMMER einen neuen Ausweis an, wodurch für dieselbe Person ein zweiter,
+    doppelter Ausweis entstand und der eigentliche/alte Ausweis für immer
+    unverknüpfbar blieb (der Login war ja längst an den neuen Doppel-Ausweis
+    gebunden, siehe _linkable_users in app/routers/workers.py) - genau das
+    Symptom "Verknüpfen von Mitarbeitern und Benutzern funktioniert nicht".
 
-    home_department_id ist NUR die organisatorische Heimat des Ausweises (wo
-    der Datensatz verwaltet wird) - das gewährt für sich genommen KEINEN
-    Zugriff. Deshalb zusätzlich initial_role: optional wird direkt eine
-    UserDepartmentRole für dieselbe Abteilung mit angelegt, damit der neue
-    Login sofort etwas sehen kann, statt danach scheinbar wirkungslos zu sein
-    (genau das führte zu Verwirrung: eine Abteilung auszuwählen sah nach
-    Zugriff aus, war aber nur der Ausweis - jetzt macht die Auswahl auch
-    tatsächlich etwas, wenn eine Rolle mit angegeben wird). Weitere
-    Abteilungen/Rollen bleiben über den 'Zugriff'-Tab verwaltbar."""
+    home_department_id ist NUR die organisatorische Heimat des (neuen)
+    Ausweises (wo der Datensatz verwaltet wird) - das gewährt für sich
+    genommen KEINEN Zugriff. Deshalb zusätzlich initial_role: optional wird
+    direkt eine UserDepartmentRole für dieselbe Abteilung mit angelegt, damit
+    der neue Login sofort etwas sehen kann. Weitere Abteilungen/Rollen bleiben
+    über den 'Zugriff'-Tab verwaltbar."""
     username = username.strip()
-    barcode = barcode.strip()
     email = email.strip()
 
     existing_user = await session.exec(select(User).where(User.username == username))
@@ -153,9 +169,34 @@ async def create_user(
     if len(password) < 8:
         return RedirectResponse(url="/admin/settings?error=Passwort+zu+kurz+(min.+8+Zeichen).#users", status_code=303)
 
-    existing_worker = await session.exec(select(Worker).where(Worker.barcode == barcode, Worker.deleted_at.is_(None)))
-    if existing_worker.first():
-        return RedirectResponse(url="/admin/settings?error=Barcode+ist+bereits+vergeben.#users", status_code=303)
+    worker_to_link: Worker | None = None
+    new_worker_department_id: uuid.UUID | None = None
+
+    if link_mode == "existing":
+        try:
+            worker_to_link = await session.get(Worker, uuid.UUID(existing_worker_id)) if existing_worker_id else None
+        except ValueError:
+            worker_to_link = None
+        if not worker_to_link or worker_to_link.deleted_at is not None or worker_to_link.user_id is not None:
+            return RedirectResponse(
+                url="/admin/settings?error=Ausweis+nicht+gefunden+oder+bereits+mit+einem+Login+verknüpft.#users",
+                status_code=303,
+            )
+        new_worker_department_id = worker_to_link.department_id
+    else:
+        barcode = barcode.strip()
+        if not (first_name.strip() and last_name.strip() and barcode and home_department_id):
+            return RedirectResponse(
+                url="/admin/settings?error=Bitte+Vorname%2C+Nachname%2C+Barcode+und+Abteilung+angeben.#users",
+                status_code=303,
+            )
+        try:
+            new_worker_department_id = uuid.UUID(home_department_id)
+        except ValueError:
+            return RedirectResponse(url="/admin/settings?error=Ungültige+Abteilung.#users", status_code=303)
+        existing_worker = await session.exec(select(Worker).where(Worker.barcode == barcode, Worker.deleted_at.is_(None)))
+        if existing_worker.first():
+            return RedirectResponse(url="/admin/settings?error=Barcode+ist+bereits+vergeben.#users", status_code=303)
 
     new_user = User(
         username=username,
@@ -164,16 +205,20 @@ async def create_user(
         hashed_password=hash_password(password),
     )
     session.add(new_user)
-    await session.flush()  # user.id wird gebraucht, bevor der Worker angelegt wird
+    await session.flush()  # user.id wird gebraucht, bevor der Worker angelegt/verknüpft wird
 
     if initial_role in ("mitarbeiter", "nutzer") and not new_user.is_admin:
-        session.add(UserDepartmentRole(user_id=new_user.id, department_id=home_department_id, role=UserRole(initial_role)))
+        session.add(UserDepartmentRole(user_id=new_user.id, department_id=new_worker_department_id, role=UserRole(initial_role)))
 
-    worker = Worker(
-        barcode=barcode, first_name=first_name.strip(), last_name=last_name.strip(),
-        department_id=home_department_id, user_id=new_user.id,
-    )
-    session.add(worker)
+    if worker_to_link:
+        worker_to_link.user_id = new_user.id
+        session.add(worker_to_link)
+    else:
+        worker = Worker(
+            barcode=barcode, first_name=first_name.strip(), last_name=last_name.strip(),
+            department_id=new_worker_department_id, user_id=new_user.id,
+        )
+        session.add(worker)
     await session.commit()
 
     # Willkommens-Mail ist optional/best-effort: schlägt der Versand fehl

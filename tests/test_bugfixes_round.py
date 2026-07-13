@@ -127,6 +127,48 @@ async def test_delete_worker_nulls_user_id_and_allows_relink(staff_client, sessi
     assert "relinkme" in new_form_resp.text
 
 
+async def test_create_user_can_link_to_existing_unlinked_worker(client, session_maker, seed_data):
+    """Vorher legte /admin/users/new IMMER einen neuen Worker an, auch wenn
+    ein passender Ausweis schon existierte - der alte Ausweis blieb dadurch
+    für immer unverknüpfbar (siehe app.routers.admin_settings.create_user).
+    Mit link_mode=existing darf stattdessen ein bestehender, noch nicht
+    verknüpfter Ausweis direkt an den neuen Login gebunden werden, ohne
+    Duplikat."""
+    async with session_maker() as session:
+        admin = User(username="admin-linktest", is_admin=True, hashed_password=hash_password("adminpass123"))
+        worker = Worker(
+            barcode="W-EXISTING-BUGFIX", first_name="Alte", last_name="Belegschaft",
+            department_id=seed_data["department_id"],
+        )
+        session.add(admin)
+        session.add(worker)
+        await session.commit()
+        await session.refresh(worker)
+        worker_id = worker.id
+
+    await login(client, "admin-linktest", "adminpass123")
+    resp = await client.post(
+        "/admin/users/new",
+        data={
+            "username": "newlogin",
+            "password": "somepassword123",
+            "link_mode": "existing",
+            "existing_worker_id": str(worker_id),
+            "initial_role": "",
+            "csrf_token": csrf_value(client),
+        },
+    )
+    assert resp.status_code == 303
+    assert "error=" not in resp.headers["location"], resp.headers["location"]
+
+    async with session_maker() as session:
+        all_workers = (await session.exec(select(Worker).where(Worker.barcode == "W-EXISTING-BUGFIX"))).all()
+        assert len(all_workers) == 1  # kein Duplikat angelegt
+        linked = all_workers[0]
+        new_login = (await session.exec(select(User).where(User.username == "newlogin"))).first()
+        assert linked.user_id == new_login.id
+
+
 async def test_pickup_confirm_handles_integrity_error_gracefully(staff_client, session_maker, seed_data):
     staff_worker = await _get_staff_worker(session_maker)
     async with session_maker() as session:

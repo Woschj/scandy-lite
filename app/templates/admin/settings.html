@@ -121,7 +121,7 @@
     {% endfor %}
   </div>
 
-  <form class="settings-add-inline" method="post" action="/admin/users/new">
+  <form class="settings-add-inline" method="post" action="/admin/users/new" x-data="{ linkMode: 'new' }">
     {% include "partials/csrf_field.html" %}
     <div class="field">
       <label for="u-username">Benutzername (Login)</label>
@@ -131,27 +131,48 @@
       <label for="u-password">Passwort (min. 8 Zeichen)</label>
       <input type="password" id="u-password" name="password" minlength="8" required>
     </div>
-    <div class="field">
-      <label for="u-first-name">Vorname</label>
-      <input type="text" id="u-first-name" name="first_name" required>
-    </div>
-    <div class="field">
-      <label for="u-last-name">Nachname</label>
-      <input type="text" id="u-last-name" name="last_name" required>
-    </div>
-    <div class="field">
-      <label for="u-barcode">Barcode (Ausweis)</label>
-      <input type="text" id="u-barcode" name="barcode" required>
-    </div>
+    {% if unlinked_workers %}
+      <div class="field">
+        <label for="u-link-mode">Mitarbeiter-Ausweis</label>
+        <select id="u-link-mode" name="link_mode" x-model="linkMode">
+          <option value="new">Neuen Ausweis anlegen</option>
+          <option value="existing">Mit bestehendem Ausweis verknüpfen (noch ohne Login)</option>
+        </select>
+      </div>
+    {% endif %}
+    <template x-if="linkMode === 'existing'">
+      <div class="field">
+        <label for="u-existing-worker">Bestehender Ausweis</label>
+        <select id="u-existing-worker" name="existing_worker_id">
+          {% for w in unlinked_workers %}<option value="{{ w.id }}">{{ w.full_name }} · {{ w.barcode }}</option>{% endfor %}
+        </select>
+      </div>
+    </template>
+    <template x-if="linkMode !== 'existing'">
+      <div>
+        <div class="field">
+          <label for="u-first-name">Vorname</label>
+          <input type="text" id="u-first-name" name="first_name" required>
+        </div>
+        <div class="field">
+          <label for="u-last-name">Nachname</label>
+          <input type="text" id="u-last-name" name="last_name" required>
+        </div>
+        <div class="field">
+          <label for="u-barcode">Barcode (Ausweis)</label>
+          <input type="text" id="u-barcode" name="barcode" required>
+        </div>
+        <div class="field">
+          <label for="u-home-department">Heimat-Abteilung (Ausweis)</label>
+          <select id="u-home-department" name="home_department_id" required>
+            {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+    </template>
     <div class="field">
       <label for="u-email">E-Mail (optional)</label>
       <input type="email" id="u-email" name="email" placeholder="für Willkommens-Mail mit Passwort-Link">
-    </div>
-    <div class="field">
-      <label for="u-home-department">Heimat-Abteilung (Ausweis)</label>
-      <select id="u-home-department" name="home_department_id" required>
-        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
-      </select>
     </div>
     <div class="field">
       <label for="u-initial-role">Zugriffsrolle in dieser Abteilung</label>
@@ -168,8 +189,8 @@
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
   <p class="settings-hint" style="margin-top: var(--space-2);">
-    Legt Login, Mitarbeiter-Ausweis UND (falls eine Zugriffsrolle gewählt ist) direkt Zugriff auf die Heimat-Abteilung an - alles in einem Schritt.
-    Zugriff auf WEITERE Abteilungen oder eine andere Rolle danach im Tab "Zugriff" ändern.
+    Legt Login und (je nach Auswahl oben) entweder einen neuen Mitarbeiter-Ausweis oder eine Verknüpfung zu einem bestehenden Ausweis an -
+    plus (falls eine Zugriffsrolle gewählt ist) direkt Zugriff auf die Heimat-Abteilung. Zugriff auf WEITERE Abteilungen oder eine andere Rolle danach im Tab "Zugriff" ändern.
   </p>
 </section>
 
