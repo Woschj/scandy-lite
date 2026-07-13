@@ -54,11 +54,32 @@ async def get_definitions_by_department_and_category(
     """Wie get_definitions_by_category, aber für mehrere Abteilungen auf
     einmal - fürs Anlegen-Formular, wo neben der Kategorie auch die
     Abteilung selbst erst im Formular gewählt wird (siehe items/form.html:
-    Alpine blendet die zu Abteilung UND Kategorie passende Gruppe ein)."""
-    return {
-        str(department_id): await get_definitions_by_category(session, department_id)
-        for department_id in department_ids
-    }
+    Alpine blendet die zu Abteilung UND Kategorie passende Gruppe ein).
+
+    Bewusst 2 Abfragen statt einer pro Abteilung (N+1) - relevant, sobald
+    eine Installation viele Abteilungen hat, da dieser Aufruf bei jedem
+    Aufruf von 'Neuer Gegenstand' läuft."""
+    if not department_ids:
+        return {}
+    categories_result = await session.exec(
+        select(Category).where(Category.department_id.in_(department_ids)).order_by(Category.name)
+    )
+    categories = categories_result.all()
+    if not categories:
+        return {str(d): {} for d in department_ids}
+    category_ids = [c.id for c in categories]
+    category_by_id = {c.id: c for c in categories}
+
+    definitions_result = await session.exec(
+        select(CustomFieldDefinition)
+        .where(CustomFieldDefinition.category_id.in_(category_ids))
+        .order_by(CustomFieldDefinition.name)
+    )
+    grouped: dict[str, dict[str, list[CustomFieldDefinition]]] = {str(d): {} for d in department_ids}
+    for definition in definitions_result.all():
+        category = category_by_id[definition.category_id]
+        grouped[str(category.department_id)].setdefault(category.name, []).append(definition)
+    return grouped
 
 
 async def get_definitions_for_item(session: AsyncSession, item: Item) -> list[CustomFieldDefinition]:

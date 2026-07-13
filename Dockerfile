@@ -1,10 +1,10 @@
+# syntax=docker/dockerfile:1
 FROM python:3.12-slim
 
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PYTHONUNBUFFERED=1
 
 # libpq5 für psycopg2 (Alembic-Migrationen laufen synchron), curl für den Healthcheck
 RUN apt-get update \
@@ -12,7 +12,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+# BuildKit-Cache-Mount statt PIP_NO_CACHE_DIR: pip's Wheel-Cache liegt AUSSERHALB
+# der Image-Layer (bläht das Image nicht auf), bleibt aber über mehrere Builds
+# hinweg erhalten - eine Änderung an requirements.txt lädt dadurch nur noch
+# tatsächlich neue/geänderte Pakete neu, statt alle ~15 Abhängigkeiten jedes
+# Mal komplett neu herunterzuladen.
+RUN --mount=type=cache,target=/root/.cache/pip pip install -r requirements.txt
 
 COPY . .
 RUN chmod +x docker/entrypoint.sh

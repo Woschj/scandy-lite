@@ -391,20 +391,38 @@ async def delete_department(
     if not department:
         return RedirectResponse(url="/admin/settings#departments", status_code=303)
 
-    checks = [
-        ("Gegenstände", select(func.count()).select_from(Item).where(Item.department_id == department_id)),
-        ("Verbrauchsmaterial", select(func.count()).select_from(Consumable).where(Consumable.department_id == department_id)),
-        ("Mitarbeiter", select(func.count()).select_from(Worker).where(Worker.department_id == department_id)),
+    named_checks = [
+        ("Gegenstände", Item, Item.department_id, lambda i: i.name),
+        ("Verbrauchsmaterial", Consumable, Consumable.department_id, lambda c: c.name),
+        ("Mitarbeiter", Worker, Worker.department_id, lambda w: w.full_name),
+        ("Kategorien", Category, Category.department_id, lambda c: c.name),
+        ("Standorte", Location, Location.department_id, lambda l: l.name),
+    ]
+    count_only_checks = [
         ("Zugriffs-Zuweisungen", select(func.count()).select_from(UserDepartmentRole).where(UserDepartmentRole.department_id == department_id)),
-        ("Kategorien", select(func.count()).select_from(Category).where(Category.department_id == department_id)),
-        ("Standorte", select(func.count()).select_from(Location).where(Location.department_id == department_id)),
         ("Ausleihen (Historie)", select(func.count()).select_from(Lending).where(Lending.department_id == department_id)),
         ("Reservierungen", select(func.count()).select_from(Reservation).where(Reservation.department_id == department_id)),
         ("Material-Vormerkungen", select(func.count()).select_from(ConsumableReservation).where(ConsumableReservation.department_id == department_id)),
     ]
 
+    # Bei den "nameable" Kategorien (Gegenstände/Material/Mitarbeiter/
+    # Kategorien/Standorte) werden ein paar Beispiel-Namen mit ausgegeben,
+    # nicht nur die Anzahl - sonst muss der Admin selbst raten/suchen, WELCHE
+    # Datensätze konkret im Weg stehen.
     blockers = []
-    for label, stmt in checks:
+    for label, model, dept_field, name_fn in named_checks:
+        sample_result = await session.exec(select(model).where(dept_field == department_id).limit(4))
+        sample = sample_result.all()
+        if not sample:
+            continue
+        count_result = await session.exec(select(func.count()).select_from(model).where(dept_field == department_id))
+        total = count_result.one()
+        names = ", ".join(name_fn(row) for row in sample[:3])
+        if total > 3:
+            names += f", … ({total} gesamt)"
+        blockers.append(f"{label}: {names}")
+
+    for label, stmt in count_only_checks:
         count = (await session.exec(stmt)).one()
         if count:
             blockers.append(f"{count} {label}")
@@ -452,15 +470,23 @@ async def delete_category(
     # Zusatzfelder hängen per Fremdschlüssel an der Kategorie (siehe
     # app/models/custom_field.py) - ohne diese Prüfung würde das Löschen
     # entweder an der FK-Constraint scheitern (Postgres) oder verwaiste
-    # Referenzen hinterlassen. Gleiches Blocker-Muster wie delete_department oben.
-    field_count = (
-        await session.exec(
-            select(func.count()).select_from(CustomFieldDefinition).where(CustomFieldDefinition.category_id == category_id)
-        )
-    ).one()
-    if field_count:
+    # Referenzen hinterlassen. Gleiches Blocker-Muster wie delete_department oben,
+    # inklusive konkreter Feldnamen statt nur einer Anzahl.
+    fields_result = await session.exec(
+        select(CustomFieldDefinition).where(CustomFieldDefinition.category_id == category_id).limit(4)
+    )
+    fields = fields_result.all()
+    if fields:
+        names = ", ".join(f.name for f in fields[:3])
+        if len(fields) > 3:
+            field_count = (
+                await session.exec(
+                    select(func.count()).select_from(CustomFieldDefinition).where(CustomFieldDefinition.category_id == category_id)
+                )
+            ).one()
+            names += f", … ({field_count} gesamt)"
         message = (
-            f"'{category.name}' kann nicht gelöscht werden, hat noch {field_count} Zusatzfeld(er). "
+            f"'{category.name}' kann nicht gelöscht werden, hat noch Zusatzfelder: {names}. "
             "Erst im Tab 'Zusatzfelder' entfernen."
         )
         return redirect_with_query("/admin/settings", fragment="categories", error=message)
