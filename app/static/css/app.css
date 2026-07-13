@@ -1176,10 +1176,10 @@ button, input, select {
 }
 
 .settings-add-inline {
-  display: flex;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  align-items: end;
   padding: var(--space-4);
   background: var(--bg);
   border: 1px dashed var(--line-strong);
@@ -1187,15 +1187,29 @@ button, input, select {
   margin-top: var(--space-3);
 }
 
+/* Grid statt Flex-Wrap, damit mehrzeilige Formulare (z.B. E-Mail-Einstellungen,
+   Zusatzfelder) sauber in Spalten fluchten - Flex-Wrap richtete vorher jede
+   Zeile unabhängig aus, wodurch unterschiedlich breite Felder (z.B. durch
+   längere Labels) die Reihen gegeneinander verschoben. */
 .settings-add-inline .field {
   margin-bottom: 0;
-  flex: 1;
-  min-width: 160px;
+  min-width: 0;
+}
+
+.settings-add-inline .checkbox-field {
+  margin-bottom: 0;
+  align-self: center;
 }
 
 .settings-add-inline select,
 .settings-add-inline input {
   min-height: 40px;
+  width: 100%;
+}
+
+.settings-add-inline > button[type="submit"] {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 .settings-tabs {
