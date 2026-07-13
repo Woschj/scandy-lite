@@ -24,6 +24,15 @@ from app.core.password_reset import create_reset_token
 from app.core.responses import redirect_with_query
 from app.core.security import hash_password
 from app.core.templating import templates
+from app.core.trash import (
+    get_trash_entries,
+    purge_consumable,
+    purge_item,
+    purge_worker,
+    restore_consumable,
+    restore_item,
+    restore_worker,
+)
 from app.models.common import CustomFieldType, UserRole, utcnow
 from app.models.consumable import Consumable
 from app.models.consumable_reservation import ConsumableReservation
@@ -77,6 +86,8 @@ async def settings_page(
     custom_fields_result = await session.exec(select(CustomFieldDefinition).order_by(CustomFieldDefinition.name))
     custom_fields = custom_fields_result.all()
 
+    trash_items, trash_consumables, trash_workers = await get_trash_entries(session)
+
     return templates.TemplateResponse(
         request,
         "admin/settings.html",
@@ -91,6 +102,9 @@ async def settings_page(
             "worker_by_user": worker_by_user,
             "email_settings": email_settings,
             "custom_fields": custom_fields,
+            "trash_items": trash_items,
+            "trash_consumables": trash_consumables,
+            "trash_workers": trash_workers,
             "ok": ok,
             "error": error,
         },
@@ -408,7 +422,14 @@ async def delete_department(
     # Bei den "nameable" Kategorien (Gegenstände/Material/Mitarbeiter/
     # Kategorien/Standorte) werden ein paar Beispiel-Namen mit ausgegeben,
     # nicht nur die Anzahl - sonst muss der Admin selbst raten/suchen, WELCHE
-    # Datensätze konkret im Weg stehen.
+    # Datensätze konkret im Weg stehen. Bereits (soft-)gelöschte Datensätze
+    # werden dabei explizit als "[gelöscht]" markiert - sie zählen laut
+    # obigem Docstring bewusst mit, ohne die Markierung sieht es für den
+    # Admin sonst wie ein Bug aus ("ich hab's doch gelöscht?").
+    def _label_name(row, name_fn) -> str:
+        name = name_fn(row)
+        return f"{name} [gelöscht]" if getattr(row, "deleted_at", None) else name
+
     blockers = []
     for label, model, dept_field, name_fn in named_checks:
         sample_result = await session.exec(select(model).where(dept_field == department_id).limit(4))
@@ -417,7 +438,7 @@ async def delete_department(
             continue
         count_result = await session.exec(select(func.count()).select_from(model).where(dept_field == department_id))
         total = count_result.one()
-        names = ", ".join(name_fn(row) for row in sample[:3])
+        names = ", ".join(_label_name(row, name_fn) for row in sample[:3])
         if total > 3:
             names += f", … ({total} gesamt)"
         blockers.append(f"{label}: {names}")
@@ -668,3 +689,104 @@ async def test_email_settings(
         "/admin/settings", fragment="email",
         error="Test-Mail konnte nicht verschickt werden - Zugangsdaten/Einstellungen prüfen (Details im Server-Log).",
     )
+
+
+# --- Papierkorb (soft-gelöschte Gegenstände/Material/Mitarbeiter) -------
+
+@router.post("/trash/items/{item_id}/restore")
+async def restore_trashed_item(
+    item_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    item = await session.get(Item, item_id)
+    if not item or item.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error="Gegenstand nicht gefunden.")
+    error = await restore_item(session, item)
+    if error:
+        return redirect_with_query("/admin/settings", fragment="trash", error=error)
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{item.name} wiederhergestellt.")
+
+
+@router.post("/trash/items/{item_id}/purge")
+async def purge_trashed_item(
+    item_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    item = await session.get(Item, item_id)
+    if not item or item.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error="Gegenstand nicht gefunden.")
+    name = item.name
+    error = await purge_item(session, item)
+    if error:
+        return redirect_with_query("/admin/settings", fragment="trash", error=error)
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{name} endgültig gelöscht.")
+
+
+@router.post("/trash/consumables/{consumable_id}/restore")
+async def restore_trashed_consumable(
+    consumable_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    consumable = await session.get(Consumable, consumable_id)
+    if not consumable or consumable.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error="Verbrauchsmaterial nicht gefunden.")
+    error = await restore_consumable(session, consumable)
+    if error:
+        return redirect_with_query("/admin/settings", fragment="trash", error=error)
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{consumable.name} wiederhergestellt.")
+
+
+@router.post("/trash/consumables/{consumable_id}/purge")
+async def purge_trashed_consumable(
+    consumable_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    consumable = await session.get(Consumable, consumable_id)
+    if not consumable or consumable.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error="Verbrauchsmaterial nicht gefunden.")
+    name = consumable.name
+    error = await purge_consumable(session, consumable)
+    if error:
+        return redirect_with_query("/admin/settings", fragment="trash", error=error)
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{name} endgültig gelöscht.")
+
+
+@router.post("/trash/workers/{worker_id}/restore")
+async def restore_trashed_worker(
+    worker_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    worker = await session.get(Worker, worker_id)
+    if not worker or worker.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error="Mitarbeiter nicht gefunden.")
+    error = await restore_worker(session, worker)
+    if error:
+        return redirect_with_query("/admin/settings", fragment="trash", error=error)
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{worker.full_name} wiederhergestellt.")
+
+
+@router.post("/trash/workers/{worker_id}/purge")
+async def purge_trashed_worker(
+    worker_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    worker = await session.get(Worker, worker_id)
+    if not worker or worker.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error="Mitarbeiter nicht gefunden.")
+    name = worker.full_name
+    error = await purge_worker(session, worker)
+    if error:
+        return redirect_with_query("/admin/settings", fragment="trash", error=error)
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{name} endgültig gelöscht.")

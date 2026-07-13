@@ -400,6 +400,7 @@ async def adjust_consumable(
             consumable_id=consumable.id,
             worker_id=parsed_worker_id,
             quantity=abs(delta),
+            department_id=consumable.department_id,
         )
         session.add(usage)
 

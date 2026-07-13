@@ -41,11 +41,22 @@ class ConsumableUsage(TimestampMixin, table=True):
 
     id: uuid.UUID = Field(default_factory=new_uuid, primary_key=True)
 
-    consumable_id: uuid.UUID = Field(foreign_key="consumables.id", index=True)
+    # Nullable + Text-Schnappschuss aus demselben Grund wie bei Lending
+    # (siehe app/models/lending.py) - endgültiges Löschen aus dem Papierkorb
+    # (app/core/trash.py) darf die Entnahme-Historie nicht zerreißen.
+    consumable_id: uuid.UUID | None = Field(default=None, foreign_key="consumables.id", index=True)
     consumable: Optional["Consumable"] = Relationship(back_populates="usages")
+    consumable_name_snapshot: str | None = Field(default=None, max_length=200)
 
-    worker_id: uuid.UUID = Field(foreign_key="workers.id", index=True)
+    worker_id: uuid.UUID | None = Field(default=None, foreign_key="workers.id", index=True)
     worker: Optional["Worker"] = Relationship()
+    worker_name_snapshot: str | None = Field(default=None, max_length=200)
+
+    # Denormalisiert (spiegelt consumable.department_id) - genau wie bei
+    # Lending.department_id: die Abteilungs-Sichtbarkeit in der Historie
+    # (app/routers/history.py) darf nicht davon abhängen, ob consumable_id
+    # noch gesetzt ist (nach einem Papierkorb-Purge ist es das nicht mehr).
+    department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)
 
     quantity: int = Field(gt=0)
     used_at: datetime = Field(default_factory=utcnow, index=True)

@@ -26,8 +26,8 @@
         <div class="item-card">
           <div class="item-card-top">
             <div>
-              <h3>{{ r.item.name if r.item else "?" }}</h3>
-              <span class="item-barcode">{{ r.item.barcode if r.item else "" }}</span>
+              <h3>{{ r.item.name if r.item else (r.item_name_snapshot or "?") }}</h3>
+              <span class="item-barcode">{{ r.item.barcode if r.item else (r.item_barcode_snapshot or "") }}</span>
             </div>
             <span class="chip chip-neutral">Reserviert</span>
           </div>
@@ -44,8 +44,8 @@
         <div class="item-card">
           <div class="item-card-top">
             <div>
-              <h3>{{ r.quantity }}x {{ r.consumable.name if r.consumable else "?" }}</h3>
-              <span class="item-barcode">{{ r.consumable.barcode if r.consumable else "" }}</span>
+              <h3>{{ r.quantity }}x {{ r.consumable.name if r.consumable else (r.consumable_name_snapshot or "?") }}</h3>
+              <span class="item-barcode">{{ r.consumable.barcode if r.consumable else (r.consumable_barcode_snapshot or "") }}</span>
             </div>
             <span class="chip chip-neutral">Vorgemerkt</span>
           </div>
@@ -87,8 +87,8 @@
             {% for r in g.item_reservations %}
               <div class="settings-row" style="padding-left: 0; padding-right: 0;">
                 <div class="main">
-                  <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">{{ r.item.name if r.item else "?" }}</span>
-                  <span class="meta">{{ r.item.barcode if r.item else "" }} · seit {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
+                  <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">{{ r.item.name if r.item else (r.item_name_snapshot or "?") }}</span>
+                  <span class="meta">{{ r.item.barcode if r.item else (r.item_barcode_snapshot or "") }} · seit {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
                 </div>
                 <form method="post" action="/reservations/{{ r.id }}/cancel" onsubmit="return confirm('Reservierung stornieren?')">
                   {% include "partials/csrf_field.html" %}
@@ -99,8 +99,8 @@
             {% for r in g.consumables %}
               <div class="settings-row" style="padding-left: 0; padding-right: 0;">
                 <div class="main">
-                  <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">{{ r.quantity }}x {{ r.consumable.name if r.consumable else "?" }}</span>
-                  <span class="meta">{{ r.consumable.barcode if r.consumable else "" }} · seit {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
+                  <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">{{ r.quantity }}x {{ r.consumable.name if r.consumable else (r.consumable_name_snapshot or "?") }}</span>
+                  <span class="meta">{{ r.consumable.barcode if r.consumable else (r.consumable_barcode_snapshot or "") }} · seit {{ r.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
                 </div>
                 <form method="post" action="/reservations/consumables/{{ r.id }}/cancel" onsubmit="return confirm('Vormerkung stornieren?')">
                   {% include "partials/csrf_field.html" %}

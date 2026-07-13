@@ -40,8 +40,8 @@
     {% for r in pending %}
       <div class="settings-row">
         <div class="main">
-          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">{{ r.item.name if r.item else "?" }}</span>
-          <span class="meta">{{ r.item.barcode if r.item else "" }}</span>
+          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">{{ r.item.name if r.item else (r.item_name_snapshot or "?") }}</span>
+          <span class="meta">{{ r.item.barcode if r.item else (r.item_barcode_snapshot or "") }}</span>
         </div>
         <form method="post" action="/scan/pickup/{{ worker.id }}/remove/{{ r.id }}" onsubmit="return confirm('{{ (r.item.name if r.item else "Gegenstand") }} aus dieser Abholung entfernen? Die Reservierung wird storniert.')">
           {% include "partials/csrf_field.html" %}
@@ -61,8 +61,8 @@
     {% for r in done %}
       <div class="settings-row">
         <div class="main">
-          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">✓ {{ r.item.name if r.item else "?" }}</span>
-          <span class="meta">{{ r.item.barcode if r.item else "" }}</span>
+          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">✓ {{ r.item.name if r.item else (r.item_name_snapshot or "?") }}</span>
+          <span class="meta">{{ r.item.barcode if r.item else (r.item_barcode_snapshot or "") }}</span>
         </div>
         <span class="chip chip-success">Gescannt</span>
       </div>

@@ -33,11 +33,17 @@ class ConsumableReservation(TimestampMixin, table=True):
 
     id: uuid.UUID = Field(default_factory=new_uuid, primary_key=True)
 
-    consumable_id: uuid.UUID = Field(foreign_key="consumables.id", index=True)
+    # Nullable + Text-Schnappschuss aus demselben Grund wie bei Lending
+    # (siehe app/models/lending.py) - endgültiges Löschen aus dem Papierkorb
+    # (app/core/trash.py) darf die Vormerkungs-Historie nicht zerreißen.
+    consumable_id: uuid.UUID | None = Field(default=None, foreign_key="consumables.id", index=True)
     consumable: Optional["Consumable"] = Relationship()
+    consumable_name_snapshot: str | None = Field(default=None, max_length=200)
+    consumable_barcode_snapshot: str | None = Field(default=None, max_length=100)
 
-    worker_id: uuid.UUID = Field(foreign_key="workers.id", index=True)
+    worker_id: uuid.UUID | None = Field(default=None, foreign_key="workers.id", index=True)
     worker: Optional["Worker"] = Relationship()
+    worker_name_snapshot: str | None = Field(default=None, max_length=200)
 
     department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)
     department: Optional["Department"] = Relationship()

@@ -26,7 +26,7 @@ from app.core.database import get_session
 from app.core.access import get_visible_department_ids
 from app.core.deps import get_current_user, populate_nav_context, require_staff
 from app.core.templating import templates
-from app.models.consumable import Consumable, ConsumableUsage
+from app.models.consumable import ConsumableUsage
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
@@ -96,10 +96,10 @@ async def history_index(
 
     for (_worker_id, signature), group in groups.items():
         group.sort(key=lambda l: l.lent_at)
-        worker_name = group[0].worker.full_name if group[0].worker else "(gelöschter Mitarbeiter)"
+        worker_name = group[0].worker.full_name if group[0].worker else (group[0].worker_name_snapshot or "(gelöschter Mitarbeiter)")
         details = [
             LendingDetail(
-                name=l.item.name if l.item else "(gelöschter Gegenstand)",
+                name=l.item.name if l.item else (l.item_name_snapshot or "(gelöschter Gegenstand)"),
                 lent_at=l.lent_at, returned_at=l.returned_at,
             )
             for l in group
@@ -112,8 +112,8 @@ async def history_index(
         ))
 
     for lending in ungrouped:
-        item_name = lending.item.name if lending.item else "(gelöschter Gegenstand)"
-        worker_name = lending.worker.full_name if lending.worker else "(gelöschter Mitarbeiter)"
+        item_name = lending.item.name if lending.item else (lending.item_name_snapshot or "(gelöschter Gegenstand)")
+        worker_name = lending.worker.full_name if lending.worker else (lending.worker_name_snapshot or "(gelöschter Mitarbeiter)")
         entries.append(HistoryEntry(
             timestamp=lending.lent_at, action="ausgeliehen", title=item_name, subtitle=worker_name,
             open_count=(1 if lending.returned_at is None else 0), total_count=1,
@@ -122,18 +122,17 @@ async def history_index(
 
     usage_stmt = (
         select(ConsumableUsage)
-        .join(Consumable)
         .options(selectinload(ConsumableUsage.consumable), selectinload(ConsumableUsage.worker))
         .order_by(ConsumableUsage.used_at.desc())
         .limit(_FETCH_LIMIT)
     )
     if visible_ids is not None:
-        usage_stmt = usage_stmt.where(Consumable.department_id.in_(visible_ids))
+        usage_stmt = usage_stmt.where(ConsumableUsage.department_id.in_(visible_ids))
     usages = (await session.exec(usage_stmt)).all()
 
     for usage in usages:
-        consumable_name = usage.consumable.name if usage.consumable else "(gelöschtes Material)"
-        worker_name = usage.worker.full_name if usage.worker else "(gelöschter Mitarbeiter)"
+        consumable_name = usage.consumable.name if usage.consumable else (usage.consumable_name_snapshot or "(gelöschtes Material)")
+        worker_name = usage.worker.full_name if usage.worker else (usage.worker_name_snapshot or "(gelöschter Mitarbeiter)")
         entries.append(HistoryEntry(
             timestamp=usage.used_at, action="entnommen", title=consumable_name, subtitle=worker_name,
             detail=f"{usage.quantity}x",

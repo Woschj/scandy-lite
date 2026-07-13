@@ -27,11 +27,18 @@ class Lending(TimestampMixin, table=True):
 
     id: uuid.UUID = Field(default_factory=new_uuid, primary_key=True)
 
-    item_id: uuid.UUID = Field(foreign_key="items.id", index=True)
+    # Nullable, damit ein Gegenstand aus dem Papierkorb endgültig gelöscht
+    # werden kann, ohne die Ausleih-Historie zu zerreißen (siehe
+    # app/core/trash.py) - Name/Barcode werden dabei als Text-Schnappschuss
+    # in den *_snapshot-Feldern erhalten, bevor die FK auf NULL gesetzt wird.
+    item_id: uuid.UUID | None = Field(default=None, foreign_key="items.id", index=True)
     item: Optional["Item"] = Relationship(back_populates="lendings")
+    item_name_snapshot: str | None = Field(default=None, max_length=200)
+    item_barcode_snapshot: str | None = Field(default=None, max_length=100)
 
-    worker_id: uuid.UUID = Field(foreign_key="workers.id", index=True)
+    worker_id: uuid.UUID | None = Field(default=None, foreign_key="workers.id", index=True)
     worker: Optional["Worker"] = Relationship(back_populates="lendings")
+    worker_name_snapshot: str | None = Field(default=None, max_length=200)
 
     # Denormalisiert für schnelle abteilungsgescopte Abfragen (spiegelt item.department_id)
     department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)

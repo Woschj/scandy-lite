@@ -213,7 +213,7 @@ async def scan_consume(
         await session.rollback()
         return RedirectResponse(url="/scan?error=Nicht+genug+Bestand+vorhanden.", status_code=303)
 
-    usage = ConsumableUsage(consumable_id=consumable.id, worker_id=worker.id, quantity=quantity)
+    usage = ConsumableUsage(consumable_id=consumable.id, worker_id=worker.id, quantity=quantity, department_id=consumable.department_id)
     session.add(usage)
     await session.commit()
 

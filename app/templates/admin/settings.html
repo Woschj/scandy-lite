@@ -20,6 +20,7 @@
   <a href="#locations" @click.prevent="tab = 'locations'" :class="{active: tab === 'locations'}">Standorte <span class="count">{{ locations | length }}</span></a>
   <a href="#custom-fields" @click.prevent="tab = 'custom-fields'" :class="{active: tab === 'custom-fields'}">Zusatzfelder <span class="count">{{ custom_fields | length }}</span></a>
   <a href="#email" @click.prevent="tab = 'email'" :class="{active: tab === 'email'}">E-Mail</a>
+  <a href="#trash" @click.prevent="tab = 'trash'" :class="{active: tab === 'trash'}">Papierkorb <span class="count">{{ (trash_items | length) + (trash_consumables | length) + (trash_workers | length) }}</span></a>
 </nav>
 
 {% if department %}
@@ -453,6 +454,97 @@
     </div>
     <button type="submit" class="btn btn-ghost">Test-Mail senden</button>
   </form>
+</section>
+
+{# ================= Papierkorb ================= #}
+<section class="settings-section" x-show="tab === 'trash'" x-cloak>
+  <p class="settings-hint">
+    Gelöschte Gegenstände/Material/Mitarbeiter landen hier, statt sofort
+    endgültig zu verschwinden (ihre Ausleih-/Entnahme-Historie bleibt sonst
+    ohne Bezug). "Wiederherstellen" macht die Löschung rückgängig.
+    "Endgültig löschen" entfernt den Datensatz wirklich - abgeschlossene
+    Historie bleibt dabei mit Name/Barcode als Textvermerk erhalten, nur
+    offene Ausleihen/Reservierungen blockieren das (erst zurückgeben/
+    stornieren).
+  </p>
+
+  <div class="settings-group-label">Gegenstände</div>
+  <div class="settings-list">
+    {% for i in trash_items %}
+      <div class="settings-row">
+        <div class="main">
+          <span class="name">{{ i.name }}</span>
+          <span class="meta">{{ i.barcode }}</span>
+          {% if i.department %}<span class="chip chip-neutral">{{ i.department.name }}</span>{% endif %}
+          <span class="meta">gelöscht am {{ i.deleted_at.strftime("%d.%m.%Y") }}</span>
+        </div>
+        <div class="actions">
+          <form method="post" action="/admin/trash/items/{{ i.id }}/restore">
+            {% include "partials/csrf_field.html" %}
+            <button type="submit" class="link-btn">Wiederherstellen</button>
+          </form>
+          <form method="post" action="/admin/trash/items/{{ i.id }}/purge" onsubmit="return confirm('{{ i.name }} wirklich ENDGÜLTIG löschen? Das kann nicht rückgängig gemacht werden.')">
+            {% include "partials/csrf_field.html" %}
+            <button type="submit" class="link-btn danger">Endgültig löschen</button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <div class="settings-empty">Papierkorb für Gegenstände ist leer.</div>
+    {% endfor %}
+  </div>
+
+  <div class="settings-group-label" style="margin-top: var(--space-4);">Verbrauchsmaterial</div>
+  <div class="settings-list">
+    {% for c in trash_consumables %}
+      <div class="settings-row">
+        <div class="main">
+          <span class="name">{{ c.name }}</span>
+          <span class="meta">{{ c.barcode }}</span>
+          {% if c.department %}<span class="chip chip-neutral">{{ c.department.name }}</span>{% endif %}
+          <span class="meta">gelöscht am {{ c.deleted_at.strftime("%d.%m.%Y") }}</span>
+        </div>
+        <div class="actions">
+          <form method="post" action="/admin/trash/consumables/{{ c.id }}/restore">
+            {% include "partials/csrf_field.html" %}
+            <button type="submit" class="link-btn">Wiederherstellen</button>
+          </form>
+          <form method="post" action="/admin/trash/consumables/{{ c.id }}/purge" onsubmit="return confirm('{{ c.name }} wirklich ENDGÜLTIG löschen? Das kann nicht rückgängig gemacht werden.')">
+            {% include "partials/csrf_field.html" %}
+            <button type="submit" class="link-btn danger">Endgültig löschen</button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <div class="settings-empty">Papierkorb für Verbrauchsmaterial ist leer.</div>
+    {% endfor %}
+  </div>
+
+  <div class="settings-group-label" style="margin-top: var(--space-4);">Mitarbeiter</div>
+  <div class="settings-list">
+    {% for w in trash_workers %}
+      <div class="settings-row">
+        <div class="main">
+          <span class="name">{{ w.full_name }}</span>
+          <span class="meta">{{ w.barcode }}</span>
+          {% if w.department %}<span class="chip chip-neutral">{{ w.department.name }}</span>{% endif %}
+          <span class="meta">gelöscht am {{ w.deleted_at.strftime("%d.%m.%Y") }}</span>
+        </div>
+        <div class="actions">
+          <form method="post" action="/admin/trash/workers/{{ w.id }}/restore">
+            {% include "partials/csrf_field.html" %}
+            <button type="submit" class="link-btn">Wiederherstellen</button>
+          </form>
+          <form method="post" action="/admin/trash/workers/{{ w.id }}/purge" onsubmit="return confirm('{{ w.full_name }} wirklich ENDGÜLTIG löschen? Das kann nicht rückgängig gemacht werden.')">
+            {% include "partials/csrf_field.html" %}
+            <button type="submit" class="link-btn danger">Endgültig löschen</button>
+          </form>
+        </div>
+      </div>
+    {% else %}
+      <div class="settings-empty">Papierkorb für Mitarbeiter ist leer.</div>
+    {% endfor %}
+  </div>
 </section>
 
 </div>
