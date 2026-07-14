@@ -14,15 +14,17 @@ Vorgehen:
    reservations, consumable_usages, consumable_reservations) ihre
    worker_id-Werte NICHT umschreiben müssen, wenn sie später auf users statt
    workers zeigen.
-4. Für Worker MIT Login: worker_id in den vier Historien-Tabellen auf
+4. Alte FK-Constraints der vier Tabellen (zeigen noch auf workers.id) lösen
+   (per pg_constraint-Introspektion, nicht per hartcodiertem Namen - robust
+   gegenüber abweichender Auto-Benennung) - MUSS vor Schritt 5 passieren,
+   sonst lehnt Postgres jeden worker_id-Wert ab, der nur in users existiert.
+5. Für Worker MIT Login: worker_id in den vier Historien-Tabellen auf
    worker.user_id ummappen (dort weichen alte Worker-id und User-id ja
    voneinander ab).
-5. FK-Constraints der vier Tabellen von workers.id auf users.id umhängen
-   (per pg_constraint-Introspektion, nicht per hartcodiertem Namen - robust
-   gegenüber abweichender Auto-Benennung).
-6. Barcode-Eindeutigkeit (partieller Unique-Index wie bisher bei workers,
+6. Neue FK-Constraints der vier Tabellen auf users.id anlegen.
+7. Barcode-Eindeutigkeit (partieller Unique-Index wie bisher bei workers,
    siehe Migration 45dd75eab85a) auf users verschieben.
-7. workers-Tabelle droppen (nimmt ihre eigenen Indizes/Constraints mit).
+8. workers-Tabelle droppen (nimmt ihre eigenen Indizes/Constraints mit).
 
 Revision ID: b6f1c9a4d2e7
 Revises: 5e8a2c1f9b6d
@@ -86,17 +88,12 @@ def upgrade() -> None:
         "FROM workers w WHERE w.user_id IS NULL"
     )
 
-    # 4. Worker MIT Login: worker_id in den Historien-Tabellen auf die
-    # tatsaechliche User-id ummappen (weicht hier von worker.id ab).
-    for table in _HISTORY_TABLES:
-        op.execute(
-            f"UPDATE {table} t SET worker_id = w.user_id "
-            f"FROM workers w WHERE t.worker_id = w.id AND w.user_id IS NOT NULL"
-        )
-
-    # 5. FK-Constraints der Historien-Tabellen von workers auf users umhaengen -
-    # per Introspektion statt hartcodiertem Namen (robust gegenueber
-    # abweichender Auto-Benennung durch Postgres).
+    # 4. FK-Constraints der Historien-Tabellen von workers loesen (per
+    # Introspektion statt hartcodiertem Namen - robust gegenueber
+    # abweichender Auto-Benennung durch Postgres) - MUSS vor dem Ummappen in
+    # Schritt 5 passieren: solange die alte FK noch auf workers.id zeigt,
+    # verweigert Postgres jeden worker_id-Wert, der nur in users existiert
+    # (z.B. der neuen user_id eines verknuepften Workers).
     for table in _HISTORY_TABLES:
         op.execute(f"""
             DO $$
@@ -111,15 +108,26 @@ def upgrade() -> None:
                 END LOOP;
             END $$;
         """)
+
+    # 5. Worker MIT Login: worker_id in den Historien-Tabellen auf die
+    # tatsaechliche User-id ummappen (weicht hier von worker.id ab).
+    for table in _HISTORY_TABLES:
+        op.execute(
+            f"UPDATE {table} t SET worker_id = w.user_id "
+            f"FROM workers w WHERE t.worker_id = w.id AND w.user_id IS NOT NULL"
+        )
+
+    # 6. Neue FK-Constraints der Historien-Tabellen auf users anlegen.
+    for table in _HISTORY_TABLES:
         op.create_foreign_key(f'fk_{table}_worker_id_users', table, 'users', ['worker_id'], ['id'])
 
-    # 6. Barcode-Eindeutigkeit (nur aktive Datensaetze) auf users verschieben
+    # 7. Barcode-Eindeutigkeit (nur aktive Datensaetze) auf users verschieben
     op.execute(
         "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_barcode_active "
         "ON users (barcode) WHERE deleted_at IS NULL"
     )
 
-    # 7. workers-Tabelle droppen (nimmt ihre eigenen Indizes/Constraints mit)
+    # 8. workers-Tabelle droppen (nimmt ihre eigenen Indizes/Constraints mit)
     op.drop_table('workers')
 
 
