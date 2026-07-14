@@ -20,7 +20,6 @@ from app.models.lending import Lending
 from app.models.preset import Category, Location
 from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
-from app.models.worker import Worker
 from migrations_legacy.transform import (
     build_consumable_kwargs,
     build_item_kwargs,
@@ -156,7 +155,13 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
             user_id_by_username[username] = f"<würde-anlegen:{username}>"
         report["users_created"] += 1
 
-    # ---------- 4) Mitarbeiter/Worker (inkl. Verknüpfung zum migrierten User über username) ----------
+    # ---------- 4) Mitarbeiter-Ausweise (jetzt Teil von User, siehe app/models/user.py) ----------
+    # Gehört der Mitarbeiter-Datensatz zu einem bereits migrierten/vorhandenen
+    # Login (per username verknüpft) -> Ausweis-Felder auf DIESEN User
+    # schreiben, statt eine zweite, separate Zeile anzulegen (User und
+    # Mitarbeiter-Ausweis sind seit der Vereinheitlichung dieselbe Entität).
+    # Kein passender Login -> neuer User OHNE Passwort (reiner Ausweis, kann
+    # sich nicht einloggen - genau wie vorher ein Worker ohne user_id).
     worker_id_by_barcode: dict[str, object] = {}
     for worker_doc in data.get("workers", []):
         barcode = clean_str(worker_doc.get("barcode"))
@@ -167,7 +172,7 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
 
         if barcode:
             existing = session.exec(
-                select(Worker).where(Worker.barcode == barcode, Worker.deleted_at.is_(None))
+                select(User).where(User.barcode == barcode, User.deleted_at.is_(None))
             ).first()
             if existing:
                 worker_id_by_barcode[barcode] = existing.id
@@ -177,12 +182,26 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
         kwargs = build_worker_kwargs(worker_doc, dept_id)
         linked_username = clean_str(worker_doc.get("username"))
         if apply:
-            worker = Worker(**kwargs)
-            if linked_username and linked_username in user_id_by_username:
-                worker.user_id = user_id_by_username[linked_username]
-            session.add(worker)
-            session.flush()
-            worker_id_by_barcode[kwargs["barcode"]] = worker.id
+            linked_user = user_id_by_username.get(linked_username) if linked_username else None
+            if linked_user is not None and not str(linked_user).startswith("<"):
+                target_user = session.get(User, linked_user)
+                target_user.first_name = kwargs["first_name"]
+                target_user.last_name = kwargs["last_name"]
+                target_user.barcode = kwargs["barcode"]
+                target_user.department_id = kwargs["department_id"]
+                session.add(target_user)
+                session.flush()
+                worker_id_by_barcode[kwargs["barcode"]] = target_user.id
+            else:
+                worker_user = User(
+                    username=f"mitarbeiter-{kwargs['barcode']}".lower(),
+                    is_admin=False,
+                    hashed_password=None,
+                    **kwargs,
+                )
+                session.add(worker_user)
+                session.flush()
+                worker_id_by_barcode[kwargs["barcode"]] = worker_user.id
         else:
             worker_id_by_barcode[kwargs["barcode"]] = f"<würde-anlegen:{kwargs['barcode']}>"
         report["workers_created"] += 1

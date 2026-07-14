@@ -94,6 +94,7 @@ async def login_submit(
     invalid = (
         not user
         or not user.is_active
+        or user.deleted_at is not None
         or not user.hashed_password  # LDAP/SSO-User haben kein lokales Passwort
         or not verify_password(password, user.hashed_password)
     )
@@ -153,7 +154,7 @@ async def forgot_password_submit(
     result = await session.exec(select(User).where(or_(User.username == identifier, User.email == identifier)))
     user = result.first()
 
-    if user and user.is_active and user.auth_source == AuthSource.LOCAL and user.hashed_password and user.email:
+    if user and user.is_active and user.deleted_at is None and user.auth_source == AuthSource.LOCAL and user.hashed_password and user.email:
         raw_token = await create_reset_token(session, user)
         await session.commit()
         reset_url = str(request.base_url).rstrip("/") + f"/auth/reset-password/{raw_token}"
@@ -200,7 +201,7 @@ async def reset_password_submit(
         )
 
     user = await session.get(User, reset_token.user_id)
-    if not user or not user.is_active:
+    if not user or not user.is_active or user.deleted_at is not None:
         return templates.TemplateResponse(
             request, "auth/reset_password.html", {"error": "invalid", "token": token}
         )

@@ -23,7 +23,6 @@ from app.models import (  # noqa: E402,F401  (Import registriert alle Tabellen i
     Reservation,
     ConsumableReservation,
     User,
-    Worker,
 )
 from sqlmodel import SQLModel  # noqa: E402
 

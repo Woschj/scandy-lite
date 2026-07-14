@@ -17,7 +17,6 @@ from app.models.item import Item
 from app.models.lending import Lending
 from app.models.reservation import Reservation
 from app.models.user import User
-from app.models.worker import Worker
 
 router = APIRouter(tags=["pages"], dependencies=[Depends(populate_nav_context)])
 
@@ -32,11 +31,14 @@ async def dashboard(
 
     item_stmt = select(func.count()).select_from(Item).where(Item.deleted_at.is_(None))
     consumable_stmt = select(func.count()).select_from(Consumable).where(Consumable.deleted_at.is_(None))
-    worker_stmt = select(func.count()).select_from(Worker).where(Worker.deleted_at.is_(None))
+    # Nur User mit Barcode zaehlen als "Mitarbeiter" (Ausweis-Traeger) - ein
+    # reiner Login ohne Ausweis (z.B. ein Admin-Systemzugang) ist kein
+    # Mitarbeiter im Sinne dieser Kachel.
+    worker_stmt = select(func.count()).select_from(User).where(User.deleted_at.is_(None), User.barcode.is_not(None))
     if visible_ids is not None:
         item_stmt = item_stmt.where(Item.department_id.in_(visible_ids))
         consumable_stmt = consumable_stmt.where(Consumable.department_id.in_(visible_ids))
-        worker_stmt = worker_stmt.where(Worker.department_id.in_(visible_ids))
+        worker_stmt = worker_stmt.where(User.department_id.in_(visible_ids))
 
     item_count = (await session.exec(item_stmt)).one()
     consumable_count = (await session.exec(consumable_stmt)).one()

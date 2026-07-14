@@ -17,7 +17,6 @@ from app.models.preset import Category, Location  # noqa: F401
 from app.models.reservation import Reservation  # noqa: F401
 from app.models.user import User  # noqa: F401
 from app.models.user_department_role import UserDepartmentRole  # noqa: F401
-from app.models.worker import Worker  # noqa: F401
 
 __all__ = [
     "Category",
@@ -35,5 +34,4 @@ __all__ = [
     "Reservation",
     "User",
     "UserDepartmentRole",
-    "Worker",
 ]

@@ -20,7 +20,7 @@
   <a href="#locations" @click.prevent="tab = 'locations'" :class="{active: tab === 'locations'}">Standorte <span class="count">{{ locations | length }}</span></a>
   <a href="#custom-fields" @click.prevent="tab = 'custom-fields'" :class="{active: tab === 'custom-fields'}">Zusatzfelder <span class="count">{{ custom_fields | length }}</span></a>
   <a href="#email" @click.prevent="tab = 'email'" :class="{active: tab === 'email'}">E-Mail</a>
-  <a href="#trash" @click.prevent="tab = 'trash'" :class="{active: tab === 'trash'}">Papierkorb <span class="count">{{ (trash_items | length) + (trash_consumables | length) + (trash_workers | length) }}</span></a>
+  <a href="#trash" @click.prevent="tab = 'trash'" :class="{active: tab === 'trash'}">Papierkorb <span class="count">{{ (trash_items | length) + (trash_consumables | length) + (trash_users | length) }}</span></a>
 </nav>
 
 {% if department %}
@@ -74,8 +74,8 @@
   <p class="settings-hint">
     Admin hat vollen Zugriff überall. Alle anderen bekommen ihre Rolle PRO
     Abteilung im Tab "Zugriff" zugewiesen (z.B. Mitarbeiter in Werkstatt,
-    gleichzeitig Nutzer in Büro). Für Self-Service-Reservierungen den Login
-    zusätzlich beim jeweiligen Mitarbeiter verknüpfen (Mitarbeiter → Bearbeiten).
+    gleichzeitig Nutzer in Büro). Barcode + Heimat-Abteilung gehören direkt
+    zum Login - jeder Benutzer kann damit auch ausleihen/reservieren.
   </p>
 
   <div class="settings-list">
@@ -83,9 +83,8 @@
       <div class="settings-row">
         <div class="main">
           <span class="name">{{ u.username }}</span>
-          {% set linked_worker = worker_by_user.get(u.id) %}
-          {% if linked_worker %}
-            <span class="meta">{{ linked_worker.full_name }} · {{ linked_worker.barcode }}</span>
+          {% if u.barcode %}
+            <span class="meta">{{ u.full_name }} · {{ u.barcode }}</span>
           {% else %}
             <span class="chip chip-danger">Kein Ausweis</span>
           {% endif %}
@@ -107,9 +106,9 @@
               {% include "partials/csrf_field.html" %}
               <button type="submit" class="link-btn">{% if u.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
             </form>
-            <form method="post" action="/admin/users/{{ u.id }}/delete" onsubmit="return confirm('{{ u.username }} endgültig löschen? Das kann nicht rückgängig gemacht werden.')">
+            <form method="post" action="/admin/users/{{ u.id }}/delete" onsubmit="return confirm('{{ u.username }} wirklich entfernen? Landet im Papierkorb, kann von dort wiederhergestellt werden.')">
               {% include "partials/csrf_field.html" %}
-              <button type="submit" class="link-btn danger">Löschen</button>
+              <button type="submit" class="link-btn danger">Entfernen</button>
             </form>
           {% else %}
             <span class="meta">(du)</span>
@@ -121,7 +120,7 @@
     {% endfor %}
   </div>
 
-  <form class="settings-add-inline" method="post" action="/admin/users/new" x-data="{ linkMode: 'new' }">
+  <form class="settings-add-inline" method="post" action="/admin/users/new">
     {% include "partials/csrf_field.html" %}
     <div class="field">
       <label for="u-username">Benutzername (Login)</label>
@@ -131,45 +130,24 @@
       <label for="u-password">Passwort (min. 8 Zeichen)</label>
       <input type="password" id="u-password" name="password" minlength="8" required>
     </div>
-    {% if unlinked_workers %}
-      <div class="field">
-        <label for="u-link-mode">Mitarbeiter-Ausweis</label>
-        <select id="u-link-mode" name="link_mode" x-model="linkMode">
-          <option value="new">Neuen Ausweis anlegen</option>
-          <option value="existing">Mit bestehendem Ausweis verknüpfen (noch ohne Login)</option>
-        </select>
-      </div>
-    {% endif %}
-    <template x-if="linkMode === 'existing'">
-      <div class="field">
-        <label for="u-existing-worker">Bestehender Ausweis</label>
-        <select id="u-existing-worker" name="existing_worker_id">
-          {% for w in unlinked_workers %}<option value="{{ w.id }}">{{ w.full_name }} · {{ w.barcode }}</option>{% endfor %}
-        </select>
-      </div>
-    </template>
-    <template x-if="linkMode !== 'existing'">
-      <div>
-        <div class="field">
-          <label for="u-first-name">Vorname</label>
-          <input type="text" id="u-first-name" name="first_name" required>
-        </div>
-        <div class="field">
-          <label for="u-last-name">Nachname</label>
-          <input type="text" id="u-last-name" name="last_name" required>
-        </div>
-        <div class="field">
-          <label for="u-barcode">Barcode (Ausweis)</label>
-          <input type="text" id="u-barcode" name="barcode" required>
-        </div>
-        <div class="field">
-          <label for="u-home-department">Heimat-Abteilung (Ausweis)</label>
-          <select id="u-home-department" name="home_department_id" required>
-            {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
-          </select>
-        </div>
-      </div>
-    </template>
+    <div class="field">
+      <label for="u-first-name">Vorname</label>
+      <input type="text" id="u-first-name" name="first_name" required>
+    </div>
+    <div class="field">
+      <label for="u-last-name">Nachname</label>
+      <input type="text" id="u-last-name" name="last_name" required>
+    </div>
+    <div class="field">
+      <label for="u-barcode">Barcode (Ausweis)</label>
+      <input type="text" id="u-barcode" name="barcode" required>
+    </div>
+    <div class="field">
+      <label for="u-home-department">Heimat-Abteilung (Ausweis)</label>
+      <select id="u-home-department" name="home_department_id" required>
+        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+      </select>
+    </div>
     <div class="field">
       <label for="u-email">E-Mail (optional)</label>
       <input type="email" id="u-email" name="email" placeholder="für Willkommens-Mail mit Passwort-Link">
@@ -189,8 +167,10 @@
     <button type="submit" class="btn btn-primary">+ Anlegen</button>
   </form>
   <p class="settings-hint" style="margin-top: var(--space-2);">
-    Legt Login und (je nach Auswahl oben) entweder einen neuen Mitarbeiter-Ausweis oder eine Verknüpfung zu einem bestehenden Ausweis an -
-    plus (falls eine Zugriffsrolle gewählt ist) direkt Zugriff auf die Heimat-Abteilung. Zugriff auf WEITERE Abteilungen oder eine andere Rolle danach im Tab "Zugriff" ändern.
+    Legt Login, Barcode/Name/Heimat-Abteilung UND (falls eine Zugriffsrolle
+    gewählt ist) direkt Zugriff auf die Heimat-Abteilung an - alles in einem
+    Schritt. Zugriff auf WEITERE Abteilungen oder eine andere Rolle danach im
+    Tab "Zugriff" ändern.
   </p>
 </section>
 
@@ -541,29 +521,29 @@
     {% endfor %}
   </div>
 
-  <div class="settings-group-label" style="margin-top: var(--space-4);">Mitarbeiter</div>
+  <div class="settings-group-label" style="margin-top: var(--space-4);">Benutzer</div>
   <div class="settings-list">
-    {% for w in trash_workers %}
+    {% for u in trash_users %}
       <div class="settings-row">
         <div class="main">
-          <span class="name">{{ w.full_name }}</span>
-          <span class="meta">{{ w.barcode }}</span>
-          {% if w.department %}<span class="chip chip-neutral">{{ w.department.name }}</span>{% endif %}
-          <span class="meta">gelöscht am {{ w.deleted_at.strftime("%d.%m.%Y") }}</span>
+          <span class="name">{{ u.full_name }}</span>
+          <span class="meta">{{ u.username }}{% if u.barcode %} · {{ u.barcode }}{% endif %}</span>
+          {% if u.department %}<span class="chip chip-neutral">{{ u.department.name }}</span>{% endif %}
+          <span class="meta">gelöscht am {{ u.deleted_at.strftime("%d.%m.%Y") }}</span>
         </div>
         <div class="actions">
-          <form method="post" action="/admin/trash/workers/{{ w.id }}/restore">
+          <form method="post" action="/admin/trash/users/{{ u.id }}/restore">
             {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn">Wiederherstellen</button>
           </form>
-          <form method="post" action="/admin/trash/workers/{{ w.id }}/purge" onsubmit="return confirm('{{ w.full_name }} wirklich ENDGÜLTIG löschen? Das kann nicht rückgängig gemacht werden.')">
+          <form method="post" action="/admin/trash/users/{{ u.id }}/purge" onsubmit="return confirm('{{ u.full_name }} wirklich ENDGÜLTIG löschen? Das kann nicht rückgängig gemacht werden.')">
             {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn danger">Endgültig löschen</button>
           </form>
         </div>
       </div>
     {% else %}
-      <div class="settings-empty">Papierkorb für Mitarbeiter ist leer.</div>
+      <div class="settings-empty">Papierkorb für Benutzer ist leer.</div>
     {% endfor %}
   </div>
 </section>

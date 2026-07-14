@@ -20,7 +20,7 @@ from app.models.common import TimestampMixin, new_uuid, utcnow
 if TYPE_CHECKING:
     from app.models.department import Department
     from app.models.item import Item
-    from app.models.worker import Worker
+    from app.models.user import User
 
 
 class Lending(TimestampMixin, table=True):
@@ -51,8 +51,8 @@ class Lending(TimestampMixin, table=True):
     item_name_snapshot: str | None = Field(default=None, max_length=200)
     item_barcode_snapshot: str | None = Field(default=None, max_length=100)
 
-    worker_id: uuid.UUID | None = Field(default=None, foreign_key="workers.id", index=True)
-    worker: Optional["Worker"] = Relationship(back_populates="lendings")
+    worker_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    worker: Optional["User"] = Relationship(back_populates="lendings")
     worker_name_snapshot: str | None = Field(default=None, max_length=200)
 
     # Denormalisiert für schnelle abteilungsgescopte Abfragen (spiegelt item.department_id)

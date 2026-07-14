@@ -21,7 +21,6 @@ from app.models.lending import Lending  # noqa: E402
 from app.models.preset import Category, Location  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.models.user_department_role import UserDepartmentRole  # noqa: E402
-from app.models.worker import Worker  # noqa: E402
 from migrations_legacy.migrate_core import migrate  # noqa: E402
 
 
@@ -144,9 +143,8 @@ def run():
         check("erika bekam Rolle NUTZER in Werkstatt (aus 'teilnehmer' gemappt)",
               erika_role is not None and erika_role.role.value == "nutzer")
 
-        erika_worker = session.exec(select(Worker).where(Worker.barcode == "W-002")).first()
-        check("Worker 'erika' ist mit dem User-Login verknüpft",
-              erika_worker is not None and erika_user is not None and erika_worker.user_id == erika_user.id)
+        check("Ausweis 'erika' (Barcode W-002) ist am selben User-Login wie der Login",
+              erika_user is not None and erika_user.barcode == "W-002")
 
         usage = session.exec(select(ConsumableUsage)).first()
         check("Migrierte Entnahme hat positive Menge (15, nicht -15)", usage is not None and usage.quantity == 15)

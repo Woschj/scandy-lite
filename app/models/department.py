@@ -1,9 +1,9 @@
 """
 Abteilungen (Departments) - die zentrale Mandantentrennung.
-Jeder Gegenstand, Consumable, Worker und jede Lending gehört zu genau einer Abteilung.
-Admins haben abteilungsübergreifenden Vollzugriff. Alle anderen bekommen ihre
-Rolle PRO Abteilung über UserDepartmentRole (nicht mehr über eine einzelne
-"Heimat"-Abteilung auf dem User selbst).
+Jeder Gegenstand, Consumable, User (als Ausweis-Heimat) und jede Lending
+gehört zu genau einer Abteilung. Admins haben abteilungsübergreifenden
+Vollzugriff. Alle anderen bekommen ihre Rolle PRO Abteilung über
+UserDepartmentRole (nicht die "Heimat"-Abteilung auf dem User selbst).
 """
 import uuid
 from typing import TYPE_CHECKING
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
     from app.models.consumable import Consumable
     from app.models.item import Item
     from app.models.lending import Lending
+    from app.models.user import User
     from app.models.user_department_role import UserDepartmentRole
-    from app.models.worker import Worker
 
 
 class Department(TimestampMixin, table=True):
@@ -30,7 +30,7 @@ class Department(TimestampMixin, table=True):
 
     # Beziehungen
     user_roles: list["UserDepartmentRole"] = Relationship(back_populates="department")
-    workers: list["Worker"] = Relationship(back_populates="department")
+    users: list["User"] = Relationship(back_populates="department")
     items: list["Item"] = Relationship(back_populates="department")
     consumables: list["Consumable"] = Relationship(back_populates="department")
     lendings: list["Lending"] = Relationship(back_populates="department")

@@ -30,36 +30,26 @@
     <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:calc(-1 * var(--space-2)); margin-bottom: var(--space-4);">Eigene Admin-Rechte können nicht selbst entzogen werden.</p>
   {% endif %}
 
-  {% if linked_worker %}
-    <hr style="border-color: var(--line); margin: var(--space-4) 0;">
-    <p class="settings-hint" style="margin-top: 0;">Stammdaten des verknüpften Mitarbeiter-Ausweises — an derselben Stelle wie der Login, kein separates Formular mehr nötig.</p>
-    <div class="field">
-      <label for="edit-worker-first-name">Vorname</label>
-      <input type="text" id="edit-worker-first-name" name="worker_first_name" value="{{ linked_worker.first_name }}" required>
-    </div>
-    <div class="field">
-      <label for="edit-worker-last-name">Nachname</label>
-      <input type="text" id="edit-worker-last-name" name="worker_last_name" value="{{ linked_worker.last_name }}" required>
-    </div>
-    <div class="field">
-      <label for="edit-worker-barcode">Barcode (Ausweis)</label>
-      <input type="text" id="edit-worker-barcode" name="worker_barcode" value="{{ linked_worker.barcode }}" required>
-    </div>
-    <div class="field">
-      <label for="edit-worker-department">Abteilung (Ausweis)</label>
-      <select id="edit-worker-department" name="worker_department_id" required>
-        {% for d in departments %}<option value="{{ d.id }}" {% if d.id == linked_worker.department_id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="checkbox-field" style="margin-bottom: 0;">
-      <input type="checkbox" id="edit-worker-is-active" name="worker_is_active" value="true" {% if linked_worker.is_active %}checked{% endif %}>
-      <label for="edit-worker-is-active">Ausweis aktiv</label>
-    </div>
-  {% else %}
-    <div class="chip chip-danger" style="margin-top: var(--space-4);">
-      Kein verknüpfter Mitarbeiter-Ausweis — <a href="/workers/new">jetzt anlegen</a>
-    </div>
-  {% endif %}
+  <hr style="border-color: var(--line); margin: var(--space-4) 0;">
+  <p class="settings-hint" style="margin-top: 0;">Ausweis-Stammdaten (Name/Barcode/Abteilung) - jeder Benutzer kann damit auch ausleihen/reservieren.</p>
+  <div class="field">
+    <label for="edit-first-name">Vorname</label>
+    <input type="text" id="edit-first-name" name="first_name" value="{{ target.first_name or '' }}" required>
+  </div>
+  <div class="field">
+    <label for="edit-last-name">Nachname</label>
+    <input type="text" id="edit-last-name" name="last_name" value="{{ target.last_name or '' }}" required>
+  </div>
+  <div class="field">
+    <label for="edit-barcode">Barcode (Ausweis)</label>
+    <input type="text" id="edit-barcode" name="barcode" value="{{ target.barcode or '' }}" required>
+  </div>
+  <div class="field">
+    <label for="edit-department">Abteilung (Ausweis)</label>
+    <select id="edit-department" name="department_id" required>
+      {% for d in departments %}<option value="{{ d.id }}" {% if d.id == target.department_id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+    </select>
+  </div>
 
   <button type="submit" class="btn btn-primary btn-block" style="margin-top: var(--space-4);">Speichern</button>
 </form>

@@ -1,14 +1,12 @@
 """
 Regressionstests für die Bugfix-Runde nach dem breiten Code-Review (Papierkorb-
 Nachfolge): ConsumableReservation-Auto-Erfüllung, Status-Schutz bei offener
-Lending, Mitarbeiter-Löschung mit korrektem Entkoppeln, Sammel-Abholung mit
-IntegrityError-Behandlung, history.py-Seitenparameter, Barcode-Kollision
-zwischen Gegenständen und Verbrauchsmaterial.
+Lending, Sammel-Abholung mit IntegrityError-Behandlung, history.py-
+Seitenparameter, Barcode-Kollision zwischen Gegenständen und Verbrauchsmaterial.
 """
 import pytest_asyncio
 from sqlmodel import select
 
-from app.core.security import hash_password
 from app.models.common import ItemStatus
 from app.models.consumable import Consumable
 from app.models.consumable_reservation import ConsumableReservation
@@ -16,7 +14,6 @@ from app.models.item import Item
 from app.models.lending import Lending
 from app.models.reservation import Reservation
 from app.models.user import User
-from app.models.worker import Worker
 from tests.conftest import csrf_value, login
 
 
@@ -26,16 +23,19 @@ async def staff_client(client, seed_data):
     return client
 
 
-async def _get_staff_worker(session_maker):
+async def _get_staff_user(session_maker):
     async with session_maker() as session:
-        result = await session.exec(select(Worker).where(Worker.barcode == "W-STAFF"))
+        result = await session.exec(select(User).where(User.barcode == "W-STAFF"))
         return result.first()
 
 
 async def test_scan_consume_fulfills_own_open_consumable_reservation(staff_client, session_maker, seed_data):
     async with session_maker() as session:
         consumable = Consumable(barcode="CONS-BUGFIX-1", name="Schrauben", quantity=100, department_id=seed_data["department_id"])
-        picker = Worker(barcode="W-PICKER-1", first_name="Erika", last_name="Muster", department_id=seed_data["department_id"])
+        picker = User(
+            username="picker-bugfix-1", barcode="W-PICKER-1", first_name="Erika", last_name="Muster",
+            department_id=seed_data["department_id"],
+        )
         session.add(consumable)
         session.add(picker)
         await session.commit()
@@ -67,7 +67,7 @@ async def test_scan_consume_fulfills_own_open_consumable_reservation(staff_clien
 
 
 async def test_update_item_blocks_status_change_with_open_lending(staff_client, session_maker, seed_data):
-    staff_worker = await _get_staff_worker(session_maker)
+    staff_worker = await _get_staff_user(session_maker)
     async with session_maker() as session:
         item = Item(barcode="ITEM-LEND-BUGFIX-1", name="Bohrer", department_id=seed_data["department_id"], status=ItemStatus.AUSGELIEHEN)
         session.add(item)
@@ -99,80 +99,10 @@ async def test_update_item_blocks_status_change_with_open_lending(staff_client, 
         assert unchanged.status == ItemStatus.AUSGELIEHEN
 
 
-async def test_delete_worker_nulls_user_id_and_allows_relink(staff_client, session_maker, seed_data):
-    async with session_maker() as session:
-        plain_user = User(username="relinkme", is_admin=False, hashed_password=hash_password("somepassword123"))
-        session.add(plain_user)
-        await session.commit()
-        await session.refresh(plain_user)
-
-        worker = Worker(
-            barcode="W-RELINK-BUGFIX", first_name="Tom", last_name="Test",
-            department_id=seed_data["department_id"], user_id=plain_user.id,
-        )
-        session.add(worker)
-        await session.commit()
-        await session.refresh(worker)
-        worker_id = worker.id
-
-    resp = await staff_client.post(f"/workers/{worker_id}/delete", data={"csrf_token": csrf_value(staff_client)})
-    assert resp.status_code == 303
-
-    async with session_maker() as session:
-        deleted_worker = await session.get(Worker, worker_id)
-        assert deleted_worker.deleted_at is not None
-        assert deleted_worker.user_id is None
-
-    new_form_resp = await staff_client.get("/workers/new")
-    assert "relinkme" in new_form_resp.text
-
-
-async def test_create_user_can_link_to_existing_unlinked_worker(client, session_maker, seed_data):
-    """Vorher legte /admin/users/new IMMER einen neuen Worker an, auch wenn
-    ein passender Ausweis schon existierte - der alte Ausweis blieb dadurch
-    für immer unverknüpfbar (siehe app.routers.admin_settings.create_user).
-    Mit link_mode=existing darf stattdessen ein bestehender, noch nicht
-    verknüpfter Ausweis direkt an den neuen Login gebunden werden, ohne
-    Duplikat."""
-    async with session_maker() as session:
-        admin = User(username="admin-linktest", is_admin=True, hashed_password=hash_password("adminpass123"))
-        worker = Worker(
-            barcode="W-EXISTING-BUGFIX", first_name="Alte", last_name="Belegschaft",
-            department_id=seed_data["department_id"],
-        )
-        session.add(admin)
-        session.add(worker)
-        await session.commit()
-        await session.refresh(worker)
-        worker_id = worker.id
-
-    await login(client, "admin-linktest", "adminpass123")
-    resp = await client.post(
-        "/admin/users/new",
-        data={
-            "username": "newlogin",
-            "password": "somepassword123",
-            "link_mode": "existing",
-            "existing_worker_id": str(worker_id),
-            "initial_role": "",
-            "csrf_token": csrf_value(client),
-        },
-    )
-    assert resp.status_code == 303
-    assert "error=" not in resp.headers["location"], resp.headers["location"]
-
-    async with session_maker() as session:
-        all_workers = (await session.exec(select(Worker).where(Worker.barcode == "W-EXISTING-BUGFIX"))).all()
-        assert len(all_workers) == 1  # kein Duplikat angelegt
-        linked = all_workers[0]
-        new_login = (await session.exec(select(User).where(User.username == "newlogin"))).first()
-        assert linked.user_id == new_login.id
-
-
 async def test_pickup_confirm_handles_integrity_error_gracefully(staff_client, session_maker, seed_data):
-    staff_worker = await _get_staff_worker(session_maker)
+    staff_worker = await _get_staff_user(session_maker)
     async with session_maker() as session:
-        picker = Worker(barcode="W-PICKER-2", first_name="Pick", last_name="Up", department_id=seed_data["department_id"])
+        picker = User(username="picker-bugfix-2", barcode="W-PICKER-2", first_name="Pick", last_name="Up", department_id=seed_data["department_id"])
         item = Item(barcode="ITEM-PICKUP-BUGFIX-1", name="Akkuschrauber", department_id=seed_data["department_id"])
         session.add(picker)
         session.add(item)

@@ -10,7 +10,7 @@ import asyncio
 from tests.conftest import csrf_value, login
 
 from app.models.consumable import Consumable
-from app.models.worker import Worker
+from app.models.user import User
 
 
 async def test_concurrent_consume_never_oversells_stock(client, session_maker, seed_data):
@@ -18,7 +18,7 @@ async def test_concurrent_consume_never_oversells_stock(client, session_maker, s
 
     async with session_maker() as session:
         consumable = Consumable(barcode="C-RACE", name="Schrauben", quantity=5, department_id=department_id)
-        worker = Worker(barcode="W-RACE", first_name="Race", last_name="Worker", department_id=department_id)
+        worker = User(username="race-worker", barcode="W-RACE", first_name="Race", last_name="Worker", department_id=department_id)
         session.add(consumable)
         session.add(worker)
         await session.commit()

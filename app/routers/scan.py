@@ -23,7 +23,6 @@ from app.models.consumable import Consumable, ConsumableUsage
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
-from app.models.worker import Worker
 from app.routers.reservations import get_open_consumable_reservation_for_worker, get_open_reservation
 
 router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_nav_context), Depends(require_staff), Depends(verify_csrf)])
@@ -116,7 +115,7 @@ async def scan_lend(
         return RedirectResponse(url="/scan?error=Unterschrift+fehlt+oder+ist+ungültig.", status_code=303)
 
     worker_result = await session.exec(
-        select(Worker).where(Worker.barcode == worker_barcode.strip(), Worker.deleted_at.is_(None), Worker.is_active == True)  # noqa: E712
+        select(User).where(User.barcode == worker_barcode.strip(), User.deleted_at.is_(None), User.is_active == True)  # noqa: E712
     )
     worker = worker_result.first()
     if not worker:
@@ -194,7 +193,7 @@ async def scan_consume(
         return RedirectResponse(url="/scan?error=Menge+muss+größer+als+0+sein.", status_code=303)
 
     worker_result = await session.exec(
-        select(Worker).where(Worker.barcode == worker_barcode.strip(), Worker.deleted_at.is_(None), Worker.is_active == True)  # noqa: E712
+        select(User).where(User.barcode == worker_barcode.strip(), User.deleted_at.is_(None), User.is_active == True)  # noqa: E712
     )
     worker = worker_result.first()
     if not worker:

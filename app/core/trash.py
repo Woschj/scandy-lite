@@ -1,5 +1,5 @@
 """
-Papierkorb: soft-gelöschte Gegenstände/Verbrauchsmaterial/Mitarbeiter
+Papierkorb: soft-gelöschte Gegenstände/Verbrauchsmaterial/Benutzer
 (deleted_at IS NOT NULL) wiederherstellen oder endgültig löschen.
 
 Endgültiges Löschen ("purge") darf die Ausleih-/Entnahme-/Reservierungs-
@@ -23,10 +23,11 @@ from app.models.custom_field import CustomFieldValue
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.reservation import Reservation
-from app.models.worker import Worker
+from app.models.user import User
+from app.models.user_department_role import UserDepartmentRole
 
 
-async def get_trash_entries(session: AsyncSession) -> tuple[list[Item], list[Consumable], list[Worker]]:
+async def get_trash_entries(session: AsyncSession) -> tuple[list[Item], list[Consumable], list[User]]:
     items = (
         await session.exec(
             select(Item).where(Item.deleted_at.is_not(None)).options(selectinload(Item.department)).order_by(Item.name)
@@ -37,12 +38,12 @@ async def get_trash_entries(session: AsyncSession) -> tuple[list[Item], list[Con
             select(Consumable).where(Consumable.deleted_at.is_not(None)).options(selectinload(Consumable.department)).order_by(Consumable.name)
         )
     ).all()
-    workers = (
+    users = (
         await session.exec(
-            select(Worker).where(Worker.deleted_at.is_not(None)).options(selectinload(Worker.department)).order_by(Worker.last_name)
+            select(User).where(User.deleted_at.is_not(None)).options(selectinload(User.department)).order_by(User.last_name)
         )
     ).all()
-    return items, consumables, workers
+    return items, consumables, users
 
 
 async def restore_item(session: AsyncSession, item: Item) -> str | None:
@@ -63,12 +64,13 @@ async def restore_consumable(session: AsyncSession, consumable: Consumable) -> s
     return None
 
 
-async def restore_worker(session: AsyncSession, worker: Worker) -> str | None:
-    conflict = await session.exec(select(Worker).where(Worker.barcode == worker.barcode, Worker.deleted_at.is_(None)))
-    if conflict.first():
-        return f"Barcode '{worker.barcode}' ist inzwischen neu vergeben - erst dort ändern, bevor wiederhergestellt werden kann."
-    worker.deleted_at = None
-    session.add(worker)
+async def restore_user(session: AsyncSession, user: User) -> str | None:
+    if user.barcode:
+        conflict = await session.exec(select(User).where(User.barcode == user.barcode, User.deleted_at.is_(None)))
+        if conflict.first():
+            return f"Barcode '{user.barcode}' ist inzwischen neu vergeben - erst dort ändern, bevor wiederhergestellt werden kann."
+    user.deleted_at = None
+    session.add(user)
     return None
 
 
@@ -127,44 +129,50 @@ async def purge_consumable(session: AsyncSession, consumable: Consumable) -> str
     return None
 
 
-async def purge_worker(session: AsyncSession, worker: Worker) -> str | None:
-    open_lending = await session.exec(select(Lending).where(Lending.worker_id == worker.id, Lending.returned_at.is_(None)))
+async def purge_user(session: AsyncSession, user: User) -> str | None:
+    open_lending = await session.exec(select(Lending).where(Lending.worker_id == user.id, Lending.returned_at.is_(None)))
     if open_lending.first():
-        return f"'{worker.full_name}' hat noch eine offene Ausleihe - erst zurückgeben."
+        return f"'{user.full_name}' hat noch eine offene Ausleihe - erst zurückgeben."
     open_reservation = await session.exec(
-        select(Reservation).where(Reservation.worker_id == worker.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
+        select(Reservation).where(Reservation.worker_id == user.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
     )
     if open_reservation.first():
-        return f"'{worker.full_name}' hat noch eine offene Reservierung - erst stornieren oder abholen lassen."
+        return f"'{user.full_name}' hat noch eine offene Reservierung - erst stornieren oder abholen lassen."
     open_cons_reservation = await session.exec(
         select(ConsumableReservation).where(
-            ConsumableReservation.worker_id == worker.id,
+            ConsumableReservation.worker_id == user.id,
             ConsumableReservation.fulfilled_at.is_(None),
             ConsumableReservation.cancelled_at.is_(None),
         )
     )
     if open_cons_reservation.first():
-        return f"'{worker.full_name}' hat noch eine offene Material-Vormerkung - erst stornieren oder abholen lassen."
+        return f"'{user.full_name}' hat noch eine offene Material-Vormerkung - erst stornieren oder abholen lassen."
 
-    for lending in (await session.exec(select(Lending).where(Lending.worker_id == worker.id))).all():
-        lending.worker_name_snapshot = worker.full_name
+    for lending in (await session.exec(select(Lending).where(Lending.worker_id == user.id))).all():
+        lending.worker_name_snapshot = user.full_name
         lending.worker_id = None
         session.add(lending)
 
-    for usage in (await session.exec(select(ConsumableUsage).where(ConsumableUsage.worker_id == worker.id))).all():
-        usage.worker_name_snapshot = worker.full_name
+    for usage in (await session.exec(select(ConsumableUsage).where(ConsumableUsage.worker_id == user.id))).all():
+        usage.worker_name_snapshot = user.full_name
         usage.worker_id = None
         session.add(usage)
 
-    for reservation in (await session.exec(select(Reservation).where(Reservation.worker_id == worker.id))).all():
-        reservation.worker_name_snapshot = worker.full_name
+    for reservation in (await session.exec(select(Reservation).where(Reservation.worker_id == user.id))).all():
+        reservation.worker_name_snapshot = user.full_name
         reservation.worker_id = None
         session.add(reservation)
 
-    for cons_reservation in (await session.exec(select(ConsumableReservation).where(ConsumableReservation.worker_id == worker.id))).all():
-        cons_reservation.worker_name_snapshot = worker.full_name
+    for cons_reservation in (await session.exec(select(ConsumableReservation).where(ConsumableReservation.worker_id == user.id))).all():
+        cons_reservation.worker_name_snapshot = user.full_name
         cons_reservation.worker_id = None
         session.add(cons_reservation)
 
-    await session.delete(worker)
+    # Zugriffsrollen haben keinen Snapshot-Mechanismus (reine Rechte, keine
+    # Historie) - gehen mit, sonst verwaiste Einträge (gleiches Prinzip wie
+    # frueher in admin_settings.delete_user).
+    for entry in (await session.exec(select(UserDepartmentRole).where(UserDepartmentRole.user_id == user.id))).all():
+        await session.delete(entry)
+
+    await session.delete(user)
     return None

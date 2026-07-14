@@ -28,10 +28,10 @@ from app.core.trash import (
     get_trash_entries,
     purge_consumable,
     purge_item,
-    purge_worker,
+    purge_user,
     restore_consumable,
     restore_item,
-    restore_worker,
+    restore_user,
 )
 from app.models.common import CustomFieldType, UserRole, utcnow
 from app.models.consumable import Consumable
@@ -45,7 +45,6 @@ from app.models.preset import Category, Location
 from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
-from app.models.worker import Worker
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
@@ -65,7 +64,7 @@ async def settings_page(
     locations = (await session.exec(
         select(Location).order_by(Location.department_id, Location.name)
     )).all()
-    users = (await session.exec(select(User).order_by(User.username))).all()
+    users = (await session.exec(select(User).where(User.deleted_at.is_(None)).order_by(User.username))).all()
 
     access_result = await session.exec(
         select(UserDepartmentRole)
@@ -78,27 +77,12 @@ async def settings_page(
     for entry in all_access:
         access_by_user.setdefault(entry.user_id, []).append(entry)
 
-    worker_result = await session.exec(select(Worker).where(Worker.user_id.is_not(None), Worker.deleted_at.is_(None)))
-    worker_by_user = {w.user_id: w for w in worker_result.all()}
-
-    # Für den "Benutzer anlegen"-Dialog: bereits bestehende Ausweise ohne
-    # Login, damit ein neuer Login damit verknüpft werden kann statt (wie
-    # bisher zwangsläufig) einen zweiten, doppelten Ausweis für dieselbe
-    # Person anzulegen - genau das führte dazu, dass sich Mitarbeiter und
-    # Benutzer scheinbar nicht verknüpfen ließen (der echte Ausweis blieb im
-    # Verknüpfen-Dropdown der Mitarbeiter-Seite unerreichbar, weil der Login
-    # längst an den neu angelegten Doppel-Ausweis gebunden war).
-    unlinked_workers_result = await session.exec(
-        select(Worker).where(Worker.user_id.is_(None), Worker.deleted_at.is_(None)).order_by(Worker.last_name)
-    )
-    unlinked_workers = unlinked_workers_result.all()
-
     email_settings = await get_email_settings(session)
 
     custom_fields_result = await session.exec(select(CustomFieldDefinition).order_by(CustomFieldDefinition.name))
     custom_fields = custom_fields_result.all()
 
-    trash_items, trash_consumables, trash_workers = await get_trash_entries(session)
+    trash_items, trash_consumables, trash_users = await get_trash_entries(session)
 
     return templates.TemplateResponse(
         request,
@@ -111,13 +95,11 @@ async def settings_page(
             "users": users,
             "access_by_user": access_by_user,
             "all_access": all_access,
-            "worker_by_user": worker_by_user,
-            "unlinked_workers": unlinked_workers,
             "email_settings": email_settings,
             "custom_fields": custom_fields,
             "trash_items": trash_items,
             "trash_consumables": trash_consumables,
-            "trash_workers": trash_workers,
+            "trash_users": trash_users,
             "ok": ok,
             "error": error,
         },
@@ -131,36 +113,27 @@ async def create_user(
     request: Request,
     username: str = Form(...),
     password: str = Form(...),
-    link_mode: str = Form("new"),
-    existing_worker_id: str = Form(""),
-    first_name: str = Form(""),
-    last_name: str = Form(""),
-    barcode: str = Form(""),
-    home_department_id: str = Form(""),
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    barcode: str = Form(...),
+    home_department_id: uuid.UUID = Form(...),
     initial_role: str = Form(""),
     is_admin: str = Form(""),
     email: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    """Legt einen Login an - entweder zusammen mit einem NEUEN Mitarbeiter-
-    Ausweis (link_mode="new", Standard) oder verknüpft ihn mit einem
-    BESTEHENDEN, noch nicht verknüpften Ausweis (link_mode="existing",
-    existing_worker_id). Letzteres ist nötig, wenn der Ausweis schon vorher
-    über "Mitarbeiter" angelegt wurde - vorher legte dieser Endpunkt
-    IMMER einen neuen Ausweis an, wodurch für dieselbe Person ein zweiter,
-    doppelter Ausweis entstand und der eigentliche/alte Ausweis für immer
-    unverknüpfbar blieb (der Login war ja längst an den neuen Doppel-Ausweis
-    gebunden, siehe _linkable_users in app/routers/workers.py) - genau das
-    Symptom "Verknüpfen von Mitarbeitern und Benutzern funktioniert nicht".
+    """Legt einen Login an - User und Mitarbeiter-Ausweis sind dieselbe
+    Entität (siehe app/models/user.py), also immer in einem Schritt.
 
-    home_department_id ist NUR die organisatorische Heimat des (neuen)
-    Ausweises (wo der Datensatz verwaltet wird) - das gewährt für sich
-    genommen KEINEN Zugriff. Deshalb zusätzlich initial_role: optional wird
-    direkt eine UserDepartmentRole für dieselbe Abteilung mit angelegt, damit
-    der neue Login sofort etwas sehen kann. Weitere Abteilungen/Rollen bleiben
-    über den 'Zugriff'-Tab verwaltbar."""
+    home_department_id ist NUR die organisatorische Heimat des Ausweises (wo
+    der Datensatz verwaltet wird) - das gewährt für sich genommen KEINEN
+    Zugriff. Deshalb zusätzlich initial_role: optional wird direkt eine
+    UserDepartmentRole für dieselbe Abteilung mit angelegt, damit der neue
+    Login sofort etwas sehen kann. Weitere Abteilungen/Rollen bleiben über
+    den 'Zugriff'-Tab verwaltbar."""
     username = username.strip()
+    barcode = barcode.strip()
     email = email.strip()
 
     existing_user = await session.exec(select(User).where(User.username == username))
@@ -169,56 +142,26 @@ async def create_user(
     if len(password) < 8:
         return RedirectResponse(url="/admin/settings?error=Passwort+zu+kurz+(min.+8+Zeichen).#users", status_code=303)
 
-    worker_to_link: Worker | None = None
-    new_worker_department_id: uuid.UUID | None = None
-
-    if link_mode == "existing":
-        try:
-            worker_to_link = await session.get(Worker, uuid.UUID(existing_worker_id)) if existing_worker_id else None
-        except ValueError:
-            worker_to_link = None
-        if not worker_to_link or worker_to_link.deleted_at is not None or worker_to_link.user_id is not None:
-            return RedirectResponse(
-                url="/admin/settings?error=Ausweis+nicht+gefunden+oder+bereits+mit+einem+Login+verknüpft.#users",
-                status_code=303,
-            )
-        new_worker_department_id = worker_to_link.department_id
-    else:
-        barcode = barcode.strip()
-        if not (first_name.strip() and last_name.strip() and barcode and home_department_id):
-            return RedirectResponse(
-                url="/admin/settings?error=Bitte+Vorname%2C+Nachname%2C+Barcode+und+Abteilung+angeben.#users",
-                status_code=303,
-            )
-        try:
-            new_worker_department_id = uuid.UUID(home_department_id)
-        except ValueError:
-            return RedirectResponse(url="/admin/settings?error=Ungültige+Abteilung.#users", status_code=303)
-        existing_worker = await session.exec(select(Worker).where(Worker.barcode == barcode, Worker.deleted_at.is_(None)))
-        if existing_worker.first():
-            return RedirectResponse(url="/admin/settings?error=Barcode+ist+bereits+vergeben.#users", status_code=303)
+    existing_barcode = await session.exec(select(User).where(User.barcode == barcode, User.deleted_at.is_(None)))
+    if existing_barcode.first():
+        return RedirectResponse(url="/admin/settings?error=Barcode+ist+bereits+vergeben.#users", status_code=303)
 
     new_user = User(
         username=username,
         email=email or None,
         is_admin=bool(is_admin),
         hashed_password=hash_password(password),
+        first_name=first_name.strip(),
+        last_name=last_name.strip(),
+        barcode=barcode,
+        department_id=home_department_id,
     )
     session.add(new_user)
-    await session.flush()  # user.id wird gebraucht, bevor der Worker angelegt/verknüpft wird
+    await session.flush()  # user.id wird für die optionale UserDepartmentRole gebraucht
 
     if initial_role in ("mitarbeiter", "nutzer") and not new_user.is_admin:
-        session.add(UserDepartmentRole(user_id=new_user.id, department_id=new_worker_department_id, role=UserRole(initial_role)))
+        session.add(UserDepartmentRole(user_id=new_user.id, department_id=home_department_id, role=UserRole(initial_role)))
 
-    if worker_to_link:
-        worker_to_link.user_id = new_user.id
-        session.add(worker_to_link)
-    else:
-        worker = Worker(
-            barcode=barcode, first_name=first_name.strip(), last_name=last_name.strip(),
-            department_id=new_worker_department_id, user_id=new_user.id,
-        )
-        session.add(worker)
     await session.commit()
 
     # Willkommens-Mail ist optional/best-effort: schlägt der Versand fehl
@@ -252,15 +195,6 @@ async def toggle_user(
     if target and target.id != user.id:  # sich selbst aussperren verhindern
         target.is_active = not target.is_active
         session.add(target)
-
-        # Verknüpften Mitarbeiter-Ausweis synchron halten - ein deaktivierter
-        # Login soll nicht über den Ausweis weiter ausleihen/reservieren können
-        linked_result = await session.exec(select(Worker).where(Worker.user_id == user_id))
-        linked_worker = linked_result.first()
-        if linked_worker:
-            linked_worker.is_active = target.is_active
-            session.add(linked_worker)
-
         await session.commit()
     return RedirectResponse(url="/admin/settings#users", status_code=303)
 
@@ -274,16 +208,14 @@ async def edit_user_form(
     session: AsyncSession = Depends(get_session),
 ):
     target = await session.get(User, user_id)
-    if not target:
+    if not target or target.deleted_at is not None:
         return RedirectResponse(url="/admin/settings#users", status_code=303)
 
-    worker_result = await session.exec(select(Worker).where(Worker.user_id == user_id, Worker.deleted_at.is_(None)))
-    linked_worker = worker_result.first()
     departments = (await session.exec(select(Department).order_by(Department.name))).all()
 
     return templates.TemplateResponse(
         request, "admin/user_edit.html",
-        {"user": user, "target": target, "linked_worker": linked_worker, "departments": departments, "error": error},
+        {"user": user, "target": target, "departments": departments, "error": error},
     )
 
 
@@ -294,57 +226,37 @@ async def update_user(
     email: str = Form(""),
     new_password: str = Form(""),
     is_admin: str = Form(""),
-    worker_first_name: str = Form(""),
-    worker_last_name: str = Form(""),
-    worker_barcode: str = Form(""),
-    worker_department_id: str = Form(""),
-    worker_is_active: str = Form(""),
+    first_name: str = Form(...),
+    last_name: str = Form(...),
+    barcode: str = Form(...),
+    department_id: uuid.UUID = Form(...),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
     target = await session.get(User, user_id)
-    if not target:
+    if not target or target.deleted_at is not None:
         return RedirectResponse(url="/admin/settings#users", status_code=303)
 
     username = username.strip()
     email = email.strip()
+    barcode = barcode.strip()
     if not username:
         return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Benutzername+darf+nicht+leer+sein.", status_code=303)
+    if not barcode:
+        return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Barcode+darf+nicht+leer+sein.", status_code=303)
 
     existing = await session.exec(select(User).where(User.username == username, User.id != user_id))
     if existing.first():
         return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Benutzername+bereits+vergeben.", status_code=303)
 
+    barcode_conflict = await session.exec(
+        select(User).where(User.barcode == barcode, User.id != user_id, User.deleted_at.is_(None))
+    )
+    if barcode_conflict.first():
+        return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Barcode+ist+bereits+vergeben.", status_code=303)
+
     if new_password and len(new_password) < 8:
         return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Neues+Passwort+zu+kurz+(min.+8+Zeichen).", status_code=303)
-
-    # Stammdaten (Name/Barcode/Abteilung) des verknüpften Mitarbeiter-Ausweises
-    # werden auf DERSELBEN Seite mitbearbeitet, statt an einer separaten
-    # Mitarbeiter-Bearbeiten-Seite - vorher mussten Admins für einen Login +
-    # Ausweis zwei getrennte Formulare pflegen, obwohl beides zur selben
-    # Person gehört (siehe create_user, das ebenfalls beides in einem Schritt anlegt).
-    worker_result = await session.exec(select(Worker).where(Worker.user_id == user_id, Worker.deleted_at.is_(None)))
-    linked_worker = worker_result.first()
-    if linked_worker:
-        worker_barcode = worker_barcode.strip()
-        if not worker_barcode:
-            return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Barcode+darf+nicht+leer+sein.", status_code=303)
-        barcode_conflict = await session.exec(
-            select(Worker).where(Worker.barcode == worker_barcode, Worker.id != linked_worker.id, Worker.deleted_at.is_(None))
-        )
-        if barcode_conflict.first():
-            return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Barcode+ist+bereits+vergeben.", status_code=303)
-        try:
-            department_id = uuid.UUID(worker_department_id)
-        except ValueError:
-            return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Ungültige+Abteilung.", status_code=303)
-
-        linked_worker.first_name = worker_first_name.strip() or linked_worker.first_name
-        linked_worker.last_name = worker_last_name.strip() or linked_worker.last_name
-        linked_worker.barcode = worker_barcode
-        linked_worker.department_id = department_id
-        linked_worker.is_active = bool(worker_is_active)
-        session.add(linked_worker)
 
     # Sich selbst die Admin-Rechte zu entziehen wäre eine Selbstaussperrung -
     # verhindern, genau wie beim Deaktivieren/Löschen des eigenen Kontos.
@@ -354,6 +266,10 @@ async def update_user(
     target.username = username
     target.email = email or None
     target.is_admin = bool(is_admin)
+    target.first_name = first_name.strip()
+    target.last_name = last_name.strip()
+    target.barcode = barcode
+    target.department_id = department_id
     if new_password:
         target.hashed_password = hash_password(new_password)
     session.add(target)
@@ -367,37 +283,18 @@ async def delete_user(
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    """Echtes Löschen (nicht nur Deaktivieren) - bei Usern unproblematisch,
-    weil keine Ausleih-/Historien-Daten direkt am User hängen (die referenzieren
-    Worker, nicht User). Anders als bei Gegenständen/Mitarbeitern, wo Soft-Delete
-    bewusst bleibt, um die Historie nicht zu zerreißen."""
+    """Soft-Delete (wie bei Gegenständen/Verbrauchsmaterial) statt hartem
+    Löschen - jetzt hängt Ausleih-/Reservierungs-Historie direkt am User
+    (Lending.worker_id etc.), die darf nicht zerreißen. Landet im Papierkorb-
+    Tab, von dort aus wiederherstellbar oder (mit Blocker-Prüfung auf offene
+    Ausleihen/Reservierungen) endgültig löschbar (siehe app/core/trash.py)."""
     if user_id == user.id:
         return RedirectResponse(url="/admin/settings?error=Eigenes+Konto+kann+nicht+gelöscht+werden.#users", status_code=303)
 
     target = await session.get(User, user_id)
-    if target:
-        # Verknüpfter Mitarbeiter-Ausweis gehört zur selben Identität (wird
-        # beim Anlegen automatisch mit erzeugt) - wird beim Löschen des Logins
-        # mit soft-gelöscht, nicht nur entkoppelt. Ausleih-/Reservierungs-
-        # Historie bleibt dadurch erhalten (Soft-Delete), verwaist aber nicht
-        # als eigenständiger, nutzloser Worker-Datensatz ohne Login.
-        #
-        # WICHTIG: user_id muss hier explizit auf None gesetzt werden, NICHT
-        # nur deleted_at. Sonst verweigert Postgres das anschließende DELETE
-        # auf users mit einer Fremdschlüssel-Verletzung (fk_workers_user_id) -
-        # ein Soft-Delete ändert nichts an der Spalte selbst, der Worker-
-        # Datensatz zeigt weiterhin auf den User, auch wenn er als gelöscht
-        # markiert ist.
-        linked_result = await session.exec(select(Worker).where(Worker.user_id == user_id))
-        for worker in linked_result.all():
-            worker.deleted_at = utcnow()
-            worker.user_id = None
-            session.add(worker)
-        # Abteilungs-Rollen-Zuordnungen gehen mit (sonst verwaiste Einträge)
-        access_result = await session.exec(select(UserDepartmentRole).where(UserDepartmentRole.user_id == user_id))
-        for entry in access_result.all():
-            await session.delete(entry)
-        await session.delete(target)
+    if target and target.deleted_at is None:
+        target.deleted_at = utcnow()
+        session.add(target)
         await session.commit()
     return RedirectResponse(url="/admin/settings#users", status_code=303)
 
@@ -453,7 +350,7 @@ async def delete_department(
     named_checks = [
         ("Gegenstände", Item, Item.department_id, lambda i: i.name),
         ("Verbrauchsmaterial", Consumable, Consumable.department_id, lambda c: c.name),
-        ("Mitarbeiter", Worker, Worker.department_id, lambda w: w.full_name),
+        ("Benutzer", User, User.department_id, lambda u: u.full_name),
         ("Kategorien", Category, Category.department_id, lambda c: c.name),
         ("Standorte", Location, Location.department_id, lambda l: l.name),
     ]
@@ -804,33 +701,33 @@ async def purge_trashed_consumable(
     return redirect_with_query("/admin/settings", fragment="trash", ok=f"{name} endgültig gelöscht.")
 
 
-@router.post("/trash/workers/{worker_id}/restore")
-async def restore_trashed_worker(
-    worker_id: uuid.UUID,
+@router.post("/trash/users/{trashed_user_id}/restore")
+async def restore_trashed_user(
+    trashed_user_id: uuid.UUID,
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    worker = await session.get(Worker, worker_id)
-    if not worker or worker.deleted_at is None:
-        return redirect_with_query("/admin/settings", fragment="trash", error="Mitarbeiter nicht gefunden.")
-    error = await restore_worker(session, worker)
+    target = await session.get(User, trashed_user_id)
+    if not target or target.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error="Benutzer nicht gefunden.")
+    error = await restore_user(session, target)
     if error:
         return redirect_with_query("/admin/settings", fragment="trash", error=error)
     await session.commit()
-    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{worker.full_name} wiederhergestellt.")
+    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{target.full_name} wiederhergestellt.")
 
 
-@router.post("/trash/workers/{worker_id}/purge")
-async def purge_trashed_worker(
-    worker_id: uuid.UUID,
+@router.post("/trash/users/{trashed_user_id}/purge")
+async def purge_trashed_user(
+    trashed_user_id: uuid.UUID,
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    worker = await session.get(Worker, worker_id)
-    if not worker or worker.deleted_at is None:
-        return redirect_with_query("/admin/settings", fragment="trash", error="Mitarbeiter nicht gefunden.")
-    name = worker.full_name
-    error = await purge_worker(session, worker)
+    target = await session.get(User, trashed_user_id)
+    if not target or target.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error="Benutzer nicht gefunden.")
+    name = target.full_name
+    error = await purge_user(session, target)
     if error:
         return redirect_with_query("/admin/settings", fragment="trash", error=error)
     await session.commit()

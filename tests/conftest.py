@@ -26,7 +26,6 @@ from app.models.common import UserRole
 from app.models.department import Department
 from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
-from app.models.worker import Worker
 
 STAFF_USERNAME = "staff"
 STAFF_PASSWORD = "staffpass123"
@@ -70,22 +69,25 @@ async def session_maker(engine):
 
 @pytest_asyncio.fixture
 async def seed_data(session_maker):
-    """Eine Abteilung + ein Mitarbeiter-Login (mit verknüpftem Worker-Ausweis),
-    das in dieser Abteilung die Mitarbeiter-Rolle hat - deckt die meisten
-    mutierenden Routen ab (require_staff + is_staff_in_department)."""
+    """Eine Abteilung + ein Mitarbeiter-Login (mit eigenem Ausweis-Barcode,
+    siehe app/models/user.py - User und Mitarbeiter-Ausweis sind dieselbe
+    Entität), das in dieser Abteilung die Mitarbeiter-Rolle hat - deckt die
+    meisten mutierenden Routen ab (require_staff + is_staff_in_department)."""
     async with session_maker() as session:
         department = Department(code="werkstatt", name="Werkstatt")
         session.add(department)
         await session.commit()
         await session.refresh(department)
 
-        staff_user = User(username=STAFF_USERNAME, is_admin=False, hashed_password=hash_password(STAFF_PASSWORD))
+        staff_user = User(
+            username=STAFF_USERNAME, is_admin=False, hashed_password=hash_password(STAFF_PASSWORD),
+            barcode="W-STAFF", first_name="Staff", last_name="Worker", department_id=department.id,
+        )
         session.add(staff_user)
         await session.commit()
         await session.refresh(staff_user)
 
         session.add(UserDepartmentRole(user_id=staff_user.id, department_id=department.id, role=UserRole.MITARBEITER))
-        session.add(Worker(barcode="W-STAFF", first_name="Staff", last_name="Worker", department_id=department.id, user_id=staff_user.id))
         await session.commit()
 
         return {

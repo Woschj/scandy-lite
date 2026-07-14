@@ -28,16 +28,19 @@ from app.models.consumable_reservation import ConsumableReservation
 from app.models.item import Item
 from app.models.reservation import Reservation
 from app.models.user import User
-from app.models.worker import Worker
 
 router = APIRouter(prefix="/reservations", tags=["reservations"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
 
-async def get_linked_worker(session: AsyncSession, user: User) -> Worker | None:
-    result = await session.exec(
-        select(Worker).where(Worker.user_id == user.id, Worker.deleted_at.is_(None), Worker.is_active == True)  # noqa: E712
-    )
-    return result.first()
+async def get_linked_worker(session: AsyncSession, user: User) -> User | None:
+    """User und Mitarbeiter-Ausweis sind dieselbe Entität (siehe
+    app/models/user.py) - der eingeloggte User IST bereits der "Worker",
+    sofern ein aktiver Barcode gesetzt ist. `session` bleibt Teil der
+    Signatur, damit die zahlreichen bestehenden Aufrufstellen unverändert
+    bleiben (items.py, consumables.py, hier selbst)."""
+    if user.barcode and user.is_active and user.deleted_at is None:
+        return user
+    return None
 
 
 async def get_open_reservation(session: AsyncSession, item_id: uuid.UUID) -> Reservation | None:
@@ -171,7 +174,7 @@ async def my_reservations(
 
 
 async def _try_reserve_item(
-    session: AsyncSession, user: User, worker: Worker, item_id: uuid.UUID
+    session: AsyncSession, user: User, worker: User, item_id: uuid.UUID
 ) -> tuple[bool, str]:
     """Versucht, EINEN Gegenstand zu reservieren. Gibt (erfolgreich, Meldung)
     zurück, statt zu werfen/umzuleiten - so lässt sich dieselbe Logik sowohl
@@ -204,7 +207,7 @@ async def _try_reserve_item(
 
 
 async def _try_reserve_consumable(
-    session: AsyncSession, user: User, worker: Worker, consumable_id: uuid.UUID, quantity: int
+    session: AsyncSession, user: User, worker: User, consumable_id: uuid.UUID, quantity: int
 ) -> tuple[bool, str]:
     """Wie _try_reserve_item, aber für Verbrauchsmaterial. Bewusst KEIN harter
     Bestands-Held: mehrere Personen können denselben Bestand gleichzeitig

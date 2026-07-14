@@ -25,7 +25,7 @@ from app.models.common import TimestampMixin, new_uuid
 if TYPE_CHECKING:
     from app.models.consumable import Consumable
     from app.models.department import Department
-    from app.models.worker import Worker
+    from app.models.user import User
 
 
 class ConsumableReservation(TimestampMixin, table=True):
@@ -41,8 +41,8 @@ class ConsumableReservation(TimestampMixin, table=True):
     consumable_name_snapshot: str | None = Field(default=None, max_length=200)
     consumable_barcode_snapshot: str | None = Field(default=None, max_length=100)
 
-    worker_id: uuid.UUID | None = Field(default=None, foreign_key="workers.id", index=True)
-    worker: Optional["Worker"] = Relationship()
+    worker_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    worker: Optional["User"] = Relationship()
     worker_name_snapshot: str | None = Field(default=None, max_length=200)
 
     department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)

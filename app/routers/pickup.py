@@ -29,7 +29,6 @@ from app.models.item import Item
 from app.models.lending import Lending
 from app.models.reservation import Reservation
 from app.models.user import User
-from app.models.worker import Worker
 
 router = APIRouter(prefix="/scan/pickup", tags=["pickup"], dependencies=[Depends(populate_nav_context), Depends(require_staff), Depends(verify_csrf)])
 
@@ -102,7 +101,7 @@ async def pickup_checklist(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    worker = await session.get(Worker, worker_id)
+    worker = await session.get(User, worker_id)
     if not worker or worker.deleted_at is not None:
         raise Forbidden()
 
@@ -192,7 +191,7 @@ async def pickup_confirm(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    worker = await session.get(Worker, worker_id)
+    worker = await session.get(User, worker_id)
     if not worker or worker.deleted_at is not None:
         raise Forbidden()
 

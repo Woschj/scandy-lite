@@ -13,7 +13,7 @@ from app.models.common import SoftDeleteMixin, TimestampMixin, new_uuid, utcnow
 
 if TYPE_CHECKING:
     from app.models.department import Department
-    from app.models.worker import Worker
+    from app.models.user import User
 
 
 class Consumable(TimestampMixin, SoftDeleteMixin, table=True):
@@ -48,8 +48,8 @@ class ConsumableUsage(TimestampMixin, table=True):
     consumable: Optional["Consumable"] = Relationship(back_populates="usages")
     consumable_name_snapshot: str | None = Field(default=None, max_length=200)
 
-    worker_id: uuid.UUID | None = Field(default=None, foreign_key="workers.id", index=True)
-    worker: Optional["Worker"] = Relationship()
+    worker_id: uuid.UUID | None = Field(default=None, foreign_key="users.id", index=True)
+    worker: Optional["User"] = Relationship()
     worker_name_snapshot: str | None = Field(default=None, max_length=200)
 
     # Denormalisiert (spiegelt consumable.department_id) - genau wie bei

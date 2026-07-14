@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlsplit
 from tests.conftest import csrf_value, login
 
 from app.models.item import Item
-from app.models.worker import Worker
+from app.models.user import User
 
 
 async def test_lend_redirect_escapes_special_characters_in_names(client, session_maker, seed_data):
@@ -20,7 +20,7 @@ async def test_lend_redirect_escapes_special_characters_in_names(client, session
         # "&" und "#" sind die kritischen Zeichen: brechen eine naive
         # f-String-Query ("?ok=X&Y" wird sonst als zwei Parameter gelesen).
         item = Item(barcode="I-ESC", name="Akkuschrauber & Bits #1", department_id=department_id)
-        worker = Worker(barcode="W-ESC", first_name="Anna", last_name="Müller & Schmidt", department_id=department_id)
+        worker = User(username="esc-worker", barcode="W-ESC", first_name="Anna", last_name="Müller & Schmidt", department_id=department_id)
         session.add(item)
         session.add(worker)
         await session.commit()

@@ -8,9 +8,6 @@
     {% endif %}
     <a href="/items" class="{% if request.url.path.startswith('/items') %}active{% endif %}">Gegenstände</a>
     <a href="/consumables" class="{% if request.url.path.startswith('/consumables') %}active{% endif %}">Verbrauchsmaterial</a>
-    {% if user and has_any_staff_role %}
-      <a href="/workers" class="{% if request.url.path.startswith('/workers') %}active{% endif %}">Mitarbeiter</a>
-    {% endif %}
     <a href="/reservations" class="{% if request.url.path.startswith('/reservations') and not request.url.path.startswith('/reservations/cart') %}active{% endif %}">Reservierungen</a>
     {% if user %}
       <a href="/reservations/cart" class="cart-link {% if request.url.path.startswith('/reservations/cart') %}active{% endif %}">

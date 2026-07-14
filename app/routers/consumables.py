@@ -28,7 +28,6 @@ from app.models.common import UserRole, utcnow
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.preset import Category, Location
 from app.models.user import User
-from app.models.worker import Worker
 
 router = APIRouter(prefix="/consumables", tags=["consumables"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
@@ -297,16 +296,12 @@ async def edit_consumable_form(
     if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
 
-    workers_result = await session.exec(
-        select(Worker).where(Worker.department_id == consumable.department_id, Worker.deleted_at.is_(None)).order_by(Worker.last_name)
-    )
     categories, locations = await _presets(session, consumable.department_id)
     return templates.TemplateResponse(
         request,
         "consumables/form.html",
         {
             "user": user, "consumable": consumable, "error": error, "ok": ok,
-            "workers": workers_result.all(),
             "categories": categories, "locations": locations,
         },
     )
