@@ -71,13 +71,17 @@ def upgrade() -> None:
     # 3. Worker OHNE Login: neuer User mit IDENTISCHER id wie der alte Worker
     # (siehe Modul-Docstring) - dadurch bleiben Fremdschlüssel in den
     # Historien-Tabellen fuer diese Faelle automatisch korrekt.
+    # 'LOCAL' (nicht 'local'): Postgres-Enums aus sa.Enum(PythonEnum) speichern
+    # per Default den MEMBER-NAMEN (AuthSource.LOCAL.name), nicht den Wert
+    # (AuthSource.LOCAL.value == "local") - siehe initiale Migration
+    # 66ba7c1819b7 (sa.Enum('LOCAL', 'LDAP', 'SSO', name='authsource')).
     op.execute(
         "INSERT INTO users "
         "(id, created_at, updated_at, username, email, is_admin, auth_source, "
         " hashed_password, external_id, is_active, first_name, last_name, barcode, department_id, deleted_at) "
         "SELECT w.id, w.created_at, w.updated_at, "
         "       'mitarbeiter-' || lower(regexp_replace(w.barcode, '[^a-zA-Z0-9]+', '-', 'g')) || '-' || substr(w.id::text, 1, 8), "
-        "       NULL, false, 'local', NULL, NULL, w.is_active, "
+        "       NULL, false, 'LOCAL', NULL, NULL, w.is_active, "
         "       w.first_name, w.last_name, w.barcode, w.department_id, w.deleted_at "
         "FROM workers w WHERE w.user_id IS NULL"
     )
