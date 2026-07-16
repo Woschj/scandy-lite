@@ -388,6 +388,19 @@ select {
   padding-bottom: calc(var(--space-6) + var(--tab-bar-height));
 }
 
+/* Detailseiten (Gegenstand/Verbrauchsmaterial/Benutzer-Bearbeiten): Stammdaten-
+   Karte und Historie-Abschnitt nebeneinander statt gestapelt, sobald genug
+   Breite da ist - mobile-first (gestapelt), ab 900px zwei Spalten. */
+.detail-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .detail-layout { grid-template-columns: minmax(320px, 420px) 1fr; }
+}
+
 .tab-bar {
   display: none;
 }

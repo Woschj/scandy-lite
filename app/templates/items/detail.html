@@ -9,6 +9,7 @@
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
+<div class="detail-layout">
 <div class="tag-card form-card">
   {% if has_image("items", item.id) %}
     <img src="{{ image_url('items', item.id) }}" alt="" class="image-upload-preview">
@@ -67,30 +68,33 @@
 </div>
 
 {% if can_manage %}
-  <h2 style="margin-top: var(--space-8);">Ausleih-Historie</h2>
-  {% if lending_history %}
-    <div class="settings-list">
-      {% for l in lending_history %}
-        <div class="settings-row">
-          <div class="main">
-            <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">
-              {{ l.worker.full_name if l.worker else (l.worker_name_snapshot or "(gelöschter Benutzer)") }}
-            </span>
-            <span class="meta">
-              {{ l.lent_at.strftime("%d.%m.%Y %H:%M") }}
-              {% if l.returned_at %} – zurück am {{ l.returned_at.strftime("%d.%m.%Y %H:%M") }}{% else %}<span class="chip chip-neutral">offen</span>{% endif %}
-            </span>
+  <div>
+    <h2 style="margin-top: 0;">Ausleih-Historie</h2>
+    {% if lending_history %}
+      <div class="settings-list">
+        {% for l in lending_history %}
+          <div class="settings-row">
+            <div class="main">
+              <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">
+                {{ l.worker.full_name if l.worker else (l.worker_name_snapshot or "(gelöschter Benutzer)") }}
+              </span>
+              <span class="meta">
+                {{ l.lent_at.strftime("%d.%m.%Y %H:%M") }}
+                {% if l.returned_at %} – zurück am {{ l.returned_at.strftime("%d.%m.%Y %H:%M") }}{% else %}<span class="chip chip-neutral">offen</span>{% endif %}
+              </span>
+            </div>
           </div>
-        </div>
-      {% endfor %}
-    </div>
-    <p class="settings-hint" style="margin-top: var(--space-2);">
-      <a href="/history?q={{ item.barcode }}" class="link-btn">Vollständige Historie ansehen →</a>
-    </p>
-  {% else %}
-    <div class="empty-state"><p>Noch keine Ausleih-Historie für diesen Gegenstand.</p></div>
-  {% endif %}
+        {% endfor %}
+      </div>
+      <p class="settings-hint" style="margin-top: var(--space-2);">
+        <a href="/history?q={{ item.barcode }}" class="link-btn">Vollständige Historie ansehen →</a>
+      </p>
+    {% else %}
+      <div class="empty-state"><p>Noch keine Ausleih-Historie für diesen Gegenstand.</p></div>
+    {% endif %}
+  </div>
 {% endif %}
+</div>
 
 <p style="margin-top: var(--space-4);"><a href="/items" class="link-btn">← Zurück zur Übersicht</a></p>
 {% endblock %}

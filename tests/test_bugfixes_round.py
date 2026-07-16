@@ -142,6 +142,30 @@ async def test_history_negative_page_does_not_break(staff_client):
     assert resp.status_code == 200
 
 
+async def test_history_search_finds_entry_by_item_barcode(staff_client, session_maker, seed_data):
+    """Regressionstest: die Detailseiten verlinken 'Vollständige Historie
+    ansehen' mit dem Barcode als Suchbegriff (siehe items/detail.html,
+    consumables/detail.html) - die Freitextsuche muss Barcodes deshalb
+    tatsächlich durchsuchen, nicht nur Namen (vorher landete man bei diesem
+    Link auf einer leeren Ergebnisliste)."""
+    async with session_maker() as session:
+        staff_worker = (await session.exec(select(User).where(User.barcode == "W-STAFF"))).first()
+        item = Item(barcode="HIST-SEARCH-1", name="Suchbarer Akkuschrauber", department_id=seed_data["department_id"])
+        session.add(item)
+        await session.commit()
+        await session.refresh(item)
+
+        lending = Lending(
+            item_id=item.id, worker_id=staff_worker.id, department_id=seed_data["department_id"],
+        )
+        session.add(lending)
+        await session.commit()
+
+    resp = await staff_client.get("/history?q=HIST-SEARCH-1")
+    assert resp.status_code == 200
+    assert "Suchbarer Akkuschrauber" in resp.text
+
+
 async def test_create_item_blocked_by_existing_consumable_barcode(staff_client, session_maker, seed_data):
     async with session_maker() as session:
         session.add(Consumable(barcode="SHARED-BUGFIX-1", name="Material", department_id=seed_data["department_id"]))

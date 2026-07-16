@@ -55,11 +55,16 @@ class HistoryEntry:
     lending_items: list[LendingDetail] = field(default_factory=list)  # nur bei gruppierten Ausleihen
     open_count: int = 0
     total_count: int = 1
+    # Barcode(s) des/der beteiligten Gegenstands/Verbrauchsmaterials - NICHT
+    # im title enthalten, muss aber durchsuchbar sein, sonst laufen Links wie
+    # "Vollständige Historie ansehen" von den Detailseiten (die per Barcode
+    # verlinken, siehe items/detail.html) ins Leere.
+    barcodes: str = ""
 
     @property
     def search_text(self) -> str:
         extra = " ".join(li.name for li in self.lending_items)
-        return f"{self.title} {self.subtitle} {extra}".lower()
+        return f"{self.title} {self.subtitle} {extra} {self.barcodes}".lower()
 
 
 @router.get("")
@@ -111,18 +116,22 @@ async def history_index(
         ]
         open_count = sum(1 for l in group if l.returned_at is None)
         title = details[0].name if len(group) == 1 else f"{len(group)} Gegenstände"
+        barcodes = " ".join((l.item.barcode if l.item else l.item_barcode_snapshot) or "" for l in group)
         entries.append(HistoryEntry(
             timestamp=group[0].lent_at, action="ausgeliehen", title=title, subtitle=worker_name,
             signature=signature, lending_items=details, open_count=open_count, total_count=len(group),
+            barcodes=barcodes,
         ))
 
     for lending in ungrouped:
         item_name = lending.item.name if lending.item else (lending.item_name_snapshot or "(gelöschter Gegenstand)")
+        item_barcode = (lending.item.barcode if lending.item else lending.item_barcode_snapshot) or ""
         worker_name = lending.worker.full_name if lending.worker else (lending.worker_name_snapshot or "(gelöschter Mitarbeiter)")
         entries.append(HistoryEntry(
             timestamp=lending.lent_at, action="ausgeliehen", title=item_name, subtitle=worker_name,
             open_count=(1 if lending.returned_at is None else 0), total_count=1,
             lending_items=[LendingDetail(name=item_name, lent_at=lending.lent_at, returned_at=lending.returned_at)],
+            barcodes=item_barcode,
         ))
 
     usage_stmt = (
@@ -137,10 +146,14 @@ async def history_index(
 
     for usage in usages:
         consumable_name = usage.consumable.name if usage.consumable else (usage.consumable_name_snapshot or "(gelöschtes Material)")
+        # Kein consumable_barcode_snapshot-Feld vorhanden (nur der Name wird
+        # gesnapshottet) - nach einem Papierkorb-Purge ist der Barcode fuer
+        # ein gelöschtes Verbrauchsmaterial hier daher nicht mehr rekonstruierbar.
+        consumable_barcode = usage.consumable.barcode if usage.consumable else ""
         worker_name = usage.worker.full_name if usage.worker else (usage.worker_name_snapshot or "(gelöschter Mitarbeiter)")
         entries.append(HistoryEntry(
             timestamp=usage.used_at, action="entnommen", title=consumable_name, subtitle=worker_name,
-            detail=f"{usage.quantity}x",
+            detail=f"{usage.quantity}x", barcodes=consumable_barcode,
         ))
 
     if q:

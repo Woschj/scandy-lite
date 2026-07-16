@@ -9,6 +9,7 @@
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
+<div class="detail-layout">
 <div class="tag-card form-card">
   {% if has_image("consumables", consumable.id) %}
     <img src="{{ image_url('consumables', consumable.id) }}" alt="" class="image-upload-preview">
@@ -61,27 +62,30 @@
 </div>
 
 {% if can_manage %}
-  <h2 style="margin-top: var(--space-8);">Entnahme-Historie</h2>
-  {% if usage_history %}
-    <div class="settings-list">
-      {% for u in usage_history %}
-        <div class="settings-row">
-          <div class="main">
-            <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">
-              {{ u.worker.full_name if u.worker else (u.worker_name_snapshot or "(gelöschter Benutzer)") }}
-            </span>
-            <span class="meta">{{ u.quantity }}x {{ consumable.unit }} · {{ u.used_at.strftime("%d.%m.%Y %H:%M") }}</span>
+  <div>
+    <h2 style="margin-top: 0;">Entnahme-Historie</h2>
+    {% if usage_history %}
+      <div class="settings-list">
+        {% for u in usage_history %}
+          <div class="settings-row">
+            <div class="main">
+              <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">
+                {{ u.worker.full_name if u.worker else (u.worker_name_snapshot or "(gelöschter Benutzer)") }}
+              </span>
+              <span class="meta">{{ u.quantity }}x {{ consumable.unit }} · {{ u.used_at.strftime("%d.%m.%Y %H:%M") }}</span>
+            </div>
           </div>
-        </div>
-      {% endfor %}
-    </div>
-    <p class="settings-hint" style="margin-top: var(--space-2);">
-      <a href="/history?q={{ consumable.barcode }}" class="link-btn">Vollständige Historie ansehen →</a>
-    </p>
-  {% else %}
-    <div class="empty-state"><p>Noch keine Entnahme-Historie für dieses Verbrauchsmaterial.</p></div>
-  {% endif %}
+        {% endfor %}
+      </div>
+      <p class="settings-hint" style="margin-top: var(--space-2);">
+        <a href="/history?q={{ consumable.barcode }}" class="link-btn">Vollständige Historie ansehen →</a>
+      </p>
+    {% else %}
+      <div class="empty-state"><p>Noch keine Entnahme-Historie für dieses Verbrauchsmaterial.</p></div>
+    {% endif %}
+  </div>
 {% endif %}
+</div>
 
 <p style="margin-top: var(--space-4);"><a href="/consumables" class="link-btn">← Zurück zur Übersicht</a></p>
 {% endblock %}
