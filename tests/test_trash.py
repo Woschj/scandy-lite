@@ -191,6 +191,9 @@ async def test_department_delete_blocked_by_open_lending(admin_client, session_m
     )
     assert resp.status_code == 303
     assert "error=" in resp.headers["location"]
+    # Konkreter Gegenstandsname statt nur "es gibt welche" - sonst muss der
+    # Admin selbst suchen gehen, WAS eigentlich zurückgegeben werden muss.
+    assert "Noch+ausgeliehen" in resp.headers["location"] or "Noch ausgeliehen" in resp.headers["location"]
 
     async with session_maker() as session:
         assert await session.get(Department, department_id) is not None

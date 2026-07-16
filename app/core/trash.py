@@ -193,23 +193,56 @@ async def purge_department(session: AsyncSession, department: Department) -> str
     (department_name_snapshot, siehe app/models/lending.py etc.)."""
     dept_id = department.id
 
-    open_lending = await session.exec(select(Lending).where(Lending.department_id == dept_id, Lending.returned_at.is_(None)))
-    if open_lending.first():
-        return f"'{department.name}' hat noch offene Ausleihen - erst zurückgeben."
-    open_reservation = await session.exec(
-        select(Reservation).where(Reservation.department_id == dept_id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
-    )
-    if open_reservation.first():
-        return f"'{department.name}' hat noch offene Reservierungen - erst stornieren oder abholen lassen."
-    open_cons_reservation = await session.exec(
-        select(ConsumableReservation).where(
-            ConsumableReservation.department_id == dept_id,
-            ConsumableReservation.fulfilled_at.is_(None),
-            ConsumableReservation.cancelled_at.is_(None),
+    # Konkrete Namen statt nur "es gibt welche" - sonst muss der Admin selbst
+    # erst suchen gehen, WAS eigentlich zurückgegeben/storniert werden muss
+    # (gleiches Prinzip wie delete_category weiter unten). limit(4) statt 3:
+    # eine vierte Zeile signalisiert "es gibt noch mehr", ohne eine exakte
+    # Gesamtzahl per zusätzlicher COUNT-Abfrage ermitteln zu müssen.
+    def _sample_names(rows: list, name_fn) -> str:
+        names = ", ".join(name_fn(r) for r in rows[:3])
+        if len(rows) > 3:
+            names += ", …"
+        return names
+
+    open_lendings = (
+        await session.exec(
+            select(Lending)
+            .where(Lending.department_id == dept_id, Lending.returned_at.is_(None))
+            .options(selectinload(Lending.item))
+            .limit(4)
         )
-    )
-    if open_cons_reservation.first():
-        return f"'{department.name}' hat noch offene Material-Vormerkungen - erst stornieren oder abholen lassen."
+    ).all()
+    if open_lendings:
+        names = _sample_names(open_lendings, lambda l: l.item.name if l.item else (l.item_name_snapshot or "?"))
+        return f"'{department.name}' hat noch offene Ausleihen: {names} - erst zurückgeben."
+
+    open_reservations = (
+        await session.exec(
+            select(Reservation)
+            .where(Reservation.department_id == dept_id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
+            .options(selectinload(Reservation.item))
+            .limit(4)
+        )
+    ).all()
+    if open_reservations:
+        names = _sample_names(open_reservations, lambda r: r.item.name if r.item else (r.item_name_snapshot or "?"))
+        return f"'{department.name}' hat noch offene Reservierungen: {names} - erst stornieren oder abholen lassen."
+
+    open_cons_reservations = (
+        await session.exec(
+            select(ConsumableReservation)
+            .where(
+                ConsumableReservation.department_id == dept_id,
+                ConsumableReservation.fulfilled_at.is_(None),
+                ConsumableReservation.cancelled_at.is_(None),
+            )
+            .options(selectinload(ConsumableReservation.consumable))
+            .limit(4)
+        )
+    ).all()
+    if open_cons_reservations:
+        names = _sample_names(open_cons_reservations, lambda r: r.consumable.name if r.consumable else (r.consumable_name_snapshot or "?"))
+        return f"'{department.name}' hat noch offene Material-Vormerkungen: {names} - erst stornieren oder abholen lassen."
 
     for item in (await session.exec(select(Item).where(Item.department_id == dept_id))).all():
         error = await purge_item(session, item)
