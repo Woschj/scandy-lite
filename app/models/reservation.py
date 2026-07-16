@@ -38,8 +38,9 @@ class Reservation(TimestampMixin, table=True):
     worker: Optional["User"] = Relationship()
     worker_name_snapshot: str | None = Field(default=None, max_length=200)
 
-    department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)
+    department_id: uuid.UUID | None = Field(default=None, foreign_key="departments.id", index=True)
     department: Optional["Department"] = Relationship()
+    department_name_snapshot: str | None = Field(default=None, max_length=200)
 
     fulfilled_at: datetime | None = Field(default=None)   # in Ausleihe überführt
     cancelled_at: datetime | None = Field(default=None)   # storniert

@@ -101,6 +101,30 @@ button, input, select {
   font-size: 1rem;
 }
 
+/* Ohne diesen Reset rendert macOS Safari <button>/<select> mit nativer
+   Systemoptik (abgerundete Pillenform, eigener Dropdown-Pfeil, eigene
+   Fokus-/Hover-Effekte) statt dem eigenen, eckigeren Design - Padding/
+   Radius/Background der Klassen unten werden dort sonst teils ignoriert. */
+button {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+/* Der Pfeil hier (statt nur bei .filter-select/.form-card select) deckt
+   auch die unstylten <select>-Elemente ab (z.B. .settings-add-inline select)
+   - appearance:none entfernt sonst den nativen Pfeil ersatzlos, ohne
+   eigenes background sähe so ein Select aus wie ein normales Textfeld. */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%234d5952'%3E%3Cpath d='M5.25 7.5L10 12.25L14.75 7.5H5.25Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1.125rem;
+  padding-right: 2rem;
+}
+
 /* -------------------------------------------------------------------------
    Buttons
    ------------------------------------------------------------------------- */
@@ -272,6 +296,21 @@ button, input, select {
   z-index: 20;
 }
 
+/* Hamburger-Trigger fürs Dropdown-Menü bei mittleren Breiten (siehe Media
+   Queries unten) - per Default (Desktop) und auf echtem Mobile (Bottom-
+   Tab-Bar übernimmt dort die Navigation) unsichtbar. */
+.nav-trigger-btn {
+  display: none;
+  flex-shrink: 0;
+}
+
+.nav-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 25;
+}
+
 .wordmark {
   font-family: var(--font-display);
   font-weight: 700;
@@ -316,6 +355,30 @@ button, input, select {
   color: var(--ink-soft);
 }
 
+/* Zwischenbereich (schmalerer Desktop/Tablet, nicht schmal genug für die
+   mobile Bottom-Tab-Bar unten): Hauptmenü klappt zu einem Hamburger-
+   Dropdown zusammen statt einfach zu überlaufen/sich zusammenzuquetschen. */
+@media (max-width: 1024px) and (min-width: 721px) {
+  .nav-trigger-btn { display: inline-flex; }
+  .topnav-links {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    background: var(--bg-raised);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    box-shadow: var(--shadow-card);
+    padding: var(--space-2) var(--space-4);
+    z-index: 26;
+  }
+  .topnav-links a { padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
+  .topnav-links a:last-child { border-bottom: none; }
+}
+
 .main-content {
   flex: 1;
   width: 100%;
@@ -331,6 +394,9 @@ button, input, select {
 
 @media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
   .topnav-links { display: none; }
+  /* Bottom-Tab-Bar übernimmt hier die Navigation (siehe unten) - kein
+     zusätzlicher Hamburger nötig/gewünscht. */
+  .nav-trigger-btn { display: none; }
 
   /* Top-Leiste lief früher über den rechten Rand hinaus (Abteilungs-Select +
      Username + Abmelden zusammen zu breit für schmale Viewports). Der
@@ -528,10 +594,11 @@ button, input, select {
 
 .filter-select {
   min-height: 44px;
-  padding: 0.5rem var(--space-2);
+  padding: 0.5rem 2rem 0.5rem var(--space-2);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  background: #fff;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%234d5952'%3E%3Cpath d='M5.25 7.5L10 12.25L14.75 7.5H5.25Z'/%3E%3C/svg%3E") no-repeat right 0.5rem center;
+  background-size: 1.125rem;
   color: var(--ink);
   font-family: var(--font-body);
   font-size: 0.875rem;
@@ -888,10 +955,11 @@ button, input, select {
 
 .form-card select {
   width: 100%;
-  padding: 0.75rem var(--space-3);
+  padding: 0.75rem 2.25rem 0.75rem var(--space-3);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
-  background: #fff;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%234d5952'%3E%3Cpath d='M5.25 7.5L10 12.25L14.75 7.5H5.25Z'/%3E%3C/svg%3E") no-repeat right var(--space-3) center;
+  background-size: 1.125rem;
   min-height: 44px;
 }
 
@@ -1333,6 +1401,21 @@ button, input, select {
 
 /* Alpine: verhindert kurzes Aufblitzen aller Tab-Inhalte vor der Initialisierung */
 [x-cloak] { display: none !important; }
+
+/* Hauptmenü ab hier (genug Platz für die volle Zeile) immer sichtbar, auch
+   bevor Alpine geladen hat - MUSS nach der [x-cloak]-Regel oben stehen:
+   beide haben !important bei gleicher Selektor-Spezifität, bei einem
+   Gleichstand gewinnt die später im Stylesheet stehende Regel. Stünde das
+   hier vor [x-cloak], würde die Navigation auf breiten Screens bis zur
+   Alpine-Initialisierung unsichtbar bleiben (kurzes Aufblitzen ohne Menü). */
+@media (min-width: 1025px) {
+  .nav-trigger-btn { display: none; }
+  .nav-backdrop { display: none !important; }
+  .topnav-links {
+    display: flex !important;
+    position: static !important;
+  }
+}
 
 /* -------------------------------------------------------------------------
    Mengen-Stepper (Verbrauchsmaterial) - Daumen-Buttons statt Tippen

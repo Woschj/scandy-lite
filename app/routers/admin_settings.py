@@ -27,6 +27,7 @@ from app.core.templating import templates
 from app.core.trash import (
     get_trash_entries,
     purge_consumable,
+    purge_department,
     purge_item,
     purge_user,
     restore_consumable,
@@ -35,14 +36,11 @@ from app.core.trash import (
 )
 from app.models.common import CustomFieldType, UserRole, utcnow
 from app.models.consumable import Consumable
-from app.models.consumable_reservation import ConsumableReservation
 from app.models.custom_field import CustomFieldDefinition, CustomFieldValue
 from app.models.department import Department
 from app.models.email_settings import EmailSettings
 from app.models.item import Item
-from app.models.lending import Lending
 from app.models.preset import Category, Location
-from app.models.reservation import Reservation
 from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
 
@@ -335,71 +333,27 @@ async def delete_department(
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    """Echtes Löschen, aber NUR wenn die Abteilung wirklich leer ist - eine
-    Abteilung mit Gegenständen/Material/Mitarbeitern/Historie zu löschen
-    würde all das mitreißen (oder an Fremdschlüssel-Verletzungen scheitern).
-    Zählt bewusst auch soft-gelöschte Einträge mit (die referenzieren die
-    Abteilung ja immer noch, genau wie ihre Ausleih-/Entnahme-Historie) -
-    'leer' heißt hier wirklich 'nie etwas drin gehabt', nicht nur 'aktuell
-    nichts Aktives drin'. Zum Aufräumen von Karteileichen/Duplikaten (z.B.
-    aus einem Test-Import) reicht das i.d.R. trotzdem."""
+    """Löscht die Abteilung KASKADIEREND (siehe app.core.trash.purge_department):
+    Gegenstände/Verbrauchsmaterial/Benutzer/Kategorien/Standorte/Zugriffs-
+    Zuweisungen der Abteilung werden mitgelöscht, abgeschlossene Ausleih-/
+    Entnahme-/Reservierungs-Historie bleibt als Text-Schnappschuss erhalten
+    (nie gelöscht). Blockiert NUR bei noch OFFENEN Ausleihen/Reservierungen/
+    Material-Vormerkungen - das sind aktive Geschäftsvorgänge, keine reine
+    Historie."""
     department = await session.get(Department, department_id)
     if not department:
         return RedirectResponse(url="/admin/settings#departments", status_code=303)
 
-    named_checks = [
-        ("Gegenstände", Item, Item.department_id, lambda i: i.name),
-        ("Verbrauchsmaterial", Consumable, Consumable.department_id, lambda c: c.name),
-        ("Benutzer", User, User.department_id, lambda u: u.full_name),
-        ("Kategorien", Category, Category.department_id, lambda c: c.name),
-        ("Standorte", Location, Location.department_id, lambda l: l.name),
-    ]
-    count_only_checks = [
-        ("Zugriffs-Zuweisungen", select(func.count()).select_from(UserDepartmentRole).where(UserDepartmentRole.department_id == department_id)),
-        ("Ausleihen (Historie)", select(func.count()).select_from(Lending).where(Lending.department_id == department_id)),
-        ("Reservierungen", select(func.count()).select_from(Reservation).where(Reservation.department_id == department_id)),
-        ("Material-Vormerkungen", select(func.count()).select_from(ConsumableReservation).where(ConsumableReservation.department_id == department_id)),
-    ]
-
-    # Bei den "nameable" Kategorien (Gegenstände/Material/Mitarbeiter/
-    # Kategorien/Standorte) werden ein paar Beispiel-Namen mit ausgegeben,
-    # nicht nur die Anzahl - sonst muss der Admin selbst raten/suchen, WELCHE
-    # Datensätze konkret im Weg stehen. Bereits (soft-)gelöschte Datensätze
-    # werden dabei explizit als "[gelöscht]" markiert - sie zählen laut
-    # obigem Docstring bewusst mit, ohne die Markierung sieht es für den
-    # Admin sonst wie ein Bug aus ("ich hab's doch gelöscht?").
-    def _label_name(row, name_fn) -> str:
-        name = name_fn(row)
-        return f"{name} [gelöscht]" if getattr(row, "deleted_at", None) else name
-
-    blockers = []
-    for label, model, dept_field, name_fn in named_checks:
-        sample_result = await session.exec(select(model).where(dept_field == department_id).limit(4))
-        sample = sample_result.all()
-        if not sample:
-            continue
-        count_result = await session.exec(select(func.count()).select_from(model).where(dept_field == department_id))
-        total = count_result.one()
-        names = ", ".join(_label_name(row, name_fn) for row in sample[:3])
-        if total > 3:
-            names += f", … ({total} gesamt)"
-        blockers.append(f"{label}: {names}")
-
-    for label, stmt in count_only_checks:
-        count = (await session.exec(stmt)).one()
-        if count:
-            blockers.append(f"{count} {label}")
-
-    if blockers:
-        message = (
-            f"'{department.name}' kann nicht gelöscht werden, enthält noch: " + ", ".join(blockers) +
-            ". Erst verschieben/entfernen, oder stattdessen nur deaktivieren."
+    name = department.name
+    error = await purge_department(session, department)
+    if error:
+        return redirect_with_query(
+            "/admin/settings", fragment="departments",
+            error=f"{error} Erst zurückgeben/stornieren, oder stattdessen nur deaktivieren.",
         )
-        return redirect_with_query("/admin/settings", fragment="departments", error=message)
 
-    await session.delete(department)
     await session.commit()
-    return redirect_with_query("/admin/settings", fragment="departments", ok=f"{department.name} gelöscht.")
+    return redirect_with_query("/admin/settings", fragment="departments", ok=f"{name} gelöscht.")
 
 
 # --- Kategorien --------------------------------------------------------

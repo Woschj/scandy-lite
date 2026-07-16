@@ -1,7 +1,13 @@
-<header class="topnav">
+<header class="topnav" x-data="{ menuOpen: false }">
   <a href="/" class="wordmark">SCANDY<span class="dot">//</span>LITE</a>
 
-  <nav class="topnav-links">
+  <button type="button" class="icon-btn nav-trigger-btn" @click="menuOpen = !menuOpen" aria-label="Menü" :aria-expanded="menuOpen.toString()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+
+  <div class="nav-backdrop" x-show="menuOpen" @click="menuOpen = false" x-cloak></div>
+
+  <nav class="topnav-links" x-show="menuOpen" x-cloak @click="menuOpen = false">
     <a href="/" class="{% if request.url.path == '/' %}active{% endif %}">Übersicht</a>
     {% if user and has_any_staff_role %}
       <a href="/scan" class="scan-cta {% if request.url.path.startswith('/scan') %}active{% endif %}">Scannen</a>

@@ -55,9 +55,13 @@ class Lending(TimestampMixin, table=True):
     worker: Optional["User"] = Relationship(back_populates="lendings")
     worker_name_snapshot: str | None = Field(default=None, max_length=200)
 
-    # Denormalisiert für schnelle abteilungsgescopte Abfragen (spiegelt item.department_id)
-    department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)
+    # Denormalisiert für schnelle abteilungsgescopte Abfragen (spiegelt
+    # item.department_id). Nullable aus demselben Grund wie item_id/worker_id
+    # oben - eine Abteilung kann endgültig gelöscht werden (kaskadiert über
+    # app/core/trash.py::purge_department), ohne die Historie zu zerreißen.
+    department_id: uuid.UUID | None = Field(default=None, foreign_key="departments.id", index=True)
     department: Optional["Department"] = Relationship(back_populates="lendings")
+    department_name_snapshot: str | None = Field(default=None, max_length=200)
 
     lent_at: datetime = Field(default_factory=utcnow, index=True)
     returned_at: datetime | None = Field(default=None, index=True)

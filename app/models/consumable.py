@@ -56,7 +56,10 @@ class ConsumableUsage(TimestampMixin, table=True):
     # Lending.department_id: die Abteilungs-Sichtbarkeit in der Historie
     # (app/routers/history.py) darf nicht davon abhängen, ob consumable_id
     # noch gesetzt ist (nach einem Papierkorb-Purge ist es das nicht mehr).
-    department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)
+    # Nullable + Snapshot aus demselben Grund - auch eine ganze Abteilung
+    # kann endgültig gelöscht werden (app/core/trash.py::purge_department).
+    department_id: uuid.UUID | None = Field(default=None, foreign_key="departments.id", index=True)
+    department_name_snapshot: str | None = Field(default=None, max_length=200)
 
     quantity: int = Field(gt=0)
     used_at: datetime = Field(default_factory=utcnow, index=True)

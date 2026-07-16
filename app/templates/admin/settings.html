@@ -44,7 +44,7 @@
             {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn">{% if d.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
           </form>
-          <form method="post" action="/admin/departments/{{ d.id }}/delete" onsubmit="return confirm('{{ d.name }} wirklich endgültig löschen? Geht nur, wenn die Abteilung komplett leer ist.')">
+          <form method="post" action="/admin/departments/{{ d.id }}/delete" onsubmit="return confirm('{{ d.name }} wirklich endgültig löschen? Gegenstände, Verbrauchsmaterial, Benutzer, Kategorien und Standorte der Abteilung werden dabei MITGELÖSCHT. Abgeschlossene Historie bleibt als Text erhalten - offene Ausleihen/Reservierungen blockieren weiterhin.')">
             {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn danger">Löschen</button>
           </form>
