@@ -54,6 +54,38 @@
   <button type="submit" class="btn btn-primary btn-block" style="margin-top: var(--space-4);">Speichern</button>
 </form>
 
+<h2 style="margin-top: var(--space-8);">Historie dieses Benutzers</h2>
+{% if user_history %}
+  <div class="settings-list">
+    {% for entry in user_history %}
+      {% set l = entry.row %}
+      <div class="settings-row">
+        <div class="main">
+          {% if entry.kind == "lending" %}
+            <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">
+              {{ l.item.name if l.item else (l.item_name_snapshot or "(gelöschter Gegenstand)") }}
+            </span>
+            <span class="meta">
+              ausgeliehen am {{ l.lent_at.strftime("%d.%m.%Y %H:%M") }}
+              {% if l.returned_at %} – zurück am {{ l.returned_at.strftime("%d.%m.%Y %H:%M") }}{% else %}<span class="chip chip-neutral">offen</span>{% endif %}
+            </span>
+          {% else %}
+            <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">
+              {{ l.consumable.name if l.consumable else (l.consumable_name_snapshot or "(gelöschtes Material)") }}
+            </span>
+            <span class="meta">{{ l.quantity }}x entnommen am {{ l.used_at.strftime("%d.%m.%Y %H:%M") }}</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  <p class="settings-hint" style="margin-top: var(--space-2);">
+    <a href="/history?q={{ target.full_name }}" class="link-btn">Vollständige Historie ansehen →</a>
+  </p>
+{% else %}
+  <div class="empty-state"><p>Noch keine Historie für diesen Benutzer.</p></div>
+{% endif %}
+
 <p style="margin-top: var(--space-4);">
   <a href="/admin/settings#users" class="link-btn">← Zurück zu Benutzer</a>
   <a href="/admin/settings#access" class="link-btn">Zugriffsrollen verwalten →</a>

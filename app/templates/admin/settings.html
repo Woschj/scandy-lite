@@ -48,6 +48,11 @@
             {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn danger">Löschen</button>
           </form>
+          <form method="post" action="/admin/departments/{{ d.id }}/delete" onsubmit="return confirm('{{ d.name }} WIRKLICH löschen? Offene Ausleihen/Reservierungen/Vormerkungen werden dabei automatisch als abgeschlossen markiert (bleiben in der Historie sichtbar) statt das Löschen zu blockieren.')" title="Nur nötig, wenn 'Löschen' wegen offener Ausleihen/Reservierungen blockiert - schließt diese automatisch ab, statt sie händisch suchen zu müssen.">
+            {% include "partials/csrf_field.html" %}
+            <input type="hidden" name="force" value="true">
+            <button type="submit" class="link-btn">Trotzdem entfernen</button>
+          </form>
         </div>
       </div>
     {% else %}
@@ -488,6 +493,11 @@
             {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn danger">Endgültig löschen</button>
           </form>
+          <form method="post" action="/admin/trash/items/{{ i.id }}/purge" onsubmit="return confirm('{{ i.name }} WIRKLICH löschen? Offene Ausleihen/Reservierungen werden dabei automatisch als abgeschlossen markiert (bleiben in der Historie sichtbar).')" title="Nur nötig, wenn 'Endgültig löschen' wegen offener Ausleihe/Reservierung blockiert.">
+            {% include "partials/csrf_field.html" %}
+            <input type="hidden" name="force" value="true">
+            <button type="submit" class="link-btn">Trotzdem entfernen</button>
+          </form>
         </div>
       </div>
     {% else %}
@@ -514,6 +524,11 @@
             {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn danger">Endgültig löschen</button>
           </form>
+          <form method="post" action="/admin/trash/consumables/{{ c.id }}/purge" onsubmit="return confirm('{{ c.name }} WIRKLICH löschen? Offene Vormerkungen werden dabei automatisch als abgeschlossen markiert (bleiben in der Historie sichtbar).')" title="Nur nötig, wenn 'Endgültig löschen' wegen offener Vormerkung blockiert.">
+            {% include "partials/csrf_field.html" %}
+            <input type="hidden" name="force" value="true">
+            <button type="submit" class="link-btn">Trotzdem entfernen</button>
+          </form>
         </div>
       </div>
     {% else %}
@@ -539,6 +554,11 @@
           <form method="post" action="/admin/trash/users/{{ u.id }}/purge" onsubmit="return confirm('{{ u.full_name }} wirklich ENDGÜLTIG löschen? Das kann nicht rückgängig gemacht werden.')">
             {% include "partials/csrf_field.html" %}
             <button type="submit" class="link-btn danger">Endgültig löschen</button>
+          </form>
+          <form method="post" action="/admin/trash/users/{{ u.id }}/purge" onsubmit="return confirm('{{ u.full_name }} WIRKLICH löschen? Offene Ausleihen/Reservierungen/Vormerkungen werden dabei automatisch als abgeschlossen markiert (bleiben in der Historie sichtbar).')" title="Nur nötig, wenn 'Endgültig löschen' wegen offener Ausleihe/Reservierung blockiert.">
+            {% include "partials/csrf_field.html" %}
+            <input type="hidden" name="force" value="true">
+            <button type="submit" class="link-btn">Trotzdem entfernen</button>
           </form>
         </div>
       </div>

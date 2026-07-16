@@ -35,11 +35,12 @@ from app.core.trash import (
     restore_user,
 )
 from app.models.common import CustomFieldType, UserRole, utcnow
-from app.models.consumable import Consumable
+from app.models.consumable import Consumable, ConsumableUsage
 from app.models.custom_field import CustomFieldDefinition, CustomFieldValue
 from app.models.department import Department
 from app.models.email_settings import EmailSettings
 from app.models.item import Item
+from app.models.lending import Lending
 from app.models.preset import Category, Location
 from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
@@ -211,9 +212,32 @@ async def edit_user_form(
 
     departments = (await session.exec(select(Department).order_by(Department.name))).all()
 
+    # Kompakte, chronologische Historie DIESES Benutzers (Ausleihen +
+    # Entnahmen gemeinsam sortiert) - einfacheres Merge-Prinzip als
+    # app/routers/history.py, weil hier keine Signatur-Gruppierung nötig ist.
+    lendings = (
+        await session.exec(
+            select(Lending).where(Lending.worker_id == target.id).options(selectinload(Lending.item)).order_by(Lending.lent_at.desc()).limit(20)
+        )
+    ).all()
+    usages = (
+        await session.exec(
+            select(ConsumableUsage)
+            .where(ConsumableUsage.worker_id == target.id)
+            .options(selectinload(ConsumableUsage.consumable))
+            .order_by(ConsumableUsage.used_at.desc())
+            .limit(20)
+        )
+    ).all()
+    user_history = sorted(
+        [{"timestamp": l.lent_at, "kind": "lending", "row": l} for l in lendings]
+        + [{"timestamp": u.used_at, "kind": "usage", "row": u} for u in usages],
+        key=lambda e: e["timestamp"], reverse=True,
+    )[:20]
+
     return templates.TemplateResponse(
         request, "admin/user_edit.html",
-        {"user": user, "target": target, "departments": departments, "error": error},
+        {"user": user, "target": target, "departments": departments, "error": error, "user_history": user_history},
     )
 
 
@@ -330,6 +354,7 @@ async def toggle_department(
 @router.post("/departments/{department_id}/delete")
 async def delete_department(
     department_id: uuid.UUID,
+    force: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -339,13 +364,15 @@ async def delete_department(
     Entnahme-/Reservierungs-Historie bleibt als Text-Schnappschuss erhalten
     (nie gelöscht). Blockiert NUR bei noch OFFENEN Ausleihen/Reservierungen/
     Material-Vormerkungen - das sind aktive Geschäftsvorgänge, keine reine
-    Historie."""
+    Historie. Mit force=true werden diese stattdessen automatisch
+    abgeschlossen statt zu blockieren (Testdaten/Fehleingaben aufräumen,
+    ohne jede Zeile erst händisch suchen zu müssen - "Trotzdem entfernen" im UI)."""
     department = await session.get(Department, department_id)
     if not department:
         return RedirectResponse(url="/admin/settings#departments", status_code=303)
 
     name = department.name
-    error = await purge_department(session, department)
+    error = await purge_department(session, department, force=bool(force))
     if error:
         return redirect_with_query(
             "/admin/settings", fragment="departments",
@@ -608,6 +635,7 @@ async def restore_trashed_item(
 @router.post("/trash/items/{item_id}/purge")
 async def purge_trashed_item(
     item_id: uuid.UUID,
+    force: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -615,7 +643,7 @@ async def purge_trashed_item(
     if not item or item.deleted_at is None:
         return redirect_with_query("/admin/settings", fragment="trash", error="Gegenstand nicht gefunden.")
     name = item.name
-    error = await purge_item(session, item)
+    error = await purge_item(session, item, force=bool(force))
     if error:
         return redirect_with_query("/admin/settings", fragment="trash", error=error)
     await session.commit()
@@ -641,6 +669,7 @@ async def restore_trashed_consumable(
 @router.post("/trash/consumables/{consumable_id}/purge")
 async def purge_trashed_consumable(
     consumable_id: uuid.UUID,
+    force: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -648,7 +677,7 @@ async def purge_trashed_consumable(
     if not consumable or consumable.deleted_at is None:
         return redirect_with_query("/admin/settings", fragment="trash", error="Verbrauchsmaterial nicht gefunden.")
     name = consumable.name
-    error = await purge_consumable(session, consumable)
+    error = await purge_consumable(session, consumable, force=bool(force))
     if error:
         return redirect_with_query("/admin/settings", fragment="trash", error=error)
     await session.commit()
@@ -674,6 +703,7 @@ async def restore_trashed_user(
 @router.post("/trash/users/{trashed_user_id}/purge")
 async def purge_trashed_user(
     trashed_user_id: uuid.UUID,
+    force: str = Form(""),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
@@ -681,7 +711,7 @@ async def purge_trashed_user(
     if not target or target.deleted_at is None:
         return redirect_with_query("/admin/settings", fragment="trash", error="Benutzer nicht gefunden.")
     name = target.full_name
-    error = await purge_user(session, target)
+    error = await purge_user(session, target, force=bool(force))
     if error:
         return redirect_with_query("/admin/settings", fragment="trash", error=error)
     await session.commit()

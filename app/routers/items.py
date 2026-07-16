@@ -378,6 +378,22 @@ async def item_detail(
         if field_values.get(f.id) and (can_manage or f.visible_to_all)
     ]
 
+    # Kompakte Ausleih-Historie DIESES Gegenstands - nur für Verwaltende
+    # (dieselbe Sichtbarkeitsregel wie active_lending oben), Verweis auf die
+    # vollständige, durchsuchbare Historie über die bestehende Freitextsuche
+    # in app/routers/history.py statt eine eigene Filter-Query zu bauen.
+    lending_history = []
+    if can_manage:
+        lending_history = (
+            await session.exec(
+                select(Lending)
+                .where(Lending.item_id == item.id)
+                .options(selectinload(Lending.worker))
+                .order_by(Lending.lent_at.desc())
+                .limit(20)
+            )
+        ).all()
+
     return templates.TemplateResponse(
         request,
         "items/detail.html",
@@ -385,7 +401,7 @@ async def item_detail(
             "user": user, "item": item, "ok": ok, "error": error,
             "can_manage": can_manage, "linked_worker": linked_worker,
             "reservation": reservation, "active_lending": active_lending,
-            "custom_fields": custom_fields,
+            "custom_fields": custom_fields, "lending_history": lending_history,
         },
     )
 

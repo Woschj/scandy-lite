@@ -15,7 +15,10 @@
   {% endif %}
 
   <div class="item-card-top" style="margin-bottom: var(--space-3);">
-    <span class="item-barcode">{{ consumable.barcode }}</span>
+    <div>
+      <span class="eyebrow" style="display:block;">Barcode</span>
+      <span class="item-barcode">{{ consumable.barcode }}</span>
+    </div>
     {{ consumable_status_chip(consumable, can_manage) }}
   </div>
 
@@ -23,16 +26,18 @@
     <p class="item-meta">Mindestbestand erreicht.</p>
   {% endif %}
 
-  {% if consumable.category or consumable.location %}
-    <p class="item-meta">
-      {% if consumable.category %}{{ consumable.category }}{% endif %}
-      {% if consumable.category and consumable.location %} · {% endif %}
-      {% if consumable.location %}{{ consumable.location }}{% endif %}
-    </p>
+  {% if consumable.category %}
+    <p class="item-meta"><span class="eyebrow" style="display:block;">Kategorie</span>{{ consumable.category }}</p>
+  {% endif %}
+  {% if consumable.location %}
+    <p class="item-meta"><span class="eyebrow" style="display:block;">Standort</span>{{ consumable.location }}</p>
   {% endif %}
 
   {% if consumable.notes %}
-    <p style="margin-top: var(--space-3);">{{ consumable.notes }}</p>
+    <div style="margin-top: var(--space-3);">
+      <span class="eyebrow" style="display:block;">Notiz</span>
+      <p style="margin:0;">{{ consumable.notes }}</p>
+    </div>
   {% endif %}
 
   {% if linked_worker and consumable.quantity > 0 %}
@@ -54,6 +59,29 @@
     </div>
   {% endif %}
 </div>
+
+{% if can_manage %}
+  <h2 style="margin-top: var(--space-8);">Entnahme-Historie</h2>
+  {% if usage_history %}
+    <div class="settings-list">
+      {% for u in usage_history %}
+        <div class="settings-row">
+          <div class="main">
+            <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:400;">
+              {{ u.worker.full_name if u.worker else (u.worker_name_snapshot or "(gelöschter Benutzer)") }}
+            </span>
+            <span class="meta">{{ u.quantity }}x {{ consumable.unit }} · {{ u.used_at.strftime("%d.%m.%Y %H:%M") }}</span>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <p class="settings-hint" style="margin-top: var(--space-2);">
+      <a href="/history?q={{ consumable.barcode }}" class="link-btn">Vollständige Historie ansehen →</a>
+    </p>
+  {% else %}
+    <div class="empty-state"><p>Noch keine Entnahme-Historie für dieses Verbrauchsmaterial.</p></div>
+  {% endif %}
+{% endif %}
 
 <p style="margin-top: var(--space-4);"><a href="/consumables" class="link-btn">← Zurück zur Übersicht</a></p>
 {% endblock %}

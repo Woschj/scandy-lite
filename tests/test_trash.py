@@ -89,6 +89,40 @@ async def test_purge_item_blocked_by_open_lending(session_maker, seed_data):
         assert await session.get(Item, item_id) is not None
 
 
+async def test_purge_item_force_closes_open_lending_instead_of_blocking(session_maker, seed_data):
+    """force=True: statt zu blockieren wird die offene Ausleihe automatisch
+    abgeschlossen (returned_at=jetzt) - bleibt als Historie erhalten, blockiert
+    aber nicht mehr. Deckt den Anwendungsfall "Testdaten/Fehleingaben ohne
+    händisches Suchen aufräumen" ab."""
+    async with session_maker() as session:
+        item = Item(barcode="TRASH-FORCE-1", name="Force-Akkuschrauber", department_id=seed_data["department_id"], deleted_at=utcnow())
+        worker = User(username="trash-force-w1", barcode="TRASH-FORCE-W1", first_name="Force", last_name="Test", department_id=seed_data["department_id"])
+        session.add(item)
+        session.add(worker)
+        await session.commit()
+        await session.refresh(item)
+        await session.refresh(worker)
+
+        open_lending = Lending(item_id=item.id, worker_id=worker.id, department_id=seed_data["department_id"])
+        session.add(open_lending)
+        await session.commit()
+        await session.refresh(open_lending)
+        item_id, lending_id = item.id, open_lending.id
+
+    async with session_maker() as session:
+        item = await session.get(Item, item_id)
+        error = await purge_item(session, item, force=True)
+        assert error is None
+        await session.commit()
+
+    async with session_maker() as session:
+        assert await session.get(Item, item_id) is None
+        closed_lending = await session.get(Lending, lending_id)
+        assert closed_lending.returned_at is not None
+        assert closed_lending.item_id is None
+        assert closed_lending.item_name_snapshot == "Force-Akkuschrauber"
+
+
 async def test_restore_item_blocked_by_barcode_taken_by_active_item(session_maker, seed_data):
     async with session_maker() as session:
         old_item = Item(barcode="DUP-1", name="Alt", department_id=seed_data["department_id"], deleted_at=utcnow())
@@ -199,6 +233,45 @@ async def test_department_delete_blocked_by_open_lending(admin_client, session_m
         assert await session.get(Department, department_id) is not None
 
 
+async def test_department_delete_force_closes_open_lending_instead_of_blocking(admin_client, session_maker):
+    """Der 'Trotzdem entfernen'-Button (force=true) im UI - schließt offene
+    Ausleihen automatisch ab statt zu blockieren, Historie bleibt erhalten."""
+    async with session_maker() as session:
+        department = Department(code="forcedept", name="ForceDept")
+        session.add(department)
+        await session.commit()
+        await session.refresh(department)
+        department_id = department.id
+
+        item = Item(barcode="FORCE-DEPT-ITEM", name="Wird zwangsweise zurückgegeben", department_id=department_id)
+        worker = User(username="forcedept-worker", barcode="FORCE-DEPT-W", first_name="Force", last_name="Dept", department_id=department_id)
+        session.add(item)
+        session.add(worker)
+        await session.commit()
+        await session.refresh(item)
+        await session.refresh(worker)
+
+        open_lending = Lending(item_id=item.id, worker_id=worker.id, department_id=department_id)
+        session.add(open_lending)
+        await session.commit()
+        await session.refresh(open_lending)
+        lending_id = open_lending.id
+
+    resp = await admin_client.post(
+        f"/admin/departments/{department_id}/delete",
+        data={"csrf_token": csrf_value(admin_client), "force": "true"},
+    )
+    assert resp.status_code == 303
+    assert "error=" not in resp.headers["location"], resp.headers["location"]
+
+    async with session_maker() as session:
+        assert await session.get(Department, department_id) is None
+        closed_lending = await session.get(Lending, lending_id)
+        assert closed_lending is not None
+        assert closed_lending.returned_at is not None
+        assert closed_lending.item_name_snapshot == "Wird zwangsweise zurückgegeben"
+
+
 async def test_purge_department_snapshots_closed_consumable_usage(session_maker):
     async with session_maker() as session:
         department = Department(code="consdept", name="ConsDept")
@@ -302,6 +375,39 @@ async def test_purge_user_blocked_by_open_lending(session_maker, seed_data):
 
     async with session_maker() as session:
         assert await session.get(User, worker_id) is not None
+
+
+async def test_purge_user_force_closes_open_lending_instead_of_blocking(session_maker, seed_data):
+    async with session_maker() as session:
+        worker = User(
+            username="trash-force-w2", barcode="TRASH-FORCE-W2", first_name="Force", last_name="User",
+            department_id=seed_data["department_id"], deleted_at=utcnow(),
+        )
+        item = Item(barcode="TRASH-FORCE-ITEM2", name="Bohrer", department_id=seed_data["department_id"])
+        session.add(worker)
+        session.add(item)
+        await session.commit()
+        await session.refresh(worker)
+        await session.refresh(item)
+
+        open_lending = Lending(item_id=item.id, worker_id=worker.id, department_id=seed_data["department_id"])
+        session.add(open_lending)
+        await session.commit()
+        await session.refresh(open_lending)
+        worker_id, lending_id = worker.id, open_lending.id
+
+    async with session_maker() as session:
+        worker = await session.get(User, worker_id)
+        error = await purge_user(session, worker, force=True)
+        assert error is None
+        await session.commit()
+
+    async with session_maker() as session:
+        assert await session.get(User, worker_id) is None
+        closed_lending = await session.get(Lending, lending_id)
+        assert closed_lending.returned_at is not None
+        assert closed_lending.worker_id is None
+        assert closed_lending.worker_name_snapshot == "Force User"
 
 
 async def test_restore_user_blocked_by_barcode_taken_by_active_user(session_maker, seed_data):

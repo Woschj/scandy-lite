@@ -271,12 +271,28 @@ async def consumable_detail(
     can_manage = await is_staff_in_department(session, user, consumable.department_id)
     linked_worker = await get_linked_worker(session, user)
 
+    # Kompakte Entnahme-Historie DIESES Verbrauchsmaterials - beantwortet
+    # "wer hat wie viel bekommen" bereits als chronologische Liste (jede
+    # Zeile zeigt Person + Menge), ohne eine separate Gruppierungs-Query.
+    usage_history = []
+    if can_manage:
+        usage_history = (
+            await session.exec(
+                select(ConsumableUsage)
+                .where(ConsumableUsage.consumable_id == consumable.id)
+                .options(selectinload(ConsumableUsage.worker))
+                .order_by(ConsumableUsage.used_at.desc())
+                .limit(20)
+            )
+        ).all()
+
     return templates.TemplateResponse(
         request,
         "consumables/detail.html",
         {
             "user": user, "consumable": consumable, "ok": ok, "error": error,
             "can_manage": can_manage, "linked_worker": linked_worker,
+            "usage_history": usage_history,
         },
     )
 
