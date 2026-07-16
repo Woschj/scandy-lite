@@ -19,9 +19,11 @@
   --line: #d9d5c9;
   --line-strong: #b9b4a4;
 
-  /* Typografie */
-  --font-display: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
-  --font-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* Typografie - Trebuchet MS für die ganze Seite (bessere Lesbarkeit als
+     die vorherige Mono-/Plex-Kombination); Fallback-Kette für Systeme ohne
+     Trebuchet MS (v.a. Linux/Android). */
+  --font-display: "Trebuchet MS", Trebuchet, "Segoe UI", Verdana, sans-serif;
+  --font-body: "Trebuchet MS", Trebuchet, "Segoe UI", Verdana, sans-serif;
 
   /* Skalen */
   --space-1: 0.25rem;
@@ -1206,15 +1208,22 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--line);
 }
 .settings-row:last-child { border-bottom: none; }
 
+/* Ohne flex-wrap liefen Zeilen mit vielen Chips (z.B. Benutzer mit langem
+   generiertem Namen + mehreren Abteilungs-Rollen-Chips) über die verfügbare
+   Breite hinaus und überlappten sich sichtbar statt umzubrechen. */
 .settings-row .main {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: var(--space-2);
   gap: var(--space-3);
   min-width: 0;
 }
