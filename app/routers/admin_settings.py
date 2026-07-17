@@ -8,6 +8,8 @@ Feature-Flags-System, kein Notification-Center - nur die Presets, die die
 Formulare tatsächlich brauchen.
 """
 import uuid
+from dataclasses import dataclass
+from typing import Callable
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
@@ -44,6 +46,7 @@ from app.models.lending import Lending
 from app.models.preset import Category, Location
 from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
+from app.version import __version__
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
@@ -99,6 +102,7 @@ async def settings_page(
             "trash_items": trash_items,
             "trash_consumables": trash_consumables,
             "trash_users": trash_users,
+            "version": __version__,
             "ok": ok,
             "error": error,
         },
@@ -615,6 +619,53 @@ async def test_email_settings(
 
 
 # --- Papierkorb (soft-gelöschte Gegenstände/Material/Mitarbeiter) -------
+#
+# restore_trashed_*/purge_trashed_* unterscheiden sich zwischen Item/
+# Consumable/User nur in Modell, Anzeigename und der zugrunde liegenden
+# restore_*/purge_*-Funktion aus app.core.trash - _TrashKind bündelt das,
+# die Routen selbst bleiben dünne, URL-adressierbare Wrapper.
+
+
+@dataclass(frozen=True)
+class _TrashKind:
+    model: type
+    not_found_label: str
+    restore_fn: Callable
+    purge_fn: Callable
+    name_fn: Callable[[object], str]
+
+
+_TRASH_KINDS = {
+    "items": _TrashKind(Item, "Gegenstand", restore_item, purge_item, lambda e: e.name),
+    "consumables": _TrashKind(Consumable, "Verbrauchsmaterial", restore_consumable, purge_consumable, lambda e: e.name),
+    "users": _TrashKind(User, "Benutzer", restore_user, purge_user, lambda e: e.full_name),
+}
+
+
+async def _restore_trashed(session: AsyncSession, kind_key: str, entity_id: uuid.UUID):
+    kind = _TRASH_KINDS[kind_key]
+    entity = await session.get(kind.model, entity_id)
+    if not entity or entity.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error=f"{kind.not_found_label} nicht gefunden.")
+    error = await kind.restore_fn(session, entity)
+    if error:
+        return redirect_with_query("/admin/settings", fragment="trash", error=error)
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{kind.name_fn(entity)} wiederhergestellt.")
+
+
+async def _purge_trashed(session: AsyncSession, kind_key: str, entity_id: uuid.UUID, force: str):
+    kind = _TRASH_KINDS[kind_key]
+    entity = await session.get(kind.model, entity_id)
+    if not entity or entity.deleted_at is None:
+        return redirect_with_query("/admin/settings", fragment="trash", error=f"{kind.not_found_label} nicht gefunden.")
+    name = kind.name_fn(entity)
+    error = await kind.purge_fn(session, entity, force=bool(force))
+    if error:
+        return redirect_with_query("/admin/settings", fragment="trash", error=error)
+    await session.commit()
+    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{name} endgültig gelöscht.")
+
 
 @router.post("/trash/items/{item_id}/restore")
 async def restore_trashed_item(
@@ -622,14 +673,7 @@ async def restore_trashed_item(
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    item = await session.get(Item, item_id)
-    if not item or item.deleted_at is None:
-        return redirect_with_query("/admin/settings", fragment="trash", error="Gegenstand nicht gefunden.")
-    error = await restore_item(session, item)
-    if error:
-        return redirect_with_query("/admin/settings", fragment="trash", error=error)
-    await session.commit()
-    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{item.name} wiederhergestellt.")
+    return await _restore_trashed(session, "items", item_id)
 
 
 @router.post("/trash/items/{item_id}/purge")
@@ -639,15 +683,7 @@ async def purge_trashed_item(
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    item = await session.get(Item, item_id)
-    if not item or item.deleted_at is None:
-        return redirect_with_query("/admin/settings", fragment="trash", error="Gegenstand nicht gefunden.")
-    name = item.name
-    error = await purge_item(session, item, force=bool(force))
-    if error:
-        return redirect_with_query("/admin/settings", fragment="trash", error=error)
-    await session.commit()
-    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{name} endgültig gelöscht.")
+    return await _purge_trashed(session, "items", item_id, force)
 
 
 @router.post("/trash/consumables/{consumable_id}/restore")
@@ -656,14 +692,7 @@ async def restore_trashed_consumable(
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    consumable = await session.get(Consumable, consumable_id)
-    if not consumable or consumable.deleted_at is None:
-        return redirect_with_query("/admin/settings", fragment="trash", error="Verbrauchsmaterial nicht gefunden.")
-    error = await restore_consumable(session, consumable)
-    if error:
-        return redirect_with_query("/admin/settings", fragment="trash", error=error)
-    await session.commit()
-    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{consumable.name} wiederhergestellt.")
+    return await _restore_trashed(session, "consumables", consumable_id)
 
 
 @router.post("/trash/consumables/{consumable_id}/purge")
@@ -673,15 +702,7 @@ async def purge_trashed_consumable(
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    consumable = await session.get(Consumable, consumable_id)
-    if not consumable or consumable.deleted_at is None:
-        return redirect_with_query("/admin/settings", fragment="trash", error="Verbrauchsmaterial nicht gefunden.")
-    name = consumable.name
-    error = await purge_consumable(session, consumable, force=bool(force))
-    if error:
-        return redirect_with_query("/admin/settings", fragment="trash", error=error)
-    await session.commit()
-    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{name} endgültig gelöscht.")
+    return await _purge_trashed(session, "consumables", consumable_id, force)
 
 
 @router.post("/trash/users/{trashed_user_id}/restore")
@@ -690,14 +711,7 @@ async def restore_trashed_user(
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    target = await session.get(User, trashed_user_id)
-    if not target or target.deleted_at is None:
-        return redirect_with_query("/admin/settings", fragment="trash", error="Benutzer nicht gefunden.")
-    error = await restore_user(session, target)
-    if error:
-        return redirect_with_query("/admin/settings", fragment="trash", error=error)
-    await session.commit()
-    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{target.full_name} wiederhergestellt.")
+    return await _restore_trashed(session, "users", trashed_user_id)
 
 
 @router.post("/trash/users/{trashed_user_id}/purge")
@@ -707,12 +721,4 @@ async def purge_trashed_user(
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    target = await session.get(User, trashed_user_id)
-    if not target or target.deleted_at is None:
-        return redirect_with_query("/admin/settings", fragment="trash", error="Benutzer nicht gefunden.")
-    name = target.full_name
-    error = await purge_user(session, target, force=bool(force))
-    if error:
-        return redirect_with_query("/admin/settings", fragment="trash", error=error)
-    await session.commit()
-    return redirect_with_query("/admin/settings", fragment="trash", ok=f"{name} endgültig gelöscht.")
+    return await _purge_trashed(session, "users", trashed_user_id, force)

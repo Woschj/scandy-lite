@@ -6,6 +6,14 @@ Bewusst getrennt von migrate_from_mongodb.py (dem eigentlichen CLI-Skript,
 das die MongoDB-Verbindung aufbaut) - dadurch lässt sich diese Funktion mit
 synthetischen Testdaten vollständig durchspielen, ohne eine echte MongoDB-
 Instanz zu brauchen. Siehe test_migrate.py.
+
+migrate() orchestriert acht Teilschritte (Abteilungen -> Presets -> Benutzer
+-> Mitarbeiter-Ausweise -> Gegenstände -> Verbrauchsmaterial -> Ausleihen ->
+Entnahmen) in dieser Reihenfolge, weil jeder spätere Schritt die ID-Zuordnung
+(z.B. barcode -> neue/bestehende Item-ID) der vorherigen braucht, um Fremd-
+schlüssel korrekt aufzulösen. Jeder Schritt ist als eigene _migrate_*-Funktion
+ausgelagert, damit die Reihenfolge/Abhängigkeiten hier oben auf einen Blick
+sichtbar sind, statt in einer einzigen sehr langen Funktion zu verschwinden.
 """
 from collections import defaultdict
 
@@ -34,28 +42,14 @@ from migrations_legacy.transform import (
 )
 
 
-def migrate(session: Session, data: dict, *, apply: bool) -> dict:
-    """
-    data erwartet folgende Keys (jeweils Liste von dicts, wie sie roh aus den
-    Mongo-Collections kommen):
-      department_names: list[str]                 (schon deduplizierte Namen)
-      categories_by_department: dict[str, list[str]]
-      locations_by_department: dict[str, list[str]]
-      users: list[dict]                            (Mongo 'users'-Collection)
-      workers: list[dict]                          (Mongo 'workers'-Collection)
-      tools: list[dict]                            (Mongo 'tools'-Collection)
-      consumables: list[dict]                      (Mongo 'consumables'-Collection)
-      lendings: list[dict]                         (Mongo 'lendings'-Collection)
-      consumable_usages: list[dict]                (Mongo 'consumable_usages'-Collection)
+def _resolve_department(dept_id_by_name: dict, name: str | None):
+    name = clean_str(name)
+    if not name or name not in dept_id_by_name:
+        return None
+    return dept_id_by_name[name]
 
-    apply=False: es wird NICHTS geschrieben, nur gezählt/geprüft (Trockenlauf).
-    Gibt einen Report zurück: Zähler + Liste generierter Passwörter + Warnungen.
-    """
-    report = defaultdict(int)
-    warnings: list[str] = []
-    generated_passwords: list[tuple[str, str]] = []  # (username, klartext-passwort)
 
-    # ---------- 1) Abteilungen ----------
+def _migrate_departments(session: Session, data: dict, apply: bool, report: dict) -> dict[str, object]:
     dept_id_by_name: dict[str, object] = {}
     for name in sorted(set(n for n in data.get("department_names", []) if clean_str(n))):
         code = slugify_department_code(name)
@@ -71,16 +65,12 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
         else:
             dept_id_by_name[name] = f"<würde-anlegen:{code}>"
         report["departments_created"] += 1
+    return dept_id_by_name
 
-    def resolve_department(name: str | None):
-        name = clean_str(name)
-        if not name or name not in dept_id_by_name:
-            return None
-        return dept_id_by_name[name]
 
-    # ---------- 2) Kategorien / Standorte (Presets) ----------
+def _migrate_presets(session: Session, data: dict, apply: bool, report: dict, dept_id_by_name: dict) -> None:
     for dept_name, categories in (data.get("categories_by_department") or {}).items():
-        dept_id = resolve_department(dept_name)
+        dept_id = _resolve_department(dept_id_by_name, dept_name)
         if dept_id is None or not apply:
             report["categories_created"] += len(categories) if not apply else 0
             continue
@@ -96,7 +86,7 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
                 report["categories_created"] += 1
 
     for dept_name, locations in (data.get("locations_by_department") or {}).items():
-        dept_id = resolve_department(dept_name)
+        dept_id = _resolve_department(dept_id_by_name, dept_name)
         if dept_id is None or not apply:
             report["locations_created"] += len(locations) if not apply else 0
             continue
@@ -114,7 +104,12 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
     if apply:
         session.flush()
 
-    # ---------- 3) Benutzer (+ generiertes Passwort, altes Hash-Verfahren inkompatibel) ----------
+
+def _migrate_users(
+    session: Session, data: dict, apply: bool, report: dict, warnings: list, generated_passwords: list,
+    dept_id_by_name: dict,
+) -> dict[str, object]:
+    """Benutzer (+ generiertes Passwort, altes Hash-Verfahren inkompatibel)."""
     user_id_by_username: dict[str, object] = {}
     for user_doc in data.get("users", []):
         username = clean_str(user_doc.get("username"))
@@ -128,7 +123,7 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
             continue
 
         dept_name = user_doc.get("default_department") or (user_doc.get("allowed_departments") or [None])[0]
-        dept_id = resolve_department(dept_name)
+        dept_id = _resolve_department(dept_id_by_name, dept_name)
         role = map_user_role(user_doc.get("role"))
 
         temp_password = generate_temp_password()
@@ -154,18 +149,24 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
         else:
             user_id_by_username[username] = f"<würde-anlegen:{username}>"
         report["users_created"] += 1
+    return user_id_by_username
 
-    # ---------- 4) Mitarbeiter-Ausweise (jetzt Teil von User, siehe app/models/user.py) ----------
-    # Gehört der Mitarbeiter-Datensatz zu einem bereits migrierten/vorhandenen
-    # Login (per username verknüpft) -> Ausweis-Felder auf DIESEN User
-    # schreiben, statt eine zweite, separate Zeile anzulegen (User und
-    # Mitarbeiter-Ausweis sind seit der Vereinheitlichung dieselbe Entität).
-    # Kein passender Login -> neuer User OHNE Passwort (reiner Ausweis, kann
-    # sich nicht einloggen - genau wie vorher ein Worker ohne user_id).
+
+def _migrate_workers(
+    session: Session, data: dict, apply: bool, report: dict, dept_id_by_name: dict, user_id_by_username: dict,
+) -> dict[str, object]:
+    """Mitarbeiter-Ausweise (jetzt Teil von User, siehe app/models/user.py).
+
+    Gehört der Mitarbeiter-Datensatz zu einem bereits migrierten/vorhandenen
+    Login (per username verknüpft) -> Ausweis-Felder auf DIESEN User
+    schreiben, statt eine zweite, separate Zeile anzulegen (User und
+    Mitarbeiter-Ausweis sind seit der Vereinheitlichung dieselbe Entität).
+    Kein passender Login -> neuer User OHNE Passwort (reiner Ausweis, kann
+    sich nicht einloggen - genau wie vorher ein Worker ohne user_id)."""
     worker_id_by_barcode: dict[str, object] = {}
     for worker_doc in data.get("workers", []):
         barcode = clean_str(worker_doc.get("barcode"))
-        dept_id = resolve_department(worker_doc.get("department"))
+        dept_id = _resolve_department(dept_id_by_name, worker_doc.get("department"))
         if dept_id is None:
             report["workers_skipped_no_department"] += 1
             continue
@@ -205,12 +206,15 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
         else:
             worker_id_by_barcode[kwargs["barcode"]] = f"<würde-anlegen:{kwargs['barcode']}>"
         report["workers_created"] += 1
+    return worker_id_by_barcode
 
-    # ---------- 5) Gegenstände (aus 'tools') ----------
+
+def _migrate_items(session: Session, data: dict, apply: bool, report: dict, dept_id_by_name: dict) -> dict[str, object]:
+    """Gegenstände (aus 'tools')."""
     item_id_by_barcode: dict[str, object] = {}
     for tool_doc in data.get("tools", []):
         barcode = clean_str(tool_doc.get("barcode"))
-        dept_id = resolve_department(tool_doc.get("department"))
+        dept_id = _resolve_department(dept_id_by_name, tool_doc.get("department"))
         if dept_id is None:
             report["items_skipped_no_department"] += 1
             continue
@@ -233,12 +237,14 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
         else:
             item_id_by_barcode[barcode] = f"<würde-anlegen:{barcode}>"
         report["items_created"] += 1
+    return item_id_by_barcode
 
-    # ---------- 6) Verbrauchsmaterial ----------
+
+def _migrate_consumables(session: Session, data: dict, apply: bool, report: dict, dept_id_by_name: dict) -> dict[str, object]:
     consumable_id_by_barcode: dict[str, object] = {}
     for cons_doc in data.get("consumables", []):
         barcode = clean_str(cons_doc.get("barcode"))
-        dept_id = resolve_department(cons_doc.get("department"))
+        dept_id = _resolve_department(dept_id_by_name, cons_doc.get("department"))
         if dept_id is None:
             report["consumables_skipped_no_department"] += 1
             continue
@@ -263,8 +269,14 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
         else:
             consumable_id_by_barcode[barcode] = f"<würde-anlegen:{barcode}>"
         report["consumables_created"] += 1
+    return consumable_id_by_barcode
 
-    # ---------- 7) Ausleihen (offene UND abgeschlossene) ----------
+
+def _migrate_lendings(
+    session: Session, data: dict, apply: bool, report: dict,
+    dept_id_by_name: dict, item_id_by_barcode: dict, worker_id_by_barcode: dict,
+) -> None:
+    """Ausleihen (offene UND abgeschlossene)."""
     for lending_doc in data.get("lendings", []):
         tool_barcode = clean_str(lending_doc.get("tool_barcode"))
         worker_barcode = clean_str(lending_doc.get("worker_barcode"))
@@ -281,7 +293,7 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
             report["lendings_skipped_no_date"] += 1
             continue
 
-        lending_department_id = resolve_department(lending_doc.get("department"))
+        lending_department_id = _resolve_department(dept_id_by_name, lending_doc.get("department"))
         if lending_department_id is None:
             # department_id ist NOT NULL - falls am Lending-Dokument selbst keine
             # Abteilung hinterlegt war, die des migrierten Gegenstands übernehmen
@@ -321,7 +333,12 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
                     session.add(item)
         report["lendings_created"] += 1
 
-    # ---------- 8) Verbrauchsmaterial-Entnahmen (nur echte Entnahmen, s. transform.is_real_withdrawal) ----------
+
+def _migrate_consumable_usages(
+    session: Session, data: dict, apply: bool, report: dict,
+    consumable_id_by_barcode: dict, worker_id_by_barcode: dict,
+) -> None:
+    """Verbrauchsmaterial-Entnahmen (nur echte Entnahmen, s. transform.is_real_withdrawal)."""
     for usage_doc in data.get("consumable_usages", []):
         if not is_real_withdrawal(usage_doc):
             report["consumable_usages_skipped_not_withdrawal"] += 1
@@ -366,6 +383,37 @@ def migrate(session: Session, data: dict, *, apply: bool) -> dict:
             )
             session.add(usage)
         report["consumable_usages_created"] += 1
+
+
+def migrate(session: Session, data: dict, *, apply: bool) -> dict:
+    """
+    data erwartet folgende Keys (jeweils Liste von dicts, wie sie roh aus den
+    Mongo-Collections kommen):
+      department_names: list[str]                 (schon deduplizierte Namen)
+      categories_by_department: dict[str, list[str]]
+      locations_by_department: dict[str, list[str]]
+      users: list[dict]                            (Mongo 'users'-Collection)
+      workers: list[dict]                          (Mongo 'workers'-Collection)
+      tools: list[dict]                            (Mongo 'tools'-Collection)
+      consumables: list[dict]                      (Mongo 'consumables'-Collection)
+      lendings: list[dict]                         (Mongo 'lendings'-Collection)
+      consumable_usages: list[dict]                (Mongo 'consumable_usages'-Collection)
+
+    apply=False: es wird NICHTS geschrieben, nur gezählt/geprüft (Trockenlauf).
+    Gibt einen Report zurück: Zähler + Liste generierter Passwörter + Warnungen.
+    """
+    report = defaultdict(int)
+    warnings: list[str] = []
+    generated_passwords: list[tuple[str, str]] = []  # (username, klartext-passwort)
+
+    dept_id_by_name = _migrate_departments(session, data, apply, report)
+    _migrate_presets(session, data, apply, report, dept_id_by_name)
+    user_id_by_username = _migrate_users(session, data, apply, report, warnings, generated_passwords, dept_id_by_name)
+    worker_id_by_barcode = _migrate_workers(session, data, apply, report, dept_id_by_name, user_id_by_username)
+    item_id_by_barcode = _migrate_items(session, data, apply, report, dept_id_by_name)
+    consumable_id_by_barcode = _migrate_consumables(session, data, apply, report, dept_id_by_name)
+    _migrate_lendings(session, data, apply, report, dept_id_by_name, item_id_by_barcode, worker_id_by_barcode)
+    _migrate_consumable_usages(session, data, apply, report, consumable_id_by_barcode, worker_id_by_barcode)
 
     if apply:
         session.commit()

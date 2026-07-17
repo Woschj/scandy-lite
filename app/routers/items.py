@@ -18,7 +18,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.access import get_accessible_departments, get_department_roles, get_visible_department_ids, is_staff_in_department
+from app.core.access import get_department_roles, get_visible_department_ids, is_staff_in_department
 from app.core.barcodes import barcode_taken_by_other_kind
 from app.core.custom_fields import (
     get_definitions_by_category,
@@ -29,62 +29,24 @@ from app.core.custom_fields import (
 )
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
-from app.core.responses import redirect_with_query
+from app.core.inventory_crud import (
+    InventoryKind,
+    delete_entity,
+    delete_entity_image,
+    presets,
+    presets_by_department,
+    staff_departments,
+    upload_entity_image,
+)
 from app.core.templating import templates
-from app.core.uploads import InvalidImage, delete_image, has_image, image_url, save_image
-from app.models.common import ItemStatus, UserRole, utcnow
+from app.models.common import ItemStatus, UserRole
 from app.models.item import Item
 from app.models.lending import Lending
-from app.models.preset import Category, Location
 from app.models.user import User
 
 router = APIRouter(prefix="/items", tags=["items"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
 
-
-async def _presets(session: AsyncSession, department_id):
-    categories = (await session.exec(
-        select(Category).where(Category.department_id == department_id).order_by(Category.name)
-    )).all()
-    locations = (await session.exec(
-        select(Location).where(Location.department_id == department_id).order_by(Location.name)
-    )).all()
-    return categories, locations
-
-
-async def _presets_by_department(session: AsyncSession, department_ids: list) -> tuple[dict, dict]:
-    """Kategorie-/Standort-Vorschläge ALLER übergebenen Abteilungen, gruppiert
-    nach (als String) Abteilungs-ID - fürs Anlegen-Formular, wo die Abteilung
-    erst im Formular selbst gewählt wird (Alpine blendet dann die passende
-    Gruppe ein, siehe items/form.html - gleiches Prinzip wie bei den
-    Zusatzfeldern pro Kategorie)."""
-    if not department_ids:
-        return {}, {}
-    categories = (await session.exec(
-        select(Category).where(Category.department_id.in_(department_ids)).order_by(Category.name)
-    )).all()
-    locations = (await session.exec(
-        select(Location).where(Location.department_id.in_(department_ids)).order_by(Location.name)
-    )).all()
-    categories_by_department: dict = {}
-    for c in categories:
-        categories_by_department.setdefault(str(c.department_id), []).append(c.name)
-    locations_by_department: dict = {}
-    for l in locations:
-        locations_by_department.setdefault(str(l.department_id), []).append(l.name)
-    return categories_by_department, locations_by_department
-
-
-async def _staff_departments(session: AsyncSession, user: User):
-    """Abteilungen, in denen dieser User anlegen/bearbeiten darf - für das
-    Abteilungs-Auswahlfeld im Anlegen-Formular."""
-    if user.is_admin:
-        return await get_accessible_departments(session, user)
-    roles = await get_department_roles(session, user)
-    dept_ids = {r.department_id for r in roles if r.role == UserRole.MITARBEITER}
-    if not dept_ids:
-        return []
-    all_accessible = await get_accessible_departments(session, user)
-    return [d for d in all_accessible if d.id in dept_ids]
+ITEM_KIND = InventoryKind(model=Item, url_prefix="items")
 
 
 # "status"-Sortierung bedeutet NICHT alphabetisch nach dem rohen Enum-String
@@ -217,11 +179,11 @@ async def new_item_form(
     user: User = Depends(require_staff),
     session: AsyncSession = Depends(get_session),
 ):
-    departments = await _staff_departments(session, user)
+    departments = await staff_departments(session, user)
     if not departments:
         raise Forbidden()  # keine Abteilung, in der dieser User Mitarbeiter-Rolle hat
 
-    categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
+    categories_by_department, locations_by_department = await presets_by_department(session, [d.id for d in departments])
     custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
     return templates.TemplateResponse(
         request,
@@ -253,8 +215,8 @@ async def create_item(
 
     result = await session.exec(select(Item).where(Item.barcode == barcode, Item.deleted_at.is_(None)))
     if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="item"):
-        departments = await _staff_departments(session, user)
-        categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
+        departments = await staff_departments(session, user)
+        categories_by_department, locations_by_department = await presets_by_department(session, [d.id for d in departments])
         custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
         return templates.TemplateResponse(
             request,
@@ -295,8 +257,8 @@ async def create_item(
     form_data = await request.form()
     custom_field_errors = await save_values_for_item(session, item, form_data)
     if custom_field_errors:
-        departments = await _staff_departments(session, user)
-        categories_by_department, locations_by_department = await _presets_by_department(session, [d.id for d in departments])
+        departments = await staff_departments(session, user)
+        categories_by_department, locations_by_department = await presets_by_department(session, [d.id for d in departments])
         custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
         return templates.TemplateResponse(
             request,
@@ -421,7 +383,7 @@ async def edit_item_form(
     if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
 
-    categories, locations = await _presets(session, item.department_id)
+    categories, locations = await presets(session, item.department_id)
     custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
     custom_field_values = await get_values_for_item(session, item.id)
     return templates.TemplateResponse(
@@ -460,7 +422,7 @@ async def update_item(
         select(Item).where(Item.barcode == barcode, Item.id != item_id, Item.deleted_at.is_(None))
     )
     if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="item"):
-        categories, locations = await _presets(session, item.department_id)
+        categories, locations = await presets(session, item.department_id)
         custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
         custom_field_values = await get_values_for_item(session, item.id)
         return templates.TemplateResponse(
@@ -490,7 +452,7 @@ async def update_item(
             select(Lending).where(Lending.item_id == item.id, Lending.returned_at.is_(None))
         )
         if open_lending.first():
-            categories, locations = await _presets(session, item.department_id)
+            categories, locations = await presets(session, item.department_id)
             custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
             custom_field_values = await get_values_for_item(session, item.id)
             return templates.TemplateResponse(
@@ -516,7 +478,7 @@ async def update_item(
     form_data = await request.form()
     custom_field_errors = await save_values_for_item(session, item, form_data)
     if custom_field_errors:
-        categories, locations = await _presets(session, item.department_id)
+        categories, locations = await presets(session, item.department_id)
         custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
         custom_field_values = await get_values_for_item(session, item.id)
         return templates.TemplateResponse(
@@ -547,16 +509,7 @@ async def delete_item(
     user: User = Depends(require_staff),
     session: AsyncSession = Depends(get_session),
 ):
-    item = await session.get(Item, item_id)
-    if not item or item.deleted_at is not None:
-        raise Forbidden()
-    if not await is_staff_in_department(session, user, item.department_id):
-        raise Forbidden()
-
-    item.deleted_at = utcnow()
-    session.add(item)
-    await session.commit()
-    return RedirectResponse(url="/items", status_code=303)
+    return await delete_entity(session, ITEM_KIND, item_id, user)
 
 
 @router.post("/{item_id}/image")
@@ -566,18 +519,7 @@ async def upload_item_image(
     user: User = Depends(require_staff),
     session: AsyncSession = Depends(get_session),
 ):
-    item = await session.get(Item, item_id)
-    if not item or item.deleted_at is not None:
-        raise Forbidden()
-    if not await is_staff_in_department(session, user, item.department_id):
-        raise Forbidden()
-
-    try:
-        await save_image(image, "items", item.id)
-    except InvalidImage as exc:
-        return redirect_with_query(f"/items/{item_id}/edit", error=str(exc))
-
-    return RedirectResponse(url=f"/items/{item_id}/edit?ok=Bild+aktualisiert.", status_code=303)
+    return await upload_entity_image(session, ITEM_KIND, item_id, image, user)
 
 
 @router.post("/{item_id}/image/delete")
@@ -586,11 +528,4 @@ async def delete_item_image(
     user: User = Depends(require_staff),
     session: AsyncSession = Depends(get_session),
 ):
-    item = await session.get(Item, item_id)
-    if not item or item.deleted_at is not None:
-        raise Forbidden()
-    if not await is_staff_in_department(session, user, item.department_id):
-        raise Forbidden()
-
-    delete_image("items", item.id)
-    return RedirectResponse(url=f"/items/{item_id}/edit?ok=Bild+entfernt.", status_code=303)
+    return await delete_entity_image(session, ITEM_KIND, item_id, user)

@@ -217,6 +217,61 @@ async def purge_user(session: AsyncSession, user: User, *, force: bool = False) 
     return None
 
 
+def _sample_names(rows: list, name_fn) -> str:
+    """Konkrete Namen statt nur "es gibt welche" - sonst muss der Admin selbst
+    erst suchen gehen, WAS eigentlich zurückgegeben/storniert werden muss.
+    limit(4) statt 3 beim Aufrufer: eine vierte Zeile signalisiert "es gibt
+    noch mehr", ohne eine exakte Gesamtzahl per zusätzlicher COUNT-Abfrage
+    ermitteln zu müssen."""
+    names = ", ".join(name_fn(r) for r in rows[:3])
+    if len(rows) > 3:
+        names += ", …"
+    return names
+
+
+async def _close_open_or_block(
+    session: AsyncSession,
+    model,
+    *,
+    where: list,
+    close_field: str,
+    force: bool,
+    name_fn,
+    message_label: str,
+    message_action: str,
+    subject_name: str,
+    eager_load=None,
+) -> str | None:
+    """Für Abteilungs-/Lending-/Reservierungs-artige "offene Vorgänge blockieren,
+    außer bei force" Prüfungen: bei force=True alle passenden Zeilen automatisch
+    abschließen (close_field = jetzt), sonst bis zu 4 zur Fehlermeldung laden und
+    abbrechen, falls welche existieren.
+
+    WICHTIG: im force-Zweig bewusst OHNE eager_load laden - der Aufrufer löscht
+    im Anschluss ggf. die referenzierten Zeilen (z.B. purge_item/purge_consumable
+    in purge_department) aus der Session. Wäre die Beziehung hier schon eager
+    geladen, hielte diese Zeile eine dann gelöschte ORM-Instanz fest - ein
+    späteres session.add() darauf kaskadiert auf das tote Objekt und wirft
+    InvalidRequestError ("Instance has been deleted"). Der Name wird nur für
+    die Fehlermeldung im NICHT-force-Zweig gebraucht, dort ist eager_load
+    unkritisch, weil dort ohnehin nichts gelöscht wird."""
+    if force:
+        rows = (await session.exec(select(model).where(*where))).all()
+        for row in rows:
+            setattr(row, close_field, utcnow())
+            session.add(row)
+        return None
+
+    stmt = select(model).where(*where).limit(4)
+    if eager_load is not None:
+        stmt = stmt.options(selectinload(eager_load))
+    rows = (await session.exec(stmt)).all()
+    if not rows:
+        return None
+    names = _sample_names(rows, name_fn)
+    return f"'{subject_name}' hat noch {message_label}: {names} - {message_action}"
+
+
 async def purge_department(session: AsyncSession, department: Department, *, force: bool = False) -> str | None:
     """Löscht eine Abteilung KASKADIEREND statt (wie früher) bei jeder noch
     referenzierenden Zeile zu blockieren - Gegenstände/Verbrauchsmaterial/
@@ -235,100 +290,42 @@ async def purge_department(session: AsyncSession, department: Department, *, for
     nur die Vorbedingung "muss vorher schon abgeschlossen sein"."""
     dept_id = department.id
 
-    # Konkrete Namen statt nur "es gibt welche" - sonst muss der Admin selbst
-    # erst suchen gehen, WAS eigentlich zurückgegeben/storniert werden muss
-    # (gleiches Prinzip wie delete_category weiter unten). limit(4) statt 3:
-    # eine vierte Zeile signalisiert "es gibt noch mehr", ohne eine exakte
-    # Gesamtzahl per zusätzlicher COUNT-Abfrage ermitteln zu müssen.
-    def _sample_names(rows: list, name_fn) -> str:
-        names = ", ".join(name_fn(r) for r in rows[:3])
-        if len(rows) > 3:
-            names += ", …"
-        return names
+    error = await _close_open_or_block(
+        session, Lending,
+        where=[Lending.department_id == dept_id, Lending.returned_at.is_(None)],
+        close_field="returned_at", force=force,
+        name_fn=lambda l: l.item.name if l.item else (l.item_name_snapshot or "?"),
+        message_label="offene Ausleihen", message_action="erst zurückgeben.",
+        subject_name=department.name, eager_load=Lending.item,
+    )
+    if error:
+        return error
 
-    # WICHTIG: im force-Zweig OHNE selectinload laden - purge_item/
-    # purge_consumable weiter unten löschen die zugehörigen Item-/
-    # Consumable-Zeilen aus der Session. Wäre .item/.consumable hier schon
-    # eager geladen, hielte das Lending/die Reservation eine (jetzt
-    # gelöschte) ORM-Instanz über die Beziehung fest - ein späteres
-    # session.add() auf dieselbe Zeile (z.B. in purge_user weiter unten)
-    # kaskadiert dann auf dieses tote Objekt und wirft InvalidRequestError
-    # ("Instance has been deleted"). Der Name wird nur für die
-    # Fehlermeldung im NICHT-force-Zweig gebraucht, dort ist das unkritisch,
-    # weil dort ohnehin nichts mehr gelöscht wird.
-    if force:
-        open_lendings = (
-            await session.exec(select(Lending).where(Lending.department_id == dept_id, Lending.returned_at.is_(None)))
-        ).all()
-        for open_lending in open_lendings:
-            open_lending.returned_at = utcnow()
-            session.add(open_lending)
-    else:
-        open_lendings = (
-            await session.exec(
-                select(Lending)
-                .where(Lending.department_id == dept_id, Lending.returned_at.is_(None))
-                .options(selectinload(Lending.item))
-                .limit(4)
-            )
-        ).all()
-        if open_lendings:
-            names = _sample_names(open_lendings, lambda l: l.item.name if l.item else (l.item_name_snapshot or "?"))
-            return f"'{department.name}' hat noch offene Ausleihen: {names} - erst zurückgeben."
+    error = await _close_open_or_block(
+        session, Reservation,
+        where=[Reservation.department_id == dept_id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None)],
+        close_field="cancelled_at", force=force,
+        name_fn=lambda r: r.item.name if r.item else (r.item_name_snapshot or "?"),
+        message_label="offene Reservierungen", message_action="erst stornieren oder abholen lassen.",
+        subject_name=department.name, eager_load=Reservation.item,
+    )
+    if error:
+        return error
 
-    if force:
-        open_reservations = (
-            await session.exec(
-                select(Reservation).where(
-                    Reservation.department_id == dept_id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None)
-                )
-            )
-        ).all()
-        for open_reservation in open_reservations:
-            open_reservation.cancelled_at = utcnow()
-            session.add(open_reservation)
-    else:
-        open_reservations = (
-            await session.exec(
-                select(Reservation)
-                .where(Reservation.department_id == dept_id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
-                .options(selectinload(Reservation.item))
-                .limit(4)
-            )
-        ).all()
-        if open_reservations:
-            names = _sample_names(open_reservations, lambda r: r.item.name if r.item else (r.item_name_snapshot or "?"))
-            return f"'{department.name}' hat noch offene Reservierungen: {names} - erst stornieren oder abholen lassen."
-
-    if force:
-        open_cons_reservations = (
-            await session.exec(
-                select(ConsumableReservation).where(
-                    ConsumableReservation.department_id == dept_id,
-                    ConsumableReservation.fulfilled_at.is_(None),
-                    ConsumableReservation.cancelled_at.is_(None),
-                )
-            )
-        ).all()
-        for open_cons_reservation in open_cons_reservations:
-            open_cons_reservation.cancelled_at = utcnow()
-            session.add(open_cons_reservation)
-    else:
-        open_cons_reservations = (
-            await session.exec(
-                select(ConsumableReservation)
-                .where(
-                    ConsumableReservation.department_id == dept_id,
-                    ConsumableReservation.fulfilled_at.is_(None),
-                    ConsumableReservation.cancelled_at.is_(None),
-                )
-                .options(selectinload(ConsumableReservation.consumable))
-                .limit(4)
-            )
-        ).all()
-        if open_cons_reservations:
-            names = _sample_names(open_cons_reservations, lambda r: r.consumable.name if r.consumable else (r.consumable_name_snapshot or "?"))
-            return f"'{department.name}' hat noch offene Material-Vormerkungen: {names} - erst stornieren oder abholen lassen."
+    error = await _close_open_or_block(
+        session, ConsumableReservation,
+        where=[
+            ConsumableReservation.department_id == dept_id,
+            ConsumableReservation.fulfilled_at.is_(None),
+            ConsumableReservation.cancelled_at.is_(None),
+        ],
+        close_field="cancelled_at", force=force,
+        name_fn=lambda r: r.consumable.name if r.consumable else (r.consumable_name_snapshot or "?"),
+        message_label="offene Material-Vormerkungen", message_action="erst stornieren oder abholen lassen.",
+        subject_name=department.name, eager_load=ConsumableReservation.consumable,
+    )
+    if error:
+        return error
 
     for item in (await session.exec(select(Item).where(Item.department_id == dept_id))).all():
         error = await purge_item(session, item, force=force)

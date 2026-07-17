@@ -6,6 +6,7 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 (kein Ticketsystem, kein Kantinenplan, keine Job-Verwaltung).
 
 **→ Schritt-für-Schritt-Installation via Portainer: [INSTALL.md](INSTALL.md)**
+**→ Versionsgeschichte: [CHANGELOG.md](CHANGELOG.md)**
 
 ## Tech-Stack
 
