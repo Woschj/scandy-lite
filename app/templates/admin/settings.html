@@ -38,7 +38,7 @@
         <div class="main">
           <span class="name">{{ d.name }}</span>
           <span class="meta">{{ d.code }}</span>
-          {% if d.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
+          {% if not d.is_active %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
         </div>
         <div class="actions">
           <form method="post" action="/admin/departments/{{ d.id }}/toggle">
@@ -61,18 +61,23 @@
     {% endfor %}
   </div>
 
-  <form class="settings-add-inline" method="post" action="/admin/departments/new">
-    {% include "partials/csrf_field.html" %}
-    <div class="field">
-      <label for="dep-code">Kurzcode</label>
-      <input type="text" id="dep-code" name="code" placeholder="z.B. buero" required>
-    </div>
-    <div class="field">
-      <label for="dep-name">Name</label>
-      <input type="text" id="dep-name" name="name" placeholder="z.B. Büro" required>
-    </div>
-    <button type="submit" class="btn btn-primary">+ Anlegen</button>
-  </form>
+  <div x-data="{ showAdd: {{ 'true' if error else 'false' }} }">
+    <button type="button" class="btn btn-ghost" @click="showAdd = !showAdd" style="margin-top: var(--space-3);">
+      <span x-text="showAdd ? '– Abbrechen' : '+ Neue Abteilung'"></span>
+    </button>
+    <form class="settings-add-inline" method="post" action="/admin/departments/new" x-show="showAdd" x-cloak style="margin-top: var(--space-3);">
+      {% include "partials/csrf_field.html" %}
+      <div class="field">
+        <label for="dep-code">Kurzcode</label>
+        <input type="text" id="dep-code" name="code" placeholder="z.B. buero" required>
+      </div>
+      <div class="field">
+        <label for="dep-name">Name</label>
+        <input type="text" id="dep-name" name="name" placeholder="z.B. Büro" required>
+      </div>
+      <button type="submit" class="btn btn-primary">+ Anlegen</button>
+    </form>
+  </div>
 </section>
 
 {# ================= Benutzer ================= #}
@@ -86,24 +91,25 @@
 
   <div class="settings-list">
     {% for u in users %}
-      <div class="settings-row">
+      <div class="settings-row user-row">
         <div class="main">
-          <span class="name">{{ u.username }}</span>
-          {% if u.barcode %}
-            <span class="meta">{{ u.full_name }} · {{ u.barcode }}</span>
-          {% else %}
-            <span class="chip chip-danger">Kein Ausweis</span>
-          {% endif %}
-          {% if u.is_admin %}<span class="chip chip-success">Admin</span>{% endif %}
-          {% if u.auth_source.value != "local" %}<span class="meta">{{ u.auth_source.value }}</span>{% endif %}
-          {% if u.is_active %}<span class="chip chip-success">Aktiv</span>{% else %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
-          {% if not u.is_admin %}
-            {% for entry in access_by_user.get(u.id, []) %}
-              <span class="chip chip-neutral">{{ entry.department.name if entry.department else "?" }}: {{ entry.role.value }}</span>
-            {% else %}
-              <span class="chip chip-danger">Keine Abteilung zugewiesen</span>
-            {% endfor %}
-          {% endif %}
+          <div class="user-identity">
+            <span class="name">{{ u.full_name }}</span>
+            <span class="meta">@{{ u.username }}{% if u.barcode %} · {{ u.barcode }}{% endif %}</span>
+          </div>
+          <div class="user-tags">
+            {% if not u.barcode %}<span class="chip chip-danger">Kein Ausweis</span>{% endif %}
+            {% if u.is_admin %}<span class="chip chip-success">Admin</span>{% endif %}
+            {% if u.auth_source.value != "local" %}<span class="chip chip-neutral">{{ u.auth_source.value }}</span>{% endif %}
+            {% if not u.is_active %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
+            {% if not u.is_admin %}
+              {% for entry in access_by_user.get(u.id, []) %}
+                <span class="chip chip-neutral">{{ entry.department.name if entry.department else "?" }}: {{ entry.role.value }}</span>
+              {% else %}
+                <span class="chip chip-danger">Keine Abteilung zugewiesen</span>
+              {% endfor %}
+            {% endif %}
+          </div>
         </div>
         <div class="actions">
           <a href="/admin/users/{{ u.id }}/edit" class="link-btn">Bearbeiten</a>
@@ -126,58 +132,63 @@
     {% endfor %}
   </div>
 
-  <form class="settings-add-inline" method="post" action="/admin/users/new">
-    {% include "partials/csrf_field.html" %}
-    <div class="field">
-      <label for="u-username">Benutzername (Login)</label>
-      <input type="text" id="u-username" name="username" required>
-    </div>
-    <div class="field">
-      <label for="u-password">Passwort (min. 8 Zeichen)</label>
-      <input type="password" id="u-password" name="password" minlength="8" required>
-    </div>
-    <div class="field">
-      <label for="u-first-name">Vorname</label>
-      <input type="text" id="u-first-name" name="first_name" required>
-    </div>
-    <div class="field">
-      <label for="u-last-name">Nachname</label>
-      <input type="text" id="u-last-name" name="last_name" required>
-    </div>
-    <div class="field">
-      <label for="u-barcode">Barcode (Ausweis)</label>
-      <input type="text" id="u-barcode" name="barcode" required>
-    </div>
-    <div class="field">
-      <label for="u-home-department">Heimat-Abteilung (Ausweis)</label>
-      <select id="u-home-department" name="home_department_id" required>
-        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="field">
-      <label for="u-email">E-Mail (optional)</label>
-      <input type="email" id="u-email" name="email" placeholder="für Willkommens-Mail mit Passwort-Link">
-    </div>
-    <div class="field">
-      <label for="u-initial-role">Zugriffsrolle in dieser Abteilung</label>
-      <select id="u-initial-role" name="initial_role">
-        <option value="nutzer" selected>Nutzer (ansehen + reservieren)</option>
-        <option value="mitarbeiter">Mitarbeiter (verwalten + ausgeben)</option>
-        <option value="">Keine (später im Tab "Zugriff" zuweisen)</option>
-      </select>
-    </div>
-    <div class="checkbox-field" style="margin-bottom: 0;">
-      <input type="checkbox" id="u-is-admin" name="is_admin" value="true">
-      <label for="u-is-admin">Admin (voller Zugriff überall - Zugriffsrolle oben dann wirkungslos)</label>
-    </div>
-    <button type="submit" class="btn btn-primary">+ Anlegen</button>
-  </form>
-  <p class="settings-hint" style="margin-top: var(--space-2);">
-    Legt Login, Barcode/Name/Heimat-Abteilung UND (falls eine Zugriffsrolle
-    gewählt ist) direkt Zugriff auf die Heimat-Abteilung an - alles in einem
-    Schritt. Zugriff auf WEITERE Abteilungen oder eine andere Rolle danach im
-    Tab "Zugriff" ändern.
-  </p>
+  <div x-data="{ showAdd: {{ 'true' if error else 'false' }} }">
+    <button type="button" class="btn btn-ghost" @click="showAdd = !showAdd" style="margin-top: var(--space-3);">
+      <span x-text="showAdd ? '– Abbrechen' : '+ Neuer Benutzer'"></span>
+    </button>
+    <form class="settings-add-inline" method="post" action="/admin/users/new" x-show="showAdd" x-cloak style="margin-top: var(--space-3);">
+      {% include "partials/csrf_field.html" %}
+      <div class="field">
+        <label for="u-username">Benutzername (Login)</label>
+        <input type="text" id="u-username" name="username" required>
+      </div>
+      <div class="field">
+        <label for="u-password">Passwort (min. 8 Zeichen)</label>
+        <input type="password" id="u-password" name="password" minlength="8" required>
+      </div>
+      <div class="field">
+        <label for="u-first-name">Vorname</label>
+        <input type="text" id="u-first-name" name="first_name" required>
+      </div>
+      <div class="field">
+        <label for="u-last-name">Nachname</label>
+        <input type="text" id="u-last-name" name="last_name" required>
+      </div>
+      <div class="field">
+        <label for="u-barcode">Barcode (Ausweis)</label>
+        <input type="text" id="u-barcode" name="barcode" required>
+      </div>
+      <div class="field">
+        <label for="u-home-department">Heimat-Abteilung (Ausweis)</label>
+        <select id="u-home-department" name="home_department_id" required>
+          {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="u-email">E-Mail (optional)</label>
+        <input type="email" id="u-email" name="email" placeholder="für Willkommens-Mail mit Passwort-Link">
+      </div>
+      <div class="field">
+        <label for="u-initial-role">Zugriffsrolle in dieser Abteilung</label>
+        <select id="u-initial-role" name="initial_role">
+          <option value="nutzer" selected>Nutzer (ansehen + reservieren)</option>
+          <option value="mitarbeiter">Mitarbeiter (verwalten + ausgeben)</option>
+          <option value="">Keine (später im Tab "Zugriff" zuweisen)</option>
+        </select>
+      </div>
+      <div class="checkbox-field" style="margin-bottom: 0;">
+        <input type="checkbox" id="u-is-admin" name="is_admin" value="true">
+        <label for="u-is-admin">Admin (voller Zugriff überall - Zugriffsrolle oben dann wirkungslos)</label>
+      </div>
+      <button type="submit" class="btn btn-primary">+ Anlegen</button>
+    </form>
+    <p class="settings-hint" x-show="showAdd" x-cloak style="margin-top: var(--space-2);">
+      Legt Login, Barcode/Name/Heimat-Abteilung UND (falls eine Zugriffsrolle
+      gewählt ist) direkt Zugriff auf die Heimat-Abteilung an - alles in einem
+      Schritt. Zugriff auf WEITERE Abteilungen oder eine andere Rolle danach im
+      Tab "Zugriff" ändern.
+    </p>
+  </div>
 </section>
 
 {# ================= Zugriff (Rolle pro Benutzer und Abteilung) ================= #}
@@ -214,29 +225,34 @@
     {% endif %}
   </div>
 
-  <form class="settings-add-inline" method="post" action="/admin/access/new">
-    {% include "partials/csrf_field.html" %}
-    <div class="field">
-      <label for="acc-user">Benutzer</label>
-      <select id="acc-user" name="user_id" required>
-        {% for u in users %}{% if not u.is_admin %}<option value="{{ u.id }}">{{ u.username }}</option>{% endif %}{% endfor %}
-      </select>
-    </div>
-    <div class="field">
-      <label for="acc-department">Abteilung</label>
-      <select id="acc-department" name="department_id" required>
-        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="field">
-      <label for="acc-role">Rolle</label>
-      <select id="acc-role" name="role">
-        <option value="nutzer">Nutzer (ansehen + reservieren)</option>
-        <option value="mitarbeiter">Mitarbeiter (verwalten + ausgeben)</option>
-      </select>
-    </div>
-    <button type="submit" class="btn btn-primary">+ Zuweisen</button>
-  </form>
+  <div x-data="{ showAdd: {{ 'true' if error else 'false' }} }">
+    <button type="button" class="btn btn-ghost" @click="showAdd = !showAdd" style="margin-top: var(--space-3);">
+      <span x-text="showAdd ? '– Abbrechen' : '+ Zugriff zuweisen'"></span>
+    </button>
+    <form class="settings-add-inline" method="post" action="/admin/access/new" x-show="showAdd" x-cloak style="margin-top: var(--space-3);">
+      {% include "partials/csrf_field.html" %}
+      <div class="field">
+        <label for="acc-user">Benutzer</label>
+        <select id="acc-user" name="user_id" required>
+          {% for u in users %}{% if not u.is_admin %}<option value="{{ u.id }}">{{ u.username }}</option>{% endif %}{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="acc-department">Abteilung</label>
+        <select id="acc-department" name="department_id" required>
+          {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="acc-role">Rolle</label>
+        <select id="acc-role" name="role">
+          <option value="nutzer">Nutzer (ansehen + reservieren)</option>
+          <option value="mitarbeiter">Mitarbeiter (verwalten + ausgeben)</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">+ Zuweisen</button>
+    </form>
+  </div>
 </section>
 
 {# ================= Kategorien ================= #}
@@ -266,20 +282,25 @@
     {% endif %}
   </div>
 
-  <form class="settings-add-inline" method="post" action="/admin/categories/new">
-    {% include "partials/csrf_field.html" %}
-    <div class="field">
-      <label for="cat-department">Abteilung</label>
-      <select id="cat-department" name="department_id" required>
-        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="field">
-      <label for="cat-name">Name</label>
-      <input type="text" id="cat-name" name="name" placeholder="z.B. Elektrowerkzeug" required>
-    </div>
-    <button type="submit" class="btn btn-primary">+ Anlegen</button>
-  </form>
+  <div x-data="{ showAdd: {{ 'true' if error else 'false' }} }">
+    <button type="button" class="btn btn-ghost" @click="showAdd = !showAdd" style="margin-top: var(--space-3);">
+      <span x-text="showAdd ? '– Abbrechen' : '+ Neue Kategorie'"></span>
+    </button>
+    <form class="settings-add-inline" method="post" action="/admin/categories/new" x-show="showAdd" x-cloak style="margin-top: var(--space-3);">
+      {% include "partials/csrf_field.html" %}
+      <div class="field">
+        <label for="cat-department">Abteilung</label>
+        <select id="cat-department" name="department_id" required>
+          {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="cat-name">Name</label>
+        <input type="text" id="cat-name" name="name" placeholder="z.B. Elektrowerkzeug" required>
+      </div>
+      <button type="submit" class="btn btn-primary">+ Anlegen</button>
+    </form>
+  </div>
 </section>
 
 {# ================= Standorte ================= #}
@@ -309,20 +330,25 @@
     {% endif %}
   </div>
 
-  <form class="settings-add-inline" method="post" action="/admin/locations/new">
-    {% include "partials/csrf_field.html" %}
-    <div class="field">
-      <label for="loc-department">Abteilung</label>
-      <select id="loc-department" name="department_id" required>
-        {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
-      </select>
-    </div>
-    <div class="field">
-      <label for="loc-name">Name</label>
-      <input type="text" id="loc-name" name="name" placeholder="z.B. Regal A1" required>
-    </div>
-    <button type="submit" class="btn btn-primary">+ Anlegen</button>
-  </form>
+  <div x-data="{ showAdd: {{ 'true' if error else 'false' }} }">
+    <button type="button" class="btn btn-ghost" @click="showAdd = !showAdd" style="margin-top: var(--space-3);">
+      <span x-text="showAdd ? '– Abbrechen' : '+ Neuer Standort'"></span>
+    </button>
+    <form class="settings-add-inline" method="post" action="/admin/locations/new" x-show="showAdd" x-cloak style="margin-top: var(--space-3);">
+      {% include "partials/csrf_field.html" %}
+      <div class="field">
+        <label for="loc-department">Abteilung</label>
+        <select id="loc-department" name="department_id" required>
+          {% for d in departments %}<option value="{{ d.id }}" {% if department and d.id == department.id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label for="loc-name">Name</label>
+        <input type="text" id="loc-name" name="name" placeholder="z.B. Regal A1" required>
+      </div>
+      <button type="submit" class="btn btn-primary">+ Anlegen</button>
+    </form>
+  </div>
 </section>
 
 {# ================= Zusatzfelder (pro Kategorie, nur Gegenstände) ================= #}
@@ -366,44 +392,49 @@
     {% endif %}
   </div>
 
-  <form class="settings-add-inline" method="post" action="/admin/custom-fields/new" x-data="{ fieldType: 'text' }">
-    {% include "partials/csrf_field.html" %}
-    <div class="field">
-      <label for="cf-category">Kategorie</label>
-      <select id="cf-category" name="category_id" required>
-        {% for d in ordered_departments %}
-          {% for c in categories | selectattr("department_id", "equalto", d.id) | list %}
-            <option value="{{ c.id }}">{{ d.name }} – {{ c.name }}</option>
+  <div x-data="{ showAdd: {{ 'true' if error else 'false' }} }">
+    <button type="button" class="btn btn-ghost" @click="showAdd = !showAdd" style="margin-top: var(--space-3);">
+      <span x-text="showAdd ? '– Abbrechen' : '+ Neues Zusatzfeld'"></span>
+    </button>
+    <form class="settings-add-inline" method="post" action="/admin/custom-fields/new" x-data="{ fieldType: 'text' }" x-show="showAdd" x-cloak style="margin-top: var(--space-3);">
+      {% include "partials/csrf_field.html" %}
+      <div class="field">
+        <label for="cf-category">Kategorie</label>
+        <select id="cf-category" name="category_id" required>
+          {% for d in ordered_departments %}
+            {% for c in categories | selectattr("department_id", "equalto", d.id) | list %}
+              <option value="{{ c.id }}">{{ d.name }} – {{ c.name }}</option>
+            {% endfor %}
           {% endfor %}
-        {% endfor %}
-      </select>
-      {% if not categories %}
-        <p style="font-size:0.75rem; color:var(--ink-soft); margin-top: var(--space-1);">Noch keine Kategorien - erst im Tab "Kategorien" anlegen.</p>
-      {% endif %}
-    </div>
-    <div class="field">
-      <label for="cf-name">Name</label>
-      <input type="text" id="cf-name" name="name" placeholder="z.B. MAC-Adresse" required>
-    </div>
-    <div class="field">
-      <label for="cf-type">Typ</label>
-      <select id="cf-type" name="field_type" x-model="fieldType">
-        <option value="text">Text</option>
-        <option value="number">Zahl</option>
-        <option value="date">Datum</option>
-        <option value="select">Auswahl</option>
-      </select>
-    </div>
-    <div class="field" x-show="fieldType === 'select'" x-cloak>
-      <label for="cf-options">Optionen (kommagetrennt)</label>
-      <input type="text" id="cf-options" name="options" placeholder="z.B. Ja, Nein, Unbekannt">
-    </div>
-    <div class="checkbox-field" style="margin-bottom: 0;">
-      <input type="checkbox" id="cf-visible" name="visible_to_all" value="true">
-      <label for="cf-visible">Für alle sichtbar (nicht nur Mitarbeiter)</label>
-    </div>
-    <button type="submit" class="btn btn-primary">+ Anlegen</button>
-  </form>
+        </select>
+        {% if not categories %}
+          <p style="font-size:0.75rem; color:var(--ink-soft); margin-top: var(--space-1);">Noch keine Kategorien - erst im Tab "Kategorien" anlegen.</p>
+        {% endif %}
+      </div>
+      <div class="field">
+        <label for="cf-name">Name</label>
+        <input type="text" id="cf-name" name="name" placeholder="z.B. MAC-Adresse" required>
+      </div>
+      <div class="field">
+        <label for="cf-type">Typ</label>
+        <select id="cf-type" name="field_type" x-model="fieldType">
+          <option value="text">Text</option>
+          <option value="number">Zahl</option>
+          <option value="date">Datum</option>
+          <option value="select">Auswahl</option>
+        </select>
+      </div>
+      <div class="field" x-show="fieldType === 'select'" x-cloak>
+        <label for="cf-options">Optionen (kommagetrennt)</label>
+        <input type="text" id="cf-options" name="options" placeholder="z.B. Ja, Nein, Unbekannt">
+      </div>
+      <div class="checkbox-field" style="margin-bottom: 0;">
+        <input type="checkbox" id="cf-visible" name="visible_to_all" value="true">
+        <label for="cf-visible">Für alle sichtbar (nicht nur Mitarbeiter)</label>
+      </div>
+      <button type="submit" class="btn btn-primary">+ Anlegen</button>
+    </form>
+  </div>
 </section>
 
 {# ================= E-Mail (SMTP-Konto für System-Mails) ================= #}

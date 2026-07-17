@@ -1245,6 +1245,31 @@ select {
   flex-shrink: 0;
 }
 
+/* Benutzer-Zeilen können viele Chips tragen (Abteilungsrolle PRO Abteilung,
+   plus Status/Warn-Chips) - alles in eine einzige Inline-Reihe gequetscht
+   (wie bei den einfacheren Zeilen sonst) wirkte gerade bei Leuten mit
+   mehreren Abteilungen wie ein Wort-Wirrwarr ohne erkennbare Hierarchie.
+   Name/Login zuerst als eigene Zeile, alle Chips/Tags klar abgesetzt
+   darunter. */
+.settings-row.user-row .main {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.user-identity {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.user-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
 .settings-row form { margin: 0; }
 
 .settings-group-label {
@@ -1364,15 +1389,24 @@ select {
   justify-self: start;
 }
 
+/* Neun Tabs in einer Zeile umbrechen bei fast jeder Fensterbreite auf 2-3
+   Reihen und wirken dann unruhig/unübersichtlich, statt einfach als
+   Orientierungsleiste zu dienen - horizontales Scrollen (statt Umbruch)
+   hält es auf EINER Zeile, exakt wie die Tab-Bar-Wischgeste, die man von
+   der App sonst (Bottom-Tab-Bar) schon kennt. */
 .settings-tabs {
   display: flex;
   gap: var(--space-1);
   border-bottom: 1px solid var(--line);
   margin-bottom: var(--space-6);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
 .settings-tabs a {
+  flex-shrink: 0;
   padding: var(--space-2) var(--space-4);
   font-family: var(--font-display);
   font-size: 0.8125rem;
