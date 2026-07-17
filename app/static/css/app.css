@@ -1265,6 +1265,52 @@ select {
   text-align: center;
 }
 
+/* Changelog-Tab: Fließtext-Listen statt der tabellenartigen .settings-row -
+   Änderungen sind Prosa, keine verwaltbaren Einzeldatensätze. */
+.changelog-entry {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  padding: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.changelog-entry-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.changelog-version {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.0625rem;
+}
+
+.changelog-category {
+  margin-top: var(--space-3);
+}
+.changelog-category:first-of-type { margin-top: 0; }
+
+.changelog-category ul {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-6);
+}
+
+.changelog-category li {
+  margin-bottom: var(--space-1);
+  color: var(--ink-soft);
+}
+
+.changelog-category code {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0.05em 0.35em;
+  font-size: 0.875em;
+}
+
 .settings-add-inline {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 220px));

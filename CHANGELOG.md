@@ -22,7 +22,7 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
   Papierkorb-Routen in `admin_settings.py` (jetzt inkl. Benutzer über
   dieselbe Konfiguration).
 - `purge_department` (app/core/trash.py) entschlackt: der dreifach
-  wiederholte Force/Block-Block für offene Ausleihen/Reservierungen/
+  wiederholte Force/Block-Block für offene Ausleihen, Reservierungen und
   Material-Vormerkungen ist jetzt ein einziger Helper (`_close_open_or_block`).
 - `migrations_legacy/migrate_core.py`: `migrate()` (vorher 341 Zeilen, eine
   Funktion) in acht benannte Teilschritte aufgeteilt (Abteilungen, Presets,
@@ -37,10 +37,10 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 ## [0.8.0] - 2026-07-16 – 2026-07-17
 
 ### Added
-- Abteilungen können kaskadierend gelöscht werden (Gegenstände/Material/
+- Abteilungen können kaskadierend gelöscht werden (Gegenstände, Material und
   Mitarbeiter werden mitgelöscht, Historie bleibt als Text-Schnappschuss
-  erhalten); Force-Löschen schließt offene Ausleihen/Reservierungen/
-  Vormerkungen dabei automatisch ab, statt den Vorgang zu blockieren.
+  erhalten); Force-Löschen schließt offene Ausleihen, Reservierungen und
+  Material-Vormerkungen dabei automatisch ab, statt den Vorgang zu blockieren.
 
 ### Changed
 - Mac-Style-Buttons, Hamburger-Navigation, klarere Detail-Karten.

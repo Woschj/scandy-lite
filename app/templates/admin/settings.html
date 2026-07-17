@@ -21,6 +21,7 @@
   <a href="#custom-fields" @click.prevent="tab = 'custom-fields'" :class="{active: tab === 'custom-fields'}">Zusatzfelder <span class="count">{{ custom_fields | length }}</span></a>
   <a href="#email" @click.prevent="tab = 'email'" :class="{active: tab === 'email'}">E-Mail</a>
   <a href="#trash" @click.prevent="tab = 'trash'" :class="{active: tab === 'trash'}">Papierkorb <span class="count">{{ (trash_items | length) + (trash_consumables | length) + (trash_users | length) }}</span></a>
+  <a href="#changelog" @click.prevent="tab = 'changelog'" :class="{active: tab === 'changelog'}">Changelog</a>
 </nav>
 
 {% if department %}
@@ -564,6 +565,37 @@
       </div>
     {% else %}
       <div class="settings-empty">Papierkorb für Benutzer ist leer.</div>
+    {% endfor %}
+  </div>
+</section>
+
+{# ================= Changelog ================= #}
+<section class="settings-section" x-show="tab === 'changelog'" x-cloak>
+  <h2>Changelog</h2>
+  <div class="changelog-list">
+    {% for release in changelog_releases %}
+      <div class="changelog-entry">
+        <div class="changelog-entry-head">
+          <span class="changelog-version">{{ release.version }}</span>
+          <span class="meta">{{ release.date }}</span>
+        </div>
+        {% for category, items in release.sections.items() %}
+          <div class="changelog-category">
+            {% if category == "Security" %}
+              <span class="chip chip-danger">{{ category }}</span>
+            {% elif category == "Added" %}
+              <span class="chip chip-success">{{ category }}</span>
+            {% else %}
+              <span class="chip chip-neutral">{{ category }}</span>
+            {% endif %}
+            <ul>
+              {% for item in items %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="settings-empty">Kein Changelog gefunden.</div>
     {% endfor %}
   </div>
 </section>

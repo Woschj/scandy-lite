@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.changelog import parse_changelog
 from app.core.crypto import encrypt_secret
 from app.core.database import get_session
 from app.core.deps import require_admin, populate_nav_context, verify_csrf
@@ -103,6 +104,7 @@ async def settings_page(
             "trash_consumables": trash_consumables,
             "trash_users": trash_users,
             "version": __version__,
+            "changelog_releases": parse_changelog(),
             "ok": ok,
             "error": error,
         },
