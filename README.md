@@ -236,28 +236,28 @@ nicht 1:1 übernommen werden!) in [`migrations_legacy/README.md`](migrations_leg
 
 ## Benutzer = Mitarbeiter
 
-Jeder Login bekommt beim Anlegen automatisch einen verknüpften Mitarbeiter-Ausweis
-(Barcode) - kein manuelles Verknüpfen mehr nötig. Wer sich einloggen kann, kann
-sich damit auch selbst etwas ausleihen/reservieren (passend zur Rolle, die er in
-der jeweiligen Abteilung hat).
+**Update:** Benutzer (Login) und Mitarbeiter (Ausweis/Barcode) waren ursprünglich
+zwei getrennte, verknüpfte Datensätze (`User` + `Worker`, siehe Bugfix-Eintrag
+unten) - das führte ständig zu Verwirrung beim Verknüpfen (Duplikat-Ausweise,
+fehlende Felder je nachdem ob schon verknüpft). Seitdem zu **einer** Entität
+zusammengeführt: `User` trägt Login-Felder (Benutzername/Passwort/Admin) UND
+Ausweis-Felder (Vorname/Nachname/Barcode/Heimat-Abteilung) direkt. Kein
+Verknüpfen mehr nötig, keinen separaten "Mitarbeiter"-Bereich mehr - alles läuft
+über *Einstellungen → Benutzer*. `hashed_password` bleibt `NULL` für reine
+Ausweis-Inhaber ohne Login (Barcode-Scan funktioniert weiterhin ohne Login).
 
-Ausnahme: der allererste Admin-Account (`scripts/seed_admin.py`, Bootstrap beim
-Deployment) bekommt keinen automatischen Ausweis, da das Skript keine
-Namens-/Barcode-Angaben abfragt. Bei Bedarf lässt sich das nachträglich manuell
-nachholen (*Mitarbeiter → Neu anlegen*, dann *Bearbeiten → Verknüpfter Login*)
-- diese manuelle Verknüpfung bleibt als Fallback erhalten, für genau solche
-  Altfälle und für Mitarbeiter-Datensätze, die schon vor einem Login bestanden.
-
-Deaktivieren/Löschen eines Logins wirkt sich auf den verknüpften Ausweis aus:
-deaktivieren deaktiviert auch den Ausweis, löschen löscht ihn mit (Soft-Delete -
-die Ausleih-Historie bleibt erhalten, der Barcode wird wieder frei).
+Löschen eines Benutzers ist jetzt ein **Soft-Delete** (landet im Papierkorb-Tab,
+wiederherstellbar oder von dort endgültig löschbar) - anders als früher beim
+reinen Login, weil jetzt direkt Ausleih-/Reservierungs-Historie am User hängt,
+die nicht zerreißen darf (siehe „Löschen vs. Deaktivieren" unten).
 
 Beim Anlegen kann direkt eine Zugriffsrolle (Nutzer/Mitarbeiter) für die
 Heimat-Abteilung mitgegeben werden - sonst sieht der neue Login trotz
 Abteilungsauswahl zunächst nichts (Heimat-Abteilung = nur der Ausweis, nicht
 automatisch Zugriff). Weitere Abteilungen/Rollen danach im Tab "Zugriff".
 Benutzer lassen sich außerdem nachträglich bearbeiten (Name, Passwort,
-Admin-Status) - *Einstellungen → Benutzer → Bearbeiten*.
+Admin-Status, Ausweis-Stammdaten) - *Einstellungen → Benutzer → Bearbeiten*,
+dort auch die letzten Ausleihen/Entnahmen dieses Benutzers auf einen Blick.
 
 ### Bugfix: Benutzer löschen schlug mit 500 fehl (Fremdschlüssel-Verletzung)
 
@@ -272,26 +272,37 @@ verwendet) Fremdschlüssel standardmäßig gar nicht prüft, anders als Postgres
 dieselbe Klasse Lücke wie beim Enum-Bug zuvor, jetzt mit `PRAGMA
 foreign_keys=ON` in den eigenen Tests behoben.
 
+*(Historischer Eintrag: `Worker` als eigenes Modell mit `fk_workers_user_id`
+gibt es seit der Vereinheitlichung oben nicht mehr - dieser konkrete
+Fremdschlüssel kann heute also nicht mehr auftreten. Der Eintrag bleibt als
+Beispiel dafür stehen, warum SQLite-Tests `PRAGMA foreign_keys=ON` brauchen.)*
+
 ## Löschen vs. Deaktivieren
 
-Benutzer lassen sich jetzt **echt löschen** (*Einstellungen → Benutzer*), nicht nur
-deaktivieren - unproblematisch, weil keine Ausleih-/Historien-Daten direkt an
-einem User hängen (die referenzieren Worker, nicht User; eine Worker-Verknüpfung
-wird beim Löschen sauber aufgelöst statt zu verwaisen).
+**Update:** Benutzer werden inzwischen **soft-gelöscht** (nicht mehr hart), weil
+jetzt Ausleih-/Reservierungs-Historie direkt am User hängt (siehe oben) - landen
+im Papierkorb-Tab (*Einstellungen → Papierkorb*), von dort wiederherstellbar
+oder endgültig löschbar (mit denselben Regeln wie Gegenstände/Verbrauchsmaterial
+unten).
 
-Gegenstände, Verbrauchsmaterial und Mitarbeiter bleiben bewusst beim **Soft-Delete**
+Gegenstände, Verbrauchsmaterial und Benutzer bleiben beim **Soft-Delete**
 (nur "entfernt"-Markierung) - sie hängen an Ausleih-/Reservierungs-Historie, ein
-echtes Löschen würde diese Historie zerreißen. Kategorien/Standorte sind unkritisch
-und lassen sich echt löschen.
+echtes Löschen würde diese Historie zerreißen. Endgültiges Löschen aus dem
+Papierkorb blockiert nur bei noch **offenen** Ausleihen/Reservierungen (aktive
+Vorgänge) - abgeschlossene Historie bleibt dabei immer als Text-Schnappschuss
+erhalten, nie gelöscht. Ein zusätzlicher "Trotzdem entfernen"-Button schließt
+offene Vorgänge bei Bedarf automatisch ab (z.B. zum Aufräumen von
+Testdaten/Fehleingaben), statt sie einzeln händisch suchen und zurückgeben/
+stornieren zu müssen. Kategorien/Standorte sind unkritisch und lassen sich
+direkt echt löschen.
 
-**Abteilungen** lassen sich jetzt ebenfalls echt löschen (*Einstellungen →
-Abteilungen*) - aber nur, wenn sie wirklich **komplett leer** sind (keine
-Gegenstände/Material/Mitarbeiter/Zugriffs-Zuweisungen/Kategorien/Standorte/
-Ausleihen/Reservierungen, auch keine soft-gelöschten - die zählen als "war mal
-was drin" mit). Ist noch was drin, zeigt die Fehlermeldung genau, was zuerst weg
-muss. Zum Aufräumen von Karteileichen/Duplikaten (z.B. aus einem Test-Import)
-reicht das in der Praxis meistens; für eine Abteilung mit echter Historie bleibt
-weiterhin nur Deaktivieren.
+**Abteilungen** lassen sich **kaskadierend** löschen (*Einstellungen →
+Abteilungen*): Gegenstände/Verbrauchsmaterial/Benutzer/Kategorien/Standorte/
+Zugriffs-Zuweisungen der Abteilung werden automatisch mitgelöscht (bzw. bei
+Benutzern/Gegenständen/Material ebenfalls über den Papierkorb-Mechanismus,
+Historie bleibt als Text erhalten). Blockiert wird nur bei noch **offenen**
+Ausleihen/Reservierungen/Material-Vormerkungen in der Abteilung - auch hier
+schließt "Trotzdem entfernen" diese bei Bedarf automatisch ab.
 
 ## Rollenmodell
 
@@ -433,14 +444,20 @@ Sicherheits-/Konsistenz-Check über alle bisherigen Phasen, gefundene und behobe
   der Liste, Entnahmen mit Zuordnung laufen bewusst nur noch über Quickscan.
 - **Login-Rate-Limit** ergänzt (einfaches In-Memory-Limit, 10 Fehlversuche/5 Min. pro IP) -
   vorher kein Schutz gegen Brute-Force.
-- **SECRET_KEY-Warnung:** Log-Warnung beim Start, falls in Produktion noch der
-  Default-Wert gesetzt ist.
+- **SECRET_KEY-Fail-Fast:** ~~Log-Warnung beim Start~~ - inzwischen verschärft: die
+  App startet in Produktion (`ENV=production`) gar nicht erst, wenn `SECRET_KEY`
+  noch der Default-Wert oder kürzer als 32 Zeichen ist (statt nur zu warnen und
+  mit einem unsicheren Schlüssel weiterzulaufen).
+- **CSRF-Schutz:** inzwischen vollständig ergänzt (siehe unten) - der darunter
+  stehende Absatz ist überholt und wird nur aus historischen Gründen nicht
+  gelöscht.
 
-**Bekannte, bewusst nicht behobene Lücke:** kein CSRF-Token auf den Formularen. Die
-Session-Cookies sind `SameSite=Lax`, was die gängigsten CSRF-Angriffe (cross-site POST)
-bereits abfängt - für ein internes Tool ohne Internet-Exposition ist das Restrisiko
-gering, aber nicht null. Vollständiger CSRF-Schutz (Token in jedem der ~20 Formulare)
-wäre ein separater, größerer Umbau und ist aktuell zurückgestellt.
+**~~Bekannte, bewusst nicht behobene Lücke~~ (überholt, siehe oben):** kein
+CSRF-Token auf den Formularen. Die Session-Cookies sind `SameSite=Lax`, was die
+gängigsten CSRF-Angriffe (cross-site POST) bereits abfängt - für ein internes
+Tool ohne Internet-Exposition ist das Restrisiko gering, aber nicht null.
+Vollständiger CSRF-Schutz (Token in jedem Formular, geprüft über
+`app.core.deps.verify_csrf`) wurde in einer späteren Runde ergänzt.
 
 ## Quickscan
 
@@ -507,11 +524,10 @@ Danach unter `/auth/login` anmelden.
 | Tabelle | Zweck |
 |---|---|
 | `departments` | Abteilungen — zentrale Mandantentrennung |
-| `users` | System-Logins (Admin/Mitarbeiter), vorbereitet für LDAP/SSO |
-| `workers` | Personen, die ausleihen (per Barcode-Ausweis, nicht zwingend ein System-Login) |
-| `tools` | Werkzeuge |
+| `users` | System-Logins UND Personen, die ausleihen, in einem - Login optional (`hashed_password` nullable), Ausweis-Felder (Name/Barcode/Heimat-Abteilung) direkt am User, vorbereitet für LDAP/SSO |
+| `items` | Gegenstände (hieß ursprünglich `tools`) |
 | `consumables` | Verbrauchsmaterial mit Bestand |
-| `lendings` | Werkzeug-Ausleihen (`returned_at IS NULL` = aktuell ausgeliehen) |
+| `lendings` | Gegenstand-Ausleihen (`returned_at IS NULL` = aktuell ausgeliehen) |
 | `consumable_usages` | Entnahme-Protokoll für Verbrauchsmaterial |
 
 ### LDAP/SSO-Vorbereitung
