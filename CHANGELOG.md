@@ -13,6 +13,25 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.10.0] - 2026-07-17
+
+### Added
+- Mitarbeiterausweis wieder eingeführt (`/me/ausweis` zur Selbstbedienung,
+  `/admin/users/{id}/ausweis` für Admins): eigener Barcode als QR-Code, in
+  einer Vollbild-Karte (kein Nav/Tabbar, "Ausweis drucken"-Button) - dieselbe
+  Ansicht dient sowohl der Handy-Vorzeige-Nutzung als auch dem Ausdrucken
+  (`@media print` blendet die Bedienelemente aus). QR statt klassischem
+  Strichcode, weil sich lineare Barcodes von einem beleuchteten Handy-Display
+  aus deutlich schlechter scannen lassen.
+
+### Changed
+- Einstellungen-Seite entschlackt: Tab-Leiste läuft jetzt in einer Zeile
+  (horizontal scrollbar mit Fade-Rand + Pfeil-Buttons statt sichtbarer
+  nativer Scrollbar), alle "Neu anlegen"-Formulare hinter einem "+ Neu"-
+  Button eingeklappt statt dauerhaft sichtbar, Benutzer-Zeilen zweizeilig
+  (Name/Login oben, Rollen-Chips klar abgesetzt darunter) statt einer
+  überladenen Inline-Reihe, redundante "Aktiv"-Chips (Normalzustand) entfernt.
+
 ## [0.9.0] - 2026-07-17
 
 ### Changed

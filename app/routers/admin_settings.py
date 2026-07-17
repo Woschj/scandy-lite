@@ -18,6 +18,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.core.badge import qr_data_uri
 from app.core.changelog import parse_changelog
 from app.core.crypto import encrypt_secret
 from app.core.database import get_session
@@ -202,6 +203,27 @@ async def toggle_user(
         session.add(target)
         await session.commit()
     return RedirectResponse(url="/admin/settings#users", status_code=303)
+
+
+@router.get("/users/{user_id}/ausweis")
+async def user_badge(
+    request: Request,
+    user_id: uuid.UUID,
+    user: User = Depends(require_admin),
+    session: AsyncSession = Depends(get_session),
+):
+    """Admin-Variante von app.routers.badge.my_badge - Ausweis eines
+    BELIEBIGEN Benutzers ansehen/drucken (z.B. um ihn direkt bei der
+    Einstellung des Zugangs mit auszudrucken), gleiches Template."""
+    result = await session.exec(select(User).where(User.id == user_id).options(selectinload(User.department)))
+    target = result.first()
+    if not target or target.deleted_at is not None:
+        return RedirectResponse(url="/admin/settings#users", status_code=303)
+    qr = qr_data_uri(target.barcode) if target.barcode else None
+    return templates.TemplateResponse(
+        request, "badge.html",
+        {"user": user, "target": target, "qr": qr, "back_url": "/admin/settings#users"},
+    )
 
 
 @router.get("/users/{user_id}/edit")

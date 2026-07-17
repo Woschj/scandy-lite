@@ -23,6 +23,9 @@
     {% if user and has_any_staff_role %}
       <a href="/history" class="{% if request.url.path.startswith('/history') %}active{% endif %}">Historie</a>
     {% endif %}
+    {% if user %}
+      <a href="/me/ausweis" class="{% if request.url.path == '/me/ausweis' %}active{% endif %}">🪪 Mein Ausweis</a>
+    {% endif %}
     {% if user and user.is_admin %}
       <a href="/admin/settings" class="{% if request.url.path.startswith('/admin') %}active{% endif %}">Einstellungen</a>
     {% endif %}

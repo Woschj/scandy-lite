@@ -1693,6 +1693,102 @@ select {
 }
 
 /* -------------------------------------------------------------------------
+   Mitarbeiterausweis (app/templates/badge.html) - Vollbild-Vorzeigekarte
+   auf dem Handy UND druckbare Karte über dieselbe Ansicht (@media print
+   unten), statt zwei getrennte Templates zu pflegen.
+   ------------------------------------------------------------------------- */
+.badge-screen {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-6);
+  padding: var(--space-6);
+}
+
+.badge-close {
+  position: fixed;
+  top: var(--space-4);
+  right: var(--space-4);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: 1.25rem;
+  line-height: 1;
+  text-decoration: none;
+}
+.badge-close:hover { color: var(--ink); border-color: var(--line-strong); }
+
+.badge-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  padding: var(--space-8) var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-1);
+}
+
+.badge-qr {
+  width: 100%;
+  max-width: 240px;
+  height: auto;
+  margin: var(--space-4) 0;
+  /* qrcode liefert harte Blockkanten - Browser-Glättung beim Hochskalieren
+     würde die wieder verwaschen (schlechter für die Scan-Erkennung als
+     scharfe Kanten). */
+  image-rendering: pixelated;
+}
+
+.badge-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.25rem;
+  margin-top: var(--space-2);
+}
+
+.badge-meta {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+}
+
+.badge-barcode {
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  margin-top: var(--space-2);
+}
+
+@media print {
+  @page { margin: 1.5cm; }
+  /* Nur die Karte drucken - Schließen-/Drucken-Button sind reine
+     Bildschirm-Bedienelemente, .no-print ist absichtlich generisch benannt
+     (nicht .badge-*), falls andere Seiten später denselben Druck-Ausschluss
+     brauchen. */
+  .no-print { display: none !important; }
+  .badge-screen {
+    min-height: 0;
+    padding: 0;
+  }
+  .badge-card {
+    box-shadow: none;
+  }
+}
+
+/* -------------------------------------------------------------------------
    Aufklappbare Gruppen (Admin-Reservierungsübersicht) - natives <details>,
    eigener Pfeil statt Browser-Standard-Dreieck
    ------------------------------------------------------------------------- */

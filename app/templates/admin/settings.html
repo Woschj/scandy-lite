@@ -129,6 +129,7 @@
         </div>
         <div class="actions">
           <a href="/admin/users/{{ u.id }}/edit" class="link-btn">Bearbeiten</a>
+          <a href="/admin/users/{{ u.id }}/ausweis" class="link-btn">Ausweis</a>
           {% if u.id != user.id %}
             <form method="post" action="/admin/users/{{ u.id }}/toggle">
               {% include "partials/csrf_field.html" %}

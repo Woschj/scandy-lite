@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{% if target.id == user.id %}Mein Ausweis{% else %}Ausweis: {{ target.full_name }}{% endif %} — Scandy-Lite{% endblock %}
+
+{# Überschreibt body KOMPLETT statt nur content - bewusst OHNE Topnav/Tabbar
+   (siehe base.html), damit die Karte auf dem Handy quasi den ganzen
+   Bildschirm einnimmt (Vollbild-Gefühl zur Vorzeige-Nutzung) statt zwischen
+   Navigationsleisten eingequetscht zu sein. Zurück kommt man über den
+   Schließen-Button, nicht über die sonstige Navigation. #}
+{% block body %}
+<div class="badge-screen">
+  <a href="{{ back_url }}" class="badge-close no-print" aria-label="Schließen">✕</a>
+
+  <div class="badge-card">
+    <span class="eyebrow">Mitarbeiterausweis</span>
+    {% if qr %}
+      <img class="badge-qr" src="{{ qr }}" alt="QR-Code {{ target.barcode }}">
+      <div class="badge-name">{{ target.full_name }}</div>
+      {% if target.department %}<div class="badge-meta">{{ target.department.name }}</div>{% endif %}
+      <div class="badge-barcode">{{ target.barcode }}</div>
+    {% else %}
+      <p style="margin-top: var(--space-3);">
+        {% if target.id == user.id %}
+          Für dein Konto ist noch kein Ausweis-Barcode hinterlegt.
+        {% else %}
+          Für {{ target.full_name }} ist noch kein Ausweis-Barcode hinterlegt.
+        {% endif %}
+        {% if user.is_admin %}
+          Unter Einstellungen → Benutzer → Bearbeiten nachtragen.
+        {% else %}
+          Bitte bei einem Admin nachfragen.
+        {% endif %}
+      </p>
+    {% endif %}
+  </div>
+
+  {% if qr %}
+    <button type="button" class="btn btn-primary no-print" onclick="window.print()">Ausweis drucken</button>
+  {% endif %}
+</div>
+{% endblock %}

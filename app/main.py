@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import get_settings
 from app.core.deps import Forbidden, RedirectToLogin
 from app.core.templating import templates
-from app.routers import admin_import, admin_settings, auth, consumables, history, items, pages, pickup, reservations, scan
+from app.routers import admin_import, admin_settings, auth, badge, consumables, history, items, pages, pickup, reservations, scan
 
 settings = get_settings()
 logger = logging.getLogger("scandy-lite")
@@ -85,6 +85,7 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads
 
 app.include_router(auth.router)
 app.include_router(pages.router)
+app.include_router(badge.router)
 app.include_router(scan.router)
 app.include_router(pickup.router)
 app.include_router(reservations.router)
