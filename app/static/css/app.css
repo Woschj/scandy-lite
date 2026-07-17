@@ -1392,18 +1392,64 @@ select {
 /* Neun Tabs in einer Zeile umbrechen bei fast jeder Fensterbreite auf 2-3
    Reihen und wirken dann unruhig/unübersichtlich, statt einfach als
    Orientierungsleiste zu dienen - horizontales Scrollen (statt Umbruch)
-   hält es auf EINER Zeile, exakt wie die Tab-Bar-Wischgeste, die man von
-   der App sonst (Bottom-Tab-Bar) schon kennt. */
+   hält es auf EINER Zeile. Eine sichtbare native Scrollbar direkt unter der
+   Tab-Reihe sah dabei selbst unschön/unfertig aus - stattdessen: Scrollbar
+   ausgeblendet, ein weicher Fade-Rand zeigt an, wohin noch gescrollt werden
+   kann (siehe .fade-left/.fade-right, per Alpine reaktiv), plus kleine
+   Pfeil-Buttons für Maus-Nutzer ohne Trackpad/Touch-Wischgeste - beide
+   nur sichtbar, wenn in die jeweilige Richtung tatsächlich noch etwas kommt. */
+.settings-tabs-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-6);
+}
+
 .settings-tabs {
   display: flex;
   gap: var(--space-1);
   border-bottom: 1px solid var(--line);
-  margin-bottom: var(--space-6);
+  flex: 1;
+  min-width: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
+.settings-tabs::-webkit-scrollbar { display: none; }
+
+.settings-tabs.fade-left {
+  mask-image: linear-gradient(to right, transparent 0, black 28px);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 28px);
+}
+.settings-tabs.fade-right {
+  mask-image: linear-gradient(to left, transparent 0, black 28px);
+  -webkit-mask-image: linear-gradient(to left, transparent 0, black 28px);
+}
+.settings-tabs.fade-left.fade-right {
+  mask-image: linear-gradient(to right, transparent 0, black 28px, black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, black 28px, black calc(100% - 28px), transparent 100%);
+}
+
+.settings-tabs-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-bottom: var(--space-1);
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--ink-soft);
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.settings-tabs-nav:hover { color: var(--ink); border-color: var(--line-strong); }
 
 .settings-tabs a {
   flex-shrink: 0;

@@ -12,17 +12,33 @@
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
-<nav class="settings-tabs">
-  <a href="#departments" @click.prevent="tab = 'departments'" :class="{active: tab === 'departments'}">Abteilungen <span class="count">{{ departments | length }}</span></a>
-  <a href="#users" @click.prevent="tab = 'users'" :class="{active: tab === 'users'}">Benutzer <span class="count">{{ users | length }}</span></a>
-  <a href="#access" @click.prevent="tab = 'access'" :class="{active: tab === 'access'}">Zugriff</a>
-  <a href="#categories" @click.prevent="tab = 'categories'" :class="{active: tab === 'categories'}">Kategorien <span class="count">{{ categories | length }}</span></a>
-  <a href="#locations" @click.prevent="tab = 'locations'" :class="{active: tab === 'locations'}">Standorte <span class="count">{{ locations | length }}</span></a>
-  <a href="#custom-fields" @click.prevent="tab = 'custom-fields'" :class="{active: tab === 'custom-fields'}">Zusatzfelder <span class="count">{{ custom_fields | length }}</span></a>
-  <a href="#email" @click.prevent="tab = 'email'" :class="{active: tab === 'email'}">E-Mail</a>
-  <a href="#trash" @click.prevent="tab = 'trash'" :class="{active: tab === 'trash'}">Papierkorb <span class="count">{{ (trash_items | length) + (trash_consumables | length) + (trash_users | length) }}</span></a>
-  <a href="#changelog" @click.prevent="tab = 'changelog'" :class="{active: tab === 'changelog'}">Changelog</a>
-</nav>
+<div
+  class="settings-tabs-wrap"
+  x-data="{
+    fadeLeft: false, fadeRight: false,
+    check() {
+      const el = $refs.tabs;
+      this.fadeLeft = el.scrollLeft > 2;
+      this.fadeRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
+    },
+    scrollTabs(delta) { $refs.tabs.scrollBy({ left: delta, behavior: 'smooth' }); },
+  }"
+  x-init="check(); $nextTick(() => { $refs.tabs.querySelector('.active')?.scrollIntoView({ inline: 'center', block: 'nearest' }); check(); })"
+>
+  <button type="button" class="settings-tabs-nav" x-show="fadeLeft" x-cloak @click="scrollTabs(-160)" aria-label="Tabs nach links scrollen">‹</button>
+  <nav class="settings-tabs" x-ref="tabs" @scroll="check()" @resize.window="check()" :class="{ 'fade-left': fadeLeft, 'fade-right': fadeRight }">
+    <a href="#departments" @click.prevent="tab = 'departments'" :class="{active: tab === 'departments'}">Abteilungen <span class="count">{{ departments | length }}</span></a>
+    <a href="#users" @click.prevent="tab = 'users'" :class="{active: tab === 'users'}">Benutzer <span class="count">{{ users | length }}</span></a>
+    <a href="#access" @click.prevent="tab = 'access'" :class="{active: tab === 'access'}">Zugriff</a>
+    <a href="#categories" @click.prevent="tab = 'categories'" :class="{active: tab === 'categories'}">Kategorien <span class="count">{{ categories | length }}</span></a>
+    <a href="#locations" @click.prevent="tab = 'locations'" :class="{active: tab === 'locations'}">Standorte <span class="count">{{ locations | length }}</span></a>
+    <a href="#custom-fields" @click.prevent="tab = 'custom-fields'" :class="{active: tab === 'custom-fields'}">Zusatzfelder <span class="count">{{ custom_fields | length }}</span></a>
+    <a href="#email" @click.prevent="tab = 'email'" :class="{active: tab === 'email'}">E-Mail</a>
+    <a href="#trash" @click.prevent="tab = 'trash'" :class="{active: tab === 'trash'}">Papierkorb <span class="count">{{ (trash_items | length) + (trash_consumables | length) + (trash_users | length) }}</span></a>
+    <a href="#changelog" @click.prevent="tab = 'changelog'" :class="{active: tab === 'changelog'}">Changelog</a>
+  </nav>
+  <button type="button" class="settings-tabs-nav" x-show="fadeRight" x-cloak @click="scrollTabs(160)" aria-label="Tabs nach rechts scrollen">›</button>
+</div>
 
 {% if department %}
   {% set ordered_departments = [department] + (departments | rejectattr("id", "equalto", department.id) | list) %}
