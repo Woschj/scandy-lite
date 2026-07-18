@@ -11,6 +11,7 @@ import hmac
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
+from fastapi import Response
 from jose import JWTError, jwt
 
 from app.core.config import get_settings
@@ -41,6 +42,20 @@ def create_access_token(*, subject: str, extra_claims: dict | None = None) -> st
     if extra_claims:
         payload.update(extra_claims)
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+
+def set_session_cookie(response: Response, token: str) -> None:
+    """Gemeinsam für lokalen Login (app.routers.auth) und SSO-Login
+    (app.routers.oidc) - der Session-Mechanismus selbst ist bewusst
+    auth-source-unabhängig, siehe app.core.deps.get_current_user."""
+    response.set_cookie(
+        key=settings.SESSION_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=settings.SESSION_COOKIE_SECURE,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
 
 
 def decode_access_token(token: str) -> dict | None:

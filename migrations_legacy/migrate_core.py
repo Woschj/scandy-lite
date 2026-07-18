@@ -20,7 +20,7 @@ from collections import defaultdict
 from sqlmodel import Session, select
 
 from app.core.security import hash_password
-from app.models.common import ItemStatus
+from app.models.common import ItemStatus, utcnow
 from app.models.consumable import Consumable, ConsumableUsage
 from app.models.department import Department
 from app.models.item import Item
@@ -129,7 +129,7 @@ def _migrate_users(
         temp_password = generate_temp_password()
         kwargs = build_user_kwargs(user_doc, hash_password(temp_password) if apply else "")
         if apply:
-            user = User(**kwargs)
+            user = User(**kwargs, approved_at=utcnow())  # importiertes Konto = implizit freigeschaltet
             session.add(user)
             session.flush()
             user_id_by_username[username] = user.id
@@ -198,6 +198,7 @@ def _migrate_workers(
                     username=f"mitarbeiter-{kwargs['barcode']}".lower(),
                     is_admin=False,
                     hashed_password=None,
+                    approved_at=utcnow(),  # importiertes Konto = implizit freigeschaltet
                     **kwargs,
                 )
                 session.add(worker_user)

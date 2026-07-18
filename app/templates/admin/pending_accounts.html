@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Ausstehende Konten — Scandy-Lite{% endblock %}
+
+{% block content %}
+<span class="eyebrow">Admin</span>
+<h1>Ausstehende Konten</h1>
+<p class="settings-hint">
+  Konten, die sich per SSO zum ersten Mal angemeldet haben, warten hier auf
+  Freischaltung - vorher können sie sich nicht einloggen. Freischalten
+  braucht eine Abteilung (sonst könnte die Person nirgends etwas sehen),
+  optional gleich mit einer Rolle dort.
+</p>
+
+{% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
+{% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
+
+<div class="settings-list">
+  {% for p in pending %}
+    <div class="settings-row" style="flex-direction: column; align-items: stretch; gap: var(--space-3);">
+      <div class="main">
+        <span class="name">{{ p.full_name }}</span>
+        <span class="meta">@{{ p.username }}{% if p.email %} · {{ p.email }}{% endif %}</span>
+        <span class="chip chip-neutral">{{ p.auth_source.value }}</span>
+        <span class="meta">seit {{ p.created_at.strftime("%d.%m.%Y %H:%M") }}</span>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap: var(--space-3); align-items:center;">
+        <form method="post" action="/admin/pending-accounts/{{ p.id }}/approve" style="display:flex; flex-wrap:wrap; gap: var(--space-2); align-items:center; margin:0;">
+          {% include "partials/csrf_field.html" %}
+          <select name="department_id" required style="min-height:40px;">
+            <option value="" disabled selected>Abteilung wählen</option>
+            {% for d in departments %}<option value="{{ d.id }}">{{ d.name }}</option>{% endfor %}
+          </select>
+          <select name="initial_role" style="min-height:40px;">
+            <option value="nutzer" selected>Nutzer (ansehen + reservieren)</option>
+            <option value="mitarbeiter">Mitarbeiter (verwalten + ausgeben)</option>
+            <option value="">Keine Rolle</option>
+          </select>
+          <button type="submit" class="btn btn-primary">Freischalten</button>
+        </form>
+        <form method="post" action="/admin/pending-accounts/{{ p.id }}/reject" onsubmit="return confirm('{{ p.username }} wirklich ablehnen und entfernen? Das Konto wird dabei endgültig gelöscht.')" style="margin:0;">
+          {% include "partials/csrf_field.html" %}
+          <button type="submit" class="link-btn danger">Ablehnen</button>
+        </form>
+      </div>
+    </div>
+  {% else %}
+    <div class="settings-empty">Keine ausstehenden Konten.</div>
+  {% endfor %}
+</div>
+
+<p style="margin-top: var(--space-4);"><a href="/admin/settings" class="link-btn">← Zu den Einstellungen</a></p>
+{% endblock %}

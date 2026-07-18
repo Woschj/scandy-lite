@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Konto wartet auf Freischaltung — Scandy-Lite{% endblock %}
+
+{# Eigenes body-Layout wie login.html, bewusst OHNE Nav/Tabbar - diese
+   Person hat noch KEIN Session-Cookie (approved_at ist NULL, der Callback
+   stellt deshalb keins aus), die normale Nav würde ohnehin nur zu weiteren
+   "bitte anmelden"-Umleitungen führen. #}
+{% block body %}
+<div class="auth-screen">
+  <div class="auth-panel">
+    <div class="tag-card">
+      <span class="eyebrow">Scandy // Lite — Zugang</span>
+      <h1>Fast geschafft</h1>
+      <p>
+        Dein Konto <strong>{{ pending_user.full_name }}</strong> wurde angelegt,
+        wartet aber noch auf Freischaltung durch eine Administratorin oder
+        einen Administrator. Das kann kurz dauern - versuch es danach einfach
+        erneut.
+      </p>
+      <a href="/auth/login" class="btn btn-ghost btn-block">Zurück zur Anmeldung</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

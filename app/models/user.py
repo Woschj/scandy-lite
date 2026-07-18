@@ -28,6 +28,7 @@ Name/Barcode als Text-Schnappschuss in der Historie erhält, bevor die FK auf
 NULL gesetzt wird.
 """
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship
@@ -57,6 +58,14 @@ class User(TimestampMixin, SoftDeleteMixin, table=True):
     external_id: str | None = Field(default=None, index=True, unique=True)
 
     is_active: bool = Field(default=True)
+
+    # NULL = wartet auf Freischaltung durch einen Admin (aktuell nur für per
+    # SSO/OIDC neu angelegte Konten relevant, siehe app/routers/oidc.py -
+    # lokal/per Admin angelegte User werden mit approved_at=utcnow() erzeugt,
+    # sind also nie "ausstehend"). Getrennt von is_active, weil is_active
+    # auch für "war schon freigeschaltet, wurde aber später deaktiviert"
+    # steht - beides in einem Feld würde diese zwei Zustände vermischen.
+    approved_at: datetime | None = Field(default=None)
 
     # Ausweis-Felder (frueher Worker) - alle optional, da nicht jeder Login
     # (z.B. ein reiner Admin-Systemzugang) auch ein Ausweisinhaber ist.

@@ -29,6 +29,13 @@ async def dashboard(
 ):
     visible_ids = await get_visible_department_ids(session, user)  # None = Admin (alles)
 
+    # Nur für Admins relevant (nur sie können freischalten) - für alle
+    # anderen keine zusätzliche Abfrage.
+    pending_accounts_count = 0
+    if user.is_admin:
+        pending_stmt = select(func.count()).select_from(User).where(User.approved_at.is_(None), User.deleted_at.is_(None))
+        pending_accounts_count = (await session.exec(pending_stmt)).one()
+
     item_stmt = select(func.count()).select_from(Item).where(Item.deleted_at.is_(None))
     consumable_stmt = select(func.count()).select_from(Consumable).where(Consumable.deleted_at.is_(None))
     # Nur User mit Barcode zaehlen als "Mitarbeiter" (Ausweis-Traeger) - ein
@@ -71,6 +78,7 @@ async def dashboard(
         "dashboard.html",
         {
             "user": user,
+            "pending_accounts_count": pending_accounts_count,
             "item_count": item_count,
             "consumable_count": consumable_count,
             "worker_count": worker_count,

@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     # Erst auf true setzen, wenn ein Reverse-Proxy TLS terminiert.
     SESSION_COOKIE_SECURE: bool = False
 
+    # SSO (optional, via OpenID Connect - z.B. Authentik). Leer = Feature aus,
+    # die Login-Seite zeigt dann nur das lokale Formular. Erster Login legt
+    # automatisch ein Konto an, aber GESPERRT (approved_at NULL) - ein Admin
+    # muss es erst freischalten (Abteilung + Rolle festlegen), siehe
+    # app/routers/oidc.py und app/routers/admin_settings.py (pending_accounts).
+    OIDC_ISSUER: str = ""
+    OIDC_CLIENT_ID: str = ""
+    OIDC_CLIENT_SECRET: str = ""
+    OIDC_PROVIDER_NAME: str = "SSO"  # Beschriftung des Login-Buttons, z.B. "Authentik"
+
     # Multi-Abteilung
     DEFAULT_DEPARTMENT_CODE: str = "default"
 
@@ -48,6 +58,10 @@ class Settings(BaseSettings):
     UPLOADS_DIR: str = "uploads"
     MAX_UPLOAD_BYTES: int = 8 * 1024 * 1024  # 8 MB - vor der Pillow-Verarbeitung
     IMAGE_MAX_DIMENSION: int = 900  # px, längere Kante - hält Dateien klein & Karten einheitlich
+
+    @property
+    def oidc_enabled(self) -> bool:
+        return bool(self.OIDC_ISSUER and self.OIDC_CLIENT_ID and self.OIDC_CLIENT_SECRET)
 
     @model_validator(mode="after")
     def _require_real_secret_key_in_production(self) -> "Settings":

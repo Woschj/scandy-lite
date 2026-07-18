@@ -17,7 +17,7 @@ from app.core.database import get_session
 from app.core.deps import verify_csrf
 from app.core.email import send_email
 from app.core.password_reset import create_reset_token, invalidate_all_tokens_for_user, resolve_reset_token
-from app.core.security import create_access_token, hash_password, verify_password
+from app.core.security import create_access_token, hash_password, set_session_cookie, verify_password
 from app.core.templating import templates
 from app.models.common import AuthSource
 from app.models.user import User
@@ -66,9 +66,13 @@ def _register_reset_request(ip: str) -> None:
 
 
 @router.get("/login")
-async def login_page(request: Request, ok: str = ""):
+async def login_page(request: Request, ok: str = "", error: str = ""):
     return templates.TemplateResponse(
-        request, "auth/login.html", {"error": None, "ok": ok or None}
+        request, "auth/login.html",
+        {
+            "error": error or None, "ok": ok or None,
+            "oidc_enabled": settings.oidc_enabled, "oidc_provider_name": settings.OIDC_PROVIDER_NAME,
+        },
     )
 
 
@@ -84,7 +88,10 @@ async def login_submit(
         return templates.TemplateResponse(
             request,
             "auth/login.html",
-            {"error": "Zu viele Fehlversuche. Bitte in ein paar Minuten erneut versuchen."},
+            {
+                "error": "Zu viele Fehlversuche. Bitte in ein paar Minuten erneut versuchen.",
+                "oidc_enabled": settings.oidc_enabled, "oidc_provider_name": settings.OIDC_PROVIDER_NAME,
+            },
             status_code=429,
         )
 
@@ -103,7 +110,10 @@ async def login_submit(
         return templates.TemplateResponse(
             request,
             "auth/login.html",
-            {"error": "Benutzername oder Passwort ist falsch."},
+            {
+                "error": "Benutzername oder Passwort ist falsch.",
+                "oidc_enabled": settings.oidc_enabled, "oidc_provider_name": settings.OIDC_PROVIDER_NAME,
+            },
             status_code=401,
         )
 
@@ -113,14 +123,7 @@ async def login_submit(
     )
 
     response = RedirectResponse(url="/", status_code=303)
-    response.set_cookie(
-        key=settings.SESSION_COOKIE_NAME,
-        value=token,
-        httponly=True,
-        samesite="lax",
-        secure=settings.SESSION_COOKIE_SECURE,
-        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
+    set_session_cookie(response, token)
     return response
 
 

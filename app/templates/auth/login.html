@@ -34,6 +34,15 @@
       <p style="margin-top: var(--space-3); text-align:center;">
         <a href="/auth/forgot-password" class="link-btn">Passwort vergessen?</a>
       </p>
+
+      {% if oidc_enabled %}
+        <div style="display:flex; align-items:center; gap: var(--space-3); margin: var(--space-4) 0; color: var(--ink-soft); font-size: 0.8125rem;">
+          <div style="flex:1; height:1px; background: var(--line);"></div>
+          oder
+          <div style="flex:1; height:1px; background: var(--line);"></div>
+        </div>
+        <a href="/auth/oidc/login" class="btn btn-ghost btn-block">Mit {{ oidc_provider_name }} anmelden</a>
+      {% endif %}
     </div>
   </div>
 </div>

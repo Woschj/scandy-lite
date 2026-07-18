@@ -2,4 +2,4 @@
 die Versionsgeschichte. Bewusst kein Feld auf Settings (app/core/config.py):
 die Version ist Teil des Codes, kein per Umgebungsvariable änderbarer
 Deployment-Parameter."""
-__version__ = "0.11.0"
+__version__ = "0.12.0"

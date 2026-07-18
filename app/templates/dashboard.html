@@ -4,6 +4,21 @@
 {% block content %}
 <h1>Übersicht</h1>
 
+{% if pending_accounts_count > 0 %}
+  <div class="tag-card" style="margin-bottom: var(--space-6); border-color: var(--accent);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap: var(--space-3); flex-wrap:wrap;">
+      <div>
+        <span class="chip chip-neutral" style="margin-bottom: var(--space-1);">Aktion nötig</span>
+        <p style="margin:0;">
+          {{ pending_accounts_count }} {{ "Konto wartet" if pending_accounts_count == 1 else "Konten warten" }}
+          auf Freischaltung.
+        </p>
+      </div>
+      <a href="/admin/pending-accounts" class="btn btn-primary">Jetzt prüfen</a>
+    </div>
+  </div>
+{% endif %}
+
 <div class="stat-grid">
   <div class="stat-card">
     <div class="value">{{ item_count }}</div>

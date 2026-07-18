@@ -22,7 +22,7 @@ from app.core import database as db_module
 from app.core.config import get_settings
 from app.core.security import generate_csrf_token, hash_password
 from app.main import app
-from app.models.common import UserRole
+from app.models.common import UserRole, utcnow
 from app.models.department import Department
 from app.models.user import User
 from app.models.user_department_role import UserDepartmentRole
@@ -82,6 +82,7 @@ async def seed_data(session_maker):
         staff_user = User(
             username=STAFF_USERNAME, is_admin=False, hashed_password=hash_password(STAFF_PASSWORD),
             barcode="W-STAFF", first_name="Staff", last_name="Worker", department_id=department.id,
+            approved_at=utcnow(),  # Test-Fixture bildet ein lokal angelegtes Konto nach - nie "ausstehend"
         )
         session.add(staff_user)
         await session.commit()

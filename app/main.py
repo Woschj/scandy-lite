@@ -14,11 +14,12 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import get_settings
 from app.core.deps import Forbidden, RedirectToLogin
 from app.core.templating import templates
-from app.routers import admin_import, admin_settings, auth, badge, consumables, history, items, pages, pickup, reservations, scan
+from app.routers import admin_import, admin_settings, auth, badge, consumables, history, items, oidc, pages, pickup, reservations, scan
 
 settings = get_settings()
 logger = logging.getLogger("scandy-lite")
@@ -75,6 +76,20 @@ async def trust_forwarded_for_from_caddy(request: Request, call_next):
     return await call_next(request)
 
 
+if settings.oidc_enabled:
+    # Nur fuer den kurzlebigen state/nonce WAEHREND des OIDC-Handshakes
+    # (app/routers/oidc.py) - eigener, von unserem eigentlichen Session-
+    # Cookie (SESSION_COOKIE_NAME) getrennter, signierter Cookie. Nicht
+    # registriert, wenn SSO gar nicht konfiguriert ist (kein unnoetiger
+    # Cookie fuer Installationen ohne dieses Feature).
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=settings.SECRET_KEY,
+        session_cookie="scandy_oidc_state",
+        https_only=settings.SESSION_COOKIE_SECURE,
+        same_site="lax",
+    )
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Eigener Mount für Uploads (Bilder) - bewusst getrennt von /static, weil
@@ -84,6 +99,7 @@ os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads")
 
 app.include_router(auth.router)
+app.include_router(oidc.router)
 app.include_router(pages.router)
 app.include_router(badge.router)
 app.include_router(scan.router)

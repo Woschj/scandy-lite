@@ -117,7 +117,11 @@
             {% if not u.barcode %}<span class="chip chip-danger">Kein Ausweis</span>{% endif %}
             {% if u.is_admin %}<span class="chip chip-success">Admin</span>{% endif %}
             {% if u.auth_source.value != "local" %}<span class="chip chip-neutral">{{ u.auth_source.value }}</span>{% endif %}
-            {% if not u.is_active %}<span class="chip chip-neutral">Inaktiv</span>{% endif %}
+            {% if not u.approved_at %}
+              <span class="chip chip-danger">Wartet auf Freischaltung</span>
+            {% elif not u.is_active %}
+              <span class="chip chip-neutral">Inaktiv</span>
+            {% endif %}
             {% if not u.is_admin %}
               {% for entry in access_by_user.get(u.id, []) %}
                 <span class="chip chip-neutral">{{ entry.department.name if entry.department else "?" }}: {{ entry.role.value }}</span>

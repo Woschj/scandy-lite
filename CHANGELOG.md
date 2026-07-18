@@ -13,6 +13,19 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.12.0] - 2026-07-18
+
+### Added
+- Optionales SSO-Login via OpenID Connect (z.B. gegen einen selbst gehosteten
+  Authentik-Server) - leer lassen (`OIDC_ISSUER`/`OIDC_CLIENT_ID`/
+  `OIDC_CLIENT_SECRET`) schaltet das Feature komplett aus, die Login-Seite
+  zeigt dann nur das lokale Formular. Erster Login einer bislang unbekannten
+  Person legt automatisch ein Konto an, aber GESPERRT (`approved_at` NULL) -
+  ein Admin muss es erst freischalten und dabei Abteilung + Rolle festlegen.
+  Neue Seite "Ausstehende Konten" (`/admin/pending-accounts`) dafür, mit
+  Hinweis-Banner auf der Übersicht, sobald Konten warten. Nutzt `Authlib`
+  (neue Abhängigkeit) statt eigener Token-/JWKS-Verifikation.
+
 ## [0.11.0] - 2026-07-18
 
 ### Added

@@ -24,7 +24,7 @@ pymongo==4.9.2
 pydantic-settings==2.7.0
 python-dotenv==1.0.1
 
-# Auth (lokal, Phase 1 - LDAP/SSO folgt später als eigenes Modul)
+# Auth (lokal + optional SSO via OpenID Connect, siehe app/core/oidc.py)
 bcrypt==4.2.1
 python-jose[cryptography]==3.3.0
 # Explizit deklariert statt nur transitiv über python-jose[cryptography] zu
@@ -32,6 +32,15 @@ python-jose[cryptography]==3.3.0
 # Passwort-Verschlüsselung für EmailSettings), das darf nicht stillschweigend
 # wegfallen, falls sich die jose-Extras mal ändern.
 cryptography==43.0.3
+# OIDC-Client fuer optionales SSO-Login (z.B. Authentik) - bewusst eine
+# etablierte Bibliothek statt eigener Token-/JWKS-Verifikation: Fehler dabei
+# (Signatur/aud/iss/exp nicht korrekt geprueft) sind genau die Art
+# sicherheitskritischer Bugs, die man sich nicht selbst bauen sollte.
+Authlib==1.3.2
+# Von Authlibs Starlette-Integration fuer den kurzlebigen state/nonce
+# waehrend des OIDC-Handshakes gebraucht (eigener, von der normalen
+# Session getrennter signierter Cookie, siehe app/main.py).
+itsdangerous==2.2.0
 
 # Formulare (HTMX/Alpine senden teils form-encoded)
 
