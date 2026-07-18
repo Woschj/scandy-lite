@@ -149,6 +149,12 @@
     </script>
   </div>
 
+{% elif kind == "worker_no_reservations" %}
+  <div class="tag-card form-card">
+    <p><strong>{{ worker.full_name }}</strong> hat aktuell keine offenen Reservierungen zum Abholen.</p>
+    <p class="settings-hint" style="margin-top: var(--space-1);">Barcode: {{ worker.barcode }}</p>
+  </div>
+
 {% else %}
   <div class="tag-card form-card">
     <div class="form-error" role="alert">Kein Gegenstand oder Material mit Barcode "{{ barcode }}" gefunden.</div>

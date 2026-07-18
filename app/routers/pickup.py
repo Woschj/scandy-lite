@@ -46,7 +46,10 @@ def _parse_checked(raw: str) -> list[uuid.UUID]:
     return ids
 
 
-async def _open_reservations_for_worker(session: AsyncSession, worker_id: uuid.UUID) -> list[Reservation]:
+async def get_open_reservations_for_worker(session: AsyncSession, worker_id: uuid.UUID) -> list[Reservation]:
+    """Bewusst nicht unterstrichen (anders als _parse_checked) - wird auch von
+    app.routers.scan.scan_lookup importiert, um beim Scannen eines Mitarbeiter-
+    Barcodes zu prüfen, ob eine Weiterleitung zur Sammel-Ausgabe sinnvoll ist."""
     result = await session.exec(
         select(Reservation)
         .where(Reservation.worker_id == worker_id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
@@ -105,7 +108,7 @@ async def pickup_checklist(
     if not worker or worker.deleted_at is not None:
         raise Forbidden()
 
-    reservations = await _open_reservations_for_worker(session, worker_id)
+    reservations = await get_open_reservations_for_worker(session, worker_id)
     checked_ids = set(_parse_checked(checked))
 
     pending, done = [], []
@@ -141,7 +144,7 @@ async def pickup_scan(
     if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
 
-    reservations = await _open_reservations_for_worker(session, worker_id)
+    reservations = await get_open_reservations_for_worker(session, worker_id)
     match = next((r for r in reservations if r.item_id == item.id), None)
     if not match:
         return redirect_with_query(
@@ -204,7 +207,7 @@ async def pickup_confirm(
             f"/scan/pickup/{worker_id}", checked=checked, error="Unterschrift fehlt oder ist ungültig."
         )
 
-    reservations = await _open_reservations_for_worker(session, worker_id)
+    reservations = await get_open_reservations_for_worker(session, worker_id)
     to_fulfill = [r for r in reservations if r.id in checked_ids]
     if not to_fulfill:
         return redirect_with_query(f"/scan/pickup/{worker_id}", error="Nichts mehr abzugeben - bitte erneut prüfen.")

@@ -13,6 +13,17 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.11.0] - 2026-07-18
+
+### Added
+- Scannen des Mitarbeiter-Ausweis-Barcodes (statt Gegenstand/Verbrauchsmaterial)
+  am Haupt-Scan-Screen leitet bei offener(n) Reservierung(en) jetzt direkt zur
+  Sammel-Ausgabe weiter (`/scan/pickup/{worker_id}`), statt "nicht gefunden"
+  zu melden - schließt den Kreis mit dem neuen Mitarbeiterausweis/QR-Code:
+  Nutzer reserviert → Personal scannt den QR-Ausweis → Checkliste zum Abhaken
+  → eine Unterschrift bestätigt die Ausgabe. Ohne offene Reservierung gibt es
+  einen kurzen Hinweis statt der irreführenden "nicht gefunden"-Meldung.
+
 ## [0.10.0] - 2026-07-17
 
 ### Added

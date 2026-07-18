@@ -23,6 +23,7 @@ from app.models.consumable import Consumable, ConsumableUsage
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
+from app.routers.pickup import get_open_reservations_for_worker
 from app.routers.reservations import get_open_consumable_reservation_for_worker, get_open_reservation
 
 router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_nav_context), Depends(require_staff), Depends(verify_csrf)])
@@ -85,6 +86,25 @@ async def scan_lookup(
         return templates.TemplateResponse(
             request, "scan/result.html",
             {"user": user, "kind": "consumable", "consumable": consumable},
+        )
+
+    # Weder Gegenstand noch Verbrauchsmaterial - könnte der Mitarbeiter-Ausweis
+    # (QR-Code, siehe app/routers/badge.py) einer Person mit offener/en
+    # Reservierung/en sein: direkt zur Sammel-Ausgabe weiterleiten, statt den
+    # Umweg über "Reservierungen ausgeben" -> Person aus Liste wählen zu
+    # erzwingen. Ohne offene Reservierung(en) bringt die Weiterleitung nichts
+    # (leere Checkliste) - dann stattdessen ein kurzer, eindeutiger Hinweis.
+    worker_result = await session.exec(
+        select(User).where(User.barcode == barcode, User.deleted_at.is_(None), User.is_active == True)  # noqa: E712
+    )
+    worker = worker_result.first()
+    if worker:
+        reservations = await get_open_reservations_for_worker(session, worker.id)
+        if reservations:
+            return RedirectResponse(url=f"/scan/pickup/{worker.id}", status_code=303)
+        return templates.TemplateResponse(
+            request, "scan/result.html",
+            {"user": user, "kind": "worker_no_reservations", "worker": worker},
         )
 
     return templates.TemplateResponse(
