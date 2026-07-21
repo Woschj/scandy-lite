@@ -77,23 +77,37 @@ async def restore_user(session: AsyncSession, user: User) -> str | None:
     return None
 
 
-async def purge_item(session: AsyncSession, item: Item, *, force: bool = False) -> str | None:
-    open_lending = (await session.exec(select(Lending).where(Lending.item_id == item.id, Lending.returned_at.is_(None)))).first()
-    if open_lending:
-        if not force:
-            return f"'{item.name}' hat noch eine offene Ausleihe - erst zurückgeben."
-        open_lending.returned_at = utcnow()
-        session.add(open_lending)
-    open_reservation = (
-        await session.exec(
-            select(Reservation).where(Reservation.item_id == item.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
+async def purge_item(session: AsyncSession, item: Item, *, force: bool = False, skip_open_check: bool = False) -> str | None:
+    # skip_open_check=True NUR von purge_department gesetzt: Lending/
+    # Reservation.department_id wird beim Anlegen immer von item.department_id
+    # übernommen (siehe scan.py/reservations.py) und ist unveränderlich (Items
+    # wechseln nie die Abteilung) - purge_department hat den offen/blockiert-
+    # Zustand für ALLE Items der Abteilung (inkl. dieses hier) bereits per
+    # EINER department-weiten Query geprüft/geschlossen. Der Recheck hier wäre
+    # garantiert redundant (klassisches N+1 bei vielen Items pro Abteilung).
+    # Direkt aufgerufen (Einzel-Löschung eines Items) bleibt der Check aktiv.
+    if not skip_open_check:
+        error = await _close_open_or_block(
+            session, Lending,
+            where=[Lending.item_id == item.id, Lending.returned_at.is_(None)],
+            close_field="returned_at", force=force,
+            name_fn=lambda _row: item.name,
+            message_label="offene Ausleihen", message_action="erst zurückgeben.",
+            subject_name=item.name,
         )
-    ).first()
-    if open_reservation:
-        if not force:
-            return f"'{item.name}' hat noch eine offene Reservierung - erst stornieren oder abholen lassen."
-        open_reservation.cancelled_at = utcnow()
-        session.add(open_reservation)
+        if error:
+            return error
+
+        error = await _close_open_or_block(
+            session, Reservation,
+            where=[Reservation.item_id == item.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None)],
+            close_field="cancelled_at", force=force,
+            name_fn=lambda _row: item.name,
+            message_label="offene Reservierungen", message_action="erst stornieren oder abholen lassen.",
+            subject_name=item.name,
+        )
+        if error:
+            return error
 
     for lending in (await session.exec(select(Lending).where(Lending.item_id == item.id))).all():
         lending.item_name_snapshot = item.name
@@ -114,26 +128,29 @@ async def purge_item(session: AsyncSession, item: Item, *, force: bool = False) 
     return None
 
 
-async def purge_consumable(session: AsyncSession, consumable: Consumable, *, force: bool = False) -> str | None:
+async def purge_consumable(session: AsyncSession, consumable: Consumable, *, force: bool = False, skip_open_check: bool = False) -> str | None:
     # Anders als bei Gegenständen (max. 1 offene Reservierung, strukturell
     # erzwungen) kann Verbrauchsmaterial mehrere gleichzeitig offene
-    # Vormerkungen verschiedener Personen haben - bei force müssen ALLE
-    # geschlossen werden, nicht nur die erste gefundene.
-    open_reservations = (
-        await session.exec(
-            select(ConsumableReservation).where(
+    # Vormerkungen verschiedener Personen haben - _close_open_or_block
+    # schließt bei force ALLE passenden Zeilen, nicht nur die erste.
+    # skip_open_check: siehe purge_item - gleiche Begründung (consumable_id-
+    # Filter ist eine Teilmenge von purge_departments department_id-Filter,
+    # ConsumableReservation.department_id kommt immer von consumable.department_id).
+    if not skip_open_check:
+        error = await _close_open_or_block(
+            session, ConsumableReservation,
+            where=[
                 ConsumableReservation.consumable_id == consumable.id,
                 ConsumableReservation.fulfilled_at.is_(None),
                 ConsumableReservation.cancelled_at.is_(None),
-            )
+            ],
+            close_field="cancelled_at", force=force,
+            name_fn=lambda _row: consumable.name,
+            message_label="offene Vormerkungen", message_action="erst stornieren oder abholen lassen.",
+            subject_name=consumable.name,
         )
-    ).all()
-    if open_reservations:
-        if not force:
-            return f"'{consumable.name}' hat noch eine offene Vormerkung - erst stornieren oder abholen lassen."
-        for open_reservation in open_reservations:
-            open_reservation.cancelled_at = utcnow()
-            session.add(open_reservation)
+        if error:
+            return error
 
     for usage in (await session.exec(select(ConsumableUsage).where(ConsumableUsage.consumable_id == consumable.id))).all():
         usage.consumable_name_snapshot = consumable.name
@@ -151,41 +168,45 @@ async def purge_consumable(session: AsyncSession, consumable: Consumable, *, for
 
 
 async def purge_user(session: AsyncSession, user: User, *, force: bool = False) -> str | None:
-    # Eine Person kann mehrere Gegenstände gleichzeitig ausgeliehen/
-    # reserviert haben - bei force müssen ALLE geschlossen werden.
-    open_lendings = (await session.exec(select(Lending).where(Lending.worker_id == user.id, Lending.returned_at.is_(None)))).all()
-    if open_lendings:
-        if not force:
-            return f"'{user.full_name}' hat noch eine offene Ausleihe - erst zurückgeben."
-        for open_lending in open_lendings:
-            open_lending.returned_at = utcnow()
-            session.add(open_lending)
-    open_reservations = (
-        await session.exec(
-            select(Reservation).where(Reservation.worker_id == user.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
-        )
-    ).all()
-    if open_reservations:
-        if not force:
-            return f"'{user.full_name}' hat noch eine offene Reservierung - erst stornieren oder abholen lassen."
-        for open_reservation in open_reservations:
-            open_reservation.cancelled_at = utcnow()
-            session.add(open_reservation)
-    open_cons_reservations = (
-        await session.exec(
-            select(ConsumableReservation).where(
-                ConsumableReservation.worker_id == user.id,
-                ConsumableReservation.fulfilled_at.is_(None),
-                ConsumableReservation.cancelled_at.is_(None),
-            )
-        )
-    ).all()
-    if open_cons_reservations:
-        if not force:
-            return f"'{user.full_name}' hat noch eine offene Material-Vormerkung - erst stornieren oder abholen lassen."
-        for open_cons_reservation in open_cons_reservations:
-            open_cons_reservation.cancelled_at = utcnow()
-            session.add(open_cons_reservation)
+    # Eine Person kann mehrere Gegenstände/Materialien gleichzeitig
+    # ausgeliehen/reserviert haben - _close_open_or_block schließt bei
+    # force ALLE passenden Zeilen, nicht nur die erste gefundene.
+    error = await _close_open_or_block(
+        session, Lending,
+        where=[Lending.worker_id == user.id, Lending.returned_at.is_(None)],
+        close_field="returned_at", force=force,
+        name_fn=lambda lending: lending.item.name if lending.item else (lending.item_name_snapshot or "?"),
+        message_label="offene Ausleihen", message_action="erst zurückgeben.",
+        subject_name=user.full_name, eager_load=Lending.item,
+    )
+    if error:
+        return error
+
+    error = await _close_open_or_block(
+        session, Reservation,
+        where=[Reservation.worker_id == user.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None)],
+        close_field="cancelled_at", force=force,
+        name_fn=lambda r: r.item.name if r.item else (r.item_name_snapshot or "?"),
+        message_label="offene Reservierungen", message_action="erst stornieren oder abholen lassen.",
+        subject_name=user.full_name, eager_load=Reservation.item,
+    )
+    if error:
+        return error
+
+    error = await _close_open_or_block(
+        session, ConsumableReservation,
+        where=[
+            ConsumableReservation.worker_id == user.id,
+            ConsumableReservation.fulfilled_at.is_(None),
+            ConsumableReservation.cancelled_at.is_(None),
+        ],
+        close_field="cancelled_at", force=force,
+        name_fn=lambda r: r.consumable.name if r.consumable else (r.consumable_name_snapshot or "?"),
+        message_label="offene Material-Vormerkungen", message_action="erst stornieren oder abholen lassen.",
+        subject_name=user.full_name, eager_load=ConsumableReservation.consumable,
+    )
+    if error:
+        return error
 
     for lending in (await session.exec(select(Lending).where(Lending.worker_id == user.id))).all():
         lending.worker_name_snapshot = user.full_name
@@ -294,7 +315,7 @@ async def purge_department(session: AsyncSession, department: Department, *, for
         session, Lending,
         where=[Lending.department_id == dept_id, Lending.returned_at.is_(None)],
         close_field="returned_at", force=force,
-        name_fn=lambda l: l.item.name if l.item else (l.item_name_snapshot or "?"),
+        name_fn=lambda lending: lending.item.name if lending.item else (lending.item_name_snapshot or "?"),
         message_label="offene Ausleihen", message_action="erst zurückgeben.",
         subject_name=department.name, eager_load=Lending.item,
     )
@@ -327,13 +348,22 @@ async def purge_department(session: AsyncSession, department: Department, *, for
     if error:
         return error
 
+    # skip_open_check=True: die department-weiten Checks oben haben Lending/
+    # Reservation/ConsumableReservation für ALLE Items/Material dieser
+    # Abteilung schon geprüft/geschlossen (department_id kommt beim Anlegen
+    # immer vom Item/Material, ist unveränderlich) - der jeweils eigene
+    # Item-/Consumable-Check in purge_item/purge_consumable wäre hier
+    # garantiert redundant. purge_user bekommt das NICHT: ein Mitglied dieser
+    # Abteilung kann offene Ausleihen/Reservierungen auf Items EINER ANDEREN
+    # Abteilung haben (worker_id ist abteilungsunabhängig) - dort bleibt der
+    # volle Check zwingend nötig.
     for item in (await session.exec(select(Item).where(Item.department_id == dept_id))).all():
-        error = await purge_item(session, item, force=force)
+        error = await purge_item(session, item, force=force, skip_open_check=True)
         if error:
             return error
 
     for consumable in (await session.exec(select(Consumable).where(Consumable.department_id == dept_id))).all():
-        error = await purge_consumable(session, consumable, force=force)
+        error = await purge_consumable(session, consumable, force=force, skip_open_check=True)
         if error:
             return error
 

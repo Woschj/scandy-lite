@@ -391,7 +391,7 @@ async def adjust_consumable(
         try:
             parsed_worker_id = uuid.UUID(worker_id)
         except ValueError:
-            raise Forbidden()  # manipulierte Form-Daten - kein stiller 500er
+            raise Forbidden() from None  # manipulierte Form-Daten - kein stiller 500er
         usage = ConsumableUsage(
             consumable_id=consumable.id,
             worker_id=parsed_worker_id,

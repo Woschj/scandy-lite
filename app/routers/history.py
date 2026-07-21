@@ -27,7 +27,6 @@ from app.core.access import get_visible_department_ids
 from app.core.deps import get_current_user, populate_nav_context, require_staff
 from app.core.templating import templates
 from app.models.consumable import ConsumableUsage
-from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
 
@@ -105,18 +104,18 @@ async def history_index(
             ungrouped.append(lending)
 
     for (_worker_id, signature), group in groups.items():
-        group.sort(key=lambda l: l.lent_at)
+        group.sort(key=lambda lend: lend.lent_at)
         worker_name = group[0].worker.full_name if group[0].worker else (group[0].worker_name_snapshot or "(gelöschter Mitarbeiter)")
         details = [
             LendingDetail(
-                name=l.item.name if l.item else (l.item_name_snapshot or "(gelöschter Gegenstand)"),
-                lent_at=l.lent_at, returned_at=l.returned_at,
+                name=lend.item.name if lend.item else (lend.item_name_snapshot or "(gelöschter Gegenstand)"),
+                lent_at=lend.lent_at, returned_at=lend.returned_at,
             )
-            for l in group
+            for lend in group
         ]
-        open_count = sum(1 for l in group if l.returned_at is None)
+        open_count = sum(1 for lend in group if lend.returned_at is None)
         title = details[0].name if len(group) == 1 else f"{len(group)} Gegenstände"
-        barcodes = " ".join((l.item.barcode if l.item else l.item_barcode_snapshot) or "" for l in group)
+        barcodes = " ".join((lend.item.barcode if lend.item else lend.item_barcode_snapshot) or "" for lend in group)
         entries.append(HistoryEntry(
             timestamp=group[0].lent_at, action="ausgeliehen", title=title, subtitle=worker_name,
             signature=signature, lending_items=details, open_count=open_count, total_count=len(group),

@@ -13,6 +13,32 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.15.0] - 2026-07-21
+
+### Changed
+- `python-jose` durch `PyJWT` ersetzt (Session-/Access-Token-Handling in
+  app/core/security.py) - jose bekommt praktisch keine Updates mehr
+  (letzter Release 2021), PyJWT ist aktiv gepflegt. Verhalten unverändert
+  (gleiche `exp`-Prüfung, gleiche Fehlerbehandlung bei ungültigem Token).
+- `purge_item`/`purge_consumable`/`purge_user` (app/core/trash.py) nutzen
+  jetzt denselben `_close_open_or_block`-Helper wie `purge_department`
+  (vorher dreifach dupliziertes "offene Ausleihe/Reservierung blockiert
+  oder wird bei force automatisch geschlossen"-Muster).
+- `purge_department` überspringt jetzt den redundanten Item-/Consumable-
+  eigenen Offen-Check (`skip_open_check`): die department-weite Prüfung hat
+  bereits ALLE Items/Material der Abteilung abgedeckt (department_id kommt
+  beim Anlegen immer vom Item/Material, ist unveränderlich) - spart bei
+  großen Abteilungen viele redundante Queries. `purge_user` bleibt bewusst
+  ungekürzt (ein Mitarbeiter kann offene Ausleihen in einer ANDEREN
+  Abteilung haben, die die department-weite Prüfung nicht sieht - siehe
+  neuer Regressionstest `test_department_delete_blocked_by_member_open_lending_in_other_department`).
+- Ruff als lokales Lint-Werkzeug eingerichtet (`ruff.toml`, `ruff check .`)
+  - bewusst nicht Teil einer CI-Pipeline. Dabei gefundene echte Probleme
+  behoben: verlorene Exception-Chains (`raise ... from None` bei bewusst
+  in Kontrollfluss-Exceptions übersetzten `ValueError`n), mehrdeutiger
+  Variablenname `l` (Verwechslungsgefahr mit `1`/`I`) an 8 Stellen, tote
+  Imports.
+
 ## [0.14.0] - 2026-07-21
 
 ### Added

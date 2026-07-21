@@ -58,7 +58,7 @@ async def get_current_user(
     try:
         user_id = uuid.UUID(payload["sub"])
     except ValueError:
-        raise RedirectToLogin()
+        raise RedirectToLogin() from None
 
     user = await session.get(User, user_id)
     if not user or not user.is_active or user.deleted_at is not None:

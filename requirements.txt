@@ -26,11 +26,12 @@ python-dotenv==1.0.1
 
 # Auth (lokal + optional SSO via OpenID Connect, siehe app/core/oidc.py)
 bcrypt==4.2.1
-python-jose[cryptography]==3.3.0
-# Explizit deklariert statt nur transitiv über python-jose[cryptography] zu
-# hängen - app/core/crypto.py importiert cryptography.fernet direkt (SMTP-
-# Passwort-Verschlüsselung für EmailSettings), das darf nicht stillschweigend
-# wegfallen, falls sich die jose-Extras mal ändern.
+# PyJWT statt python-jose: aktiv gepflegt, python-jose bekommt praktisch
+# keine Updates mehr (letzter Release 2021).
+PyJWT==2.10.1
+# app/core/crypto.py importiert cryptography.fernet direkt (SMTP-Passwort-
+# Verschlüsselung für EmailSettings) - unabhängig von PyJWT deklariert,
+# damit es nicht stillschweigend wegfällt, falls sich Abhängigkeiten ändern.
 cryptography==43.0.3
 # OIDC-Client fuer optionales SSO-Login (z.B. Authentik) - bewusst eine
 # etablierte Bibliothek statt eigener Token-/JWKS-Verifikation: Fehler dabei
@@ -49,3 +50,6 @@ pytest==8.3.4
 pytest-asyncio==0.24.0
 aiosqlite==0.20.0
 httpx==0.28.1
+# Linting (lokal per `ruff check .`, siehe ruff.toml - laeuft bewusst nicht
+# in einer CI-Pipeline, siehe README/INSTALL.md)
+ruff==0.15.22

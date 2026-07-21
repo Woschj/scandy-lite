@@ -272,6 +272,81 @@ async def test_department_delete_force_closes_open_lending_instead_of_blocking(a
         assert closed_lending.item_name_snapshot == "Wird zwangsweise zurückgegeben"
 
 
+async def test_department_delete_blocked_by_member_open_lending_in_other_department(admin_client, session_maker):
+    """Regressionstest für die skip_open_check-Optimierung in purge_department
+    (siehe app/core/trash.py): die department-weiten Lending/Reservation-
+    Checks dort filtern nach department_id (= immer die Abteilung des
+    GEGENSTANDS, siehe scan.py) - purge_item/purge_consumable dürfen ihren
+    eigenen Check deshalb überspringen. purge_user filtert dagegen nach
+    worker_id (abteilungsunabhängig): ein Mitglied DIESER Abteilung kann eine
+    offene Ausleihe auf einen Gegenstand einer ANDEREN Abteilung haben - das
+    darf die department-weite Prüfung NICHT übersehen, sonst würde die
+    Löschung der Heimat-Abteilung eine in einer fremden Abteilung offene
+    Ausleihe stillschweigend verwaisen lassen."""
+    async with session_maker() as session:
+        home_department = Department(code="home-dept", name="Heimat-Abteilung")
+        other_department = Department(code="other-dept", name="Fremde Abteilung")
+        session.add(home_department)
+        session.add(other_department)
+        await session.commit()
+        await session.refresh(home_department)
+        await session.refresh(other_department)
+        home_id, other_id = home_department.id, other_department.id
+
+        member = User(
+            username="cross-dept-worker", barcode="CROSS-DEPT-W", first_name="Cross", last_name="Dept",
+            department_id=home_id,
+        )
+        other_item = Item(barcode="CROSS-DEPT-ITEM", name="Gegenstand woanders", department_id=other_id)
+        session.add(member)
+        session.add(other_item)
+        await session.commit()
+        await session.refresh(member)
+        await session.refresh(other_item)
+
+        # Ausleihe gehört zur FREMDEN Abteilung (department_id == other_id,
+        # exakt wie scan.py es beim Ausleihen setzt), nicht zur Heimat-
+        # Abteilung des Mitarbeiters.
+        open_lending = Lending(item_id=other_item.id, worker_id=member.id, department_id=other_id)
+        session.add(open_lending)
+        await session.commit()
+        await session.refresh(open_lending)
+        lending_id = open_lending.id
+
+    # Ohne force: Löschen der HEIMAT-Abteilung muss blockiert werden, obwohl
+    # deren eigene (department-weite) Lending-Query nichts findet - nur
+    # purge_users eigener, ungekürzter Check sieht die fremde Ausleihe.
+    resp = await admin_client.post(
+        f"/admin/departments/{home_id}/delete", data={"csrf_token": csrf_value(admin_client)}
+    )
+    assert resp.status_code == 303
+    assert "error=" in resp.headers["location"]
+
+    async with session_maker() as session:
+        assert await session.get(Department, home_id) is not None
+        still_open = await session.get(Lending, lending_id)
+        assert still_open.returned_at is None
+
+    # Mit force: die fremde Ausleihe wird automatisch geschlossen (nicht
+    # stillschweigend übersprungen), Historie bleibt erhalten.
+    resp = await admin_client.post(
+        f"/admin/departments/{home_id}/delete",
+        data={"csrf_token": csrf_value(admin_client), "force": "true"},
+    )
+    assert resp.status_code == 303
+    assert "error=" not in resp.headers["location"], resp.headers["location"]
+
+    async with session_maker() as session:
+        assert await session.get(Department, home_id) is None
+        closed_lending = await session.get(Lending, lending_id)
+        assert closed_lending is not None
+        assert closed_lending.returned_at is not None
+        assert closed_lending.worker_name_snapshot == "Cross Dept"
+        # Fremde Abteilung selbst bleibt unangetastet bestehen.
+        assert await session.get(Department, other_id) is not None
+        assert await session.get(Item, other_item.id) is not None
+
+
 async def test_purge_department_snapshots_closed_consumable_usage(session_maker):
     async with session_maker() as session:
         department = Department(code="consdept", name="ConsDept")

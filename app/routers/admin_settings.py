@@ -334,7 +334,7 @@ async def edit_user_form(
         )
     ).all()
     user_history = sorted(
-        [{"timestamp": l.lent_at, "kind": "lending", "row": l} for l in lendings]
+        [{"timestamp": lend.lent_at, "kind": "lending", "row": lend} for lend in lendings]
         + [{"timestamp": u.used_at, "kind": "usage", "row": u} for u in usages],
         key=lambda e: e["timestamp"], reverse=True,
     )[:20]

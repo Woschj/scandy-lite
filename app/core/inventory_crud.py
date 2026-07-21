@@ -57,8 +57,8 @@ async def presets_by_department(session: AsyncSession, department_ids: list) -> 
     for c in categories:
         categories_by_department.setdefault(str(c.department_id), []).append(c.name)
     locations_by_department: dict = {}
-    for l in locations:
-        locations_by_department.setdefault(str(l.department_id), []).append(l.name)
+    for loc in locations:
+        locations_by_department.setdefault(str(loc.department_id), []).append(loc.name)
     return categories_by_department, locations_by_department
 
 

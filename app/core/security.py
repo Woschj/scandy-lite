@@ -11,8 +11,8 @@ import hmac
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
+import jwt
 from fastapi import Response
-from jose import JWTError, jwt
 
 from app.core.config import get_settings
 
@@ -62,7 +62,7 @@ def set_session_cookie(response: Response, token: str) -> None:
 def decode_access_token(token: str) -> dict | None:
     try:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-    except JWTError:
+    except jwt.InvalidTokenError:
         return None
 
 

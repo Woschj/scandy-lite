@@ -388,7 +388,11 @@ async def cart_submit(
     # consumable_ids und consumable_quantities kommen als parallele Listen
     # (gleicher Index = zusammengehöriges Paar) - das Warenkorb-Formular
     # erzeugt für jeden Verbrauchsmaterial-Eintrag zwei versteckte Felder.
-    for raw_id, raw_qty in zip(consumable_ids, consumable_quantities):
+    # Bewusst OHNE strict=True: bei manipulierten/inkonsistenten Formulardaten
+    # (Längen weichen ab) sollen die überzähligen Einträge still verworfen
+    # werden (gleiche Toleranz wie das except ValueError: continue direkt
+    # darunter), statt die ganze Anfrage mit einem 500er abzubrechen.
+    for raw_id, raw_qty in zip(consumable_ids, consumable_quantities):  # noqa: B905
         try:
             consumable_id = uuid.UUID(raw_id)
             quantity = int(raw_qty)

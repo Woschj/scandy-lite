@@ -1,7 +1,7 @@
 """initial schema: departments, users, workers, tools, consumables, lendings
 
 Revision ID: 66ba7c1819b7
-Revises: 
+Revises:
 Create Date: 2026-07-01 19:27:55.737565
 
 """

@@ -9,7 +9,6 @@ import uuid
 import pytest_asyncio
 
 from app.core.security import hash_password
-from app.models.department import Department
 from app.models.user import User
 from tests.conftest import STAFF_PASSWORD, STAFF_USERNAME, login
 

@@ -15,7 +15,6 @@ import sys
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request, UploadFile
-from fastapi.responses import RedirectResponse
 from sqlmodel import Session, create_engine
 
 from app.core.config import get_settings

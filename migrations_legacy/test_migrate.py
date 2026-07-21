@@ -12,13 +12,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlmodel import Session, SQLModel, create_engine, select  # noqa: E402
 
-import app.models  # noqa: E402  (registriert alle Tabellen)
+import app.models  # noqa: E402, F401  (registriert alle Tabellen)
 from app.models.common import ItemStatus  # noqa: E402
-from app.models.consumable import Consumable, ConsumableUsage  # noqa: E402
+from app.models.consumable import ConsumableUsage  # noqa: E402
 from app.models.department import Department  # noqa: E402
 from app.models.item import Item  # noqa: E402
 from app.models.lending import Lending  # noqa: E402
-from app.models.preset import Category, Location  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.models.user_department_role import UserDepartmentRole  # noqa: E402
 from migrations_legacy.migrate_core import migrate  # noqa: E402

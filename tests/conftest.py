@@ -10,7 +10,6 @@ import os
 import tempfile
 
 import app.models  # noqa: F401  (registriert alle Tabellen in SQLModel.metadata)
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import event

@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sqlmodel import Session, create_engine  # noqa: E402
 
-import app.models  # noqa: E402  (registriert alle Tabellen in SQLModel.metadata)
+import app.models  # noqa: E402, F401  (registriert alle Tabellen in SQLModel.metadata)
 from app.core.config import get_settings  # noqa: E402
 from migrations_legacy.migrate_core import migrate  # noqa: E402
 from migrations_legacy.transform import clean_str  # noqa: E402

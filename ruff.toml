@@ -1,0 +1,41 @@
+# Ruff-Konfiguration: faengt tote Imports, Shadowing und aehnliche
+# Code-Smells lokal ab, bevor sie committet werden - laeuft NICHT in einer
+# CI-Pipeline (bewusst zurueckgestellt, siehe README/INSTALL.md), nur als
+# lokales Werkzeug (`ruff check .`).
+target-version = "py312"
+
+# Der Code haelt zusammengehoerige Route-Definitionen/Query-Chains/lange
+# erklaerende Kommentare bewusst in einer Zeile statt sie umzubrechen -
+# E501 (Zeilenlaenge) wuerde das nur bestrafen, ohne einen echten Bug zu
+# finden, siehe [lint.ignore] unten. line-length hier trotzdem gesetzt,
+# falls einzelne Regeln (z.B. Formatter) sich daran orientieren.
+line-length = 160
+
+[lint]
+# F = pyflakes (unbenutzte Imports/Variablen, undefinierte Namen, ...)
+# E/W = pycodestyle (ohne E501, siehe oben)
+# B = flake8-bugbear (haeufige echte Bug-Muster: mutable Default-Argumente,
+#     falsch benutztes except, verlorene f-strings, ...)
+select = ["E", "F", "W", "B"]
+ignore = [
+    "E501",  # Zeilenlaenge - siehe Kommentar oben
+]
+
+[lint.per-file-ignores]
+# Alembic-Migrationen folgen einem generierten Boilerplate-Muster (ungenutzte
+# Imports je nach Revision, `upgrade`/`downgrade` mit Platzhalter-Argumenten) -
+# an bestehenden, bereits gegen die Produktions-DB gelaufenen Migrationen wird
+# nichts mehr geaendert, auch nicht wegen Lint-Hinweisen.
+"alembic/versions/*.py" = ["F401", "F841"]
+
+[lint.flake8-bugbear]
+# FastAPIs Dependency-Injection-Muster IST der Funktionsaufruf im Default-
+# Argument (Depends(...)/Form(...)/... werden von FastAPI selbst bei jedem
+# Request neu ausgewertet, kein "einmal beim Import berechneter Default" wie
+# B008 sonst zu Recht bemaengelt) - ohne diese Ausnahme waere praktisch jede
+# Router-Funktion im Projekt ein Falsch-Positiv.
+extend-immutable-calls = [
+    "fastapi.Depends", "fastapi.params.Depends",
+    "fastapi.Form", "fastapi.Query", "fastapi.Body",
+    "fastapi.Header", "fastapi.Path", "fastapi.Cookie", "fastapi.File",
+]
