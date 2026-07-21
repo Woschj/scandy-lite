@@ -83,6 +83,43 @@ aktivieren - siehe [SSO_AUTHENTIK.md](SSO_AUTHENTIK.md) für die komplette
 Einrichtung (Authentik-Seite + drei Umgebungsvariablen hier). Ohne diese
 Variablen bleibt das Feature einfach aus, keine Pflicht.
 
+## Backup & Restore
+
+Alle Daten (Gegenstände, Verbrauchsmaterial, Historie, Benutzer) liegen in
+der Postgres-Datenbank im `scandy_lite_db_data`-Volume - hochgeladene Bilder
+zusätzlich im `uploads`-Volume (siehe `docker-compose.yml`). Kein
+automatisches Backup ist eingerichtet; für ein produktiv genutztes
+Ausleihsystem sollte mindestens eines der beiden folgenden Verfahren
+regelmäßig (z.B. täglich per Cron auf dem Host) laufen.
+
+**Backup (Datenbank):**
+
+```bash
+# Container-Name über die Portainer-UI (Stacks → scandylite → Container)
+# oder per `docker ps` ermitteln - je nach Compose-Projektname z.B.
+# "scandylite-db-1", NICHT einfach "db".
+docker exec <db-container> pg_dump -U scandy scandy_lite | gzip > scandy_lite_$(date +%F).sql.gz
+```
+
+`scandy`/`scandy_lite` sind die Compose-Defaults - bei eigenem
+`POSTGRES_USER`/`POSTGRES_DB` entsprechend anpassen. Alte Backups selbst
+rotieren (z.B. `find . -name '*.sql.gz' -mtime +30 -delete`).
+
+**Backup (Bilder):** `/uploads`-Volume regelmäßig sichern, z.B.
+`docker run --rm -v scandy_lite_uploads:/data -v $(pwd):/backup alpine tar czf /backup/uploads_$(date +%F).tar.gz -C /data .`
+(Volume-Name ggf. an den tatsächlichen Compose-Projektnamen anpassen, siehe
+`docker volume ls`).
+
+**Restore (Datenbank):** Stack stoppen (verhindert Schreibzugriffe während
+der Wiederherstellung), dann:
+
+```bash
+gunzip -c scandy_lite_2026-07-21.sql.gz | docker exec -i <db-container> psql -U scandy -d scandy_lite
+```
+
+Restore einmal auf einer Testumgebung durchspielen, statt sich erst im
+Ernstfall darauf zu verlassen, dass das Backup tatsächlich funktioniert.
+
 ## Updates einspielen
 
 Nach jedem `git push` auf `master`:

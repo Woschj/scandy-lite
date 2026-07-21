@@ -668,6 +668,19 @@ select {
   cursor: pointer;
 }
 .icon-btn svg { width: 20px; height: 20px; }
+
+/* -------------------------------------------------------------------------
+   Barcode-Feld mit Kamera-Scan-Button (Anlege-Formulare Gegenstand/
+   Verbrauchsmaterial/Benutzer) - Haupt-Workflow ist "Aufkleber draufkleben,
+   dann per Kamera einscannen" statt den Code selbst abzutippen.
+   ------------------------------------------------------------------------- */
+.barcode-input-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.barcode-input-row input { flex: 1 1 auto; min-width: 0; }
+.barcode-camera-wrap { margin-top: var(--space-3); }
+
 .filter-active-dot {
   position: absolute;
   top: 6px;

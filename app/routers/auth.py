@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from sqlmodel import or_, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
 from app.core.database import get_session
@@ -98,12 +99,22 @@ async def login_submit(
     result = await session.exec(select(User).where(User.username == username))
     user = result.first()
 
+    # bcrypt-Verifikation ist CPU-gebunden (~100-300ms) und blockiert
+    # synchron aufgerufen den kompletten Event-Loop - über den Threadpool
+    # laufen lassen, damit ein Login nicht alle anderen gleichzeitigen
+    # Requests auf diesem Worker ausbremst. Nur ausführen, wenn übers Konto
+    # überhaupt ein lokaler Login-Versuch sinnvoll ist (kein leerer Hash-
+    # Vergleich bei LDAP/SSO-Only-Konten).
+    password_ok = False
+    if user and user.hashed_password:
+        password_ok = await run_in_threadpool(verify_password, password, user.hashed_password)
+
     invalid = (
         not user
         or not user.is_active
         or user.deleted_at is not None
         or not user.hashed_password  # LDAP/SSO-User haben kein lokales Passwort
-        or not verify_password(password, user.hashed_password)
+        or not password_ok
     )
     if invalid:
         _register_failed_attempt(client_ip)
@@ -209,7 +220,7 @@ async def reset_password_submit(
             request, "auth/reset_password.html", {"error": "invalid", "token": token}
         )
 
-    user.hashed_password = hash_password(new_password)
+    user.hashed_password = await run_in_threadpool(hash_password, new_password)
     session.add(user)
     await invalidate_all_tokens_for_user(session, user.id)
     await session.commit()

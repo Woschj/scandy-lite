@@ -13,6 +13,45 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.14.0] - 2026-07-21
+
+### Added
+- Barcode-Aufkleber-Workflow beim Anlegen von Gegenständen/Verbrauchsmaterial:
+  Kamera-Scan-Button direkt am Barcode-Feld (füllt nur das Feld, sendet das
+  Formular NICHT automatisch ab wie beim Quickscan - Bezeichnung etc. fehlen
+  ja noch). Scanner-Pistolen tippen den Code + Enter; Enter im Barcode-/
+  Namensfeld springt jetzt zum nächsten Feld statt das halb ausgefüllte
+  Formular abzuschicken (`data-scanner-enter="next"`, app/static/js/form-guard.js).
+- Barcode-Generieren-Button beim Benutzer-Anlegen/-Bearbeiten (`MA-<Kürzel>`)
+  - hier gibt es keinen Aufkleber zu scannen, der Ausweis wird von der App
+  selbst gedruckt (siehe Mitarbeiterausweis-Feature).
+- Tägliche Mindestbestand-Mail (app/core/low_stock.py): sammelt
+  Verbrauchsmaterial auf/unter Mindestbestand und schickt eine Sammel-Mail an
+  alle aktiven Admins mit hinterlegter E-Mail-Adresse - macht aus dem
+  passiven roten Chip in der Liste eine aktive Benachrichtigung. Läuft als
+  Hintergrund-Task ab dem Start (app/main.py::lifespan), kein externer Cron
+  nötig.
+- "+ Nachschub"-Stepper jetzt auch auf der Material-Detailseite (vorher nur
+  in der Listenansicht) - wer über Scan/Suche direkt auf der Detailseite
+  landet, muss nicht mehr erst zurück zur Liste.
+- Backup/Restore-Anleitung in INSTALL.md (`pg_dump`/`psql`, Uploads-Volume) -
+  bisher stand nirgends, wie man die Datenbank sichert.
+
+### Fixed
+- Bild-Verarbeitung (Pillow: Decode/EXIF-Rotation/Resize/Encode) und
+  bcrypt-Passwort-Hashing/-Verifikation liefen synchron im Event-Loop -
+  beides ist CPU-gebunden und blockierte für die Dauer JEDEN anderen
+  gleichzeitigen Request auf demselben Worker (ein Bild-Upload oder Login
+  bremste alle anderen Nutzer spürbar aus). Beides läuft jetzt über
+  `run_in_threadpool`.
+- `/static` (CSS/JS) und `/uploads` (Bilder) wurden ganz ohne
+  `Cache-Control`-Header ausgeliefert - jede Anfrage brauchte einen
+  Revalidierungs-Roundtrip zum Server. Versionierte Assets (`?v=<Version>`,
+  seit 0.13.0 alle CSS/JS-Referenzen) werden jetzt ein Jahr lang
+  unrevalidiert aus dem Browser-Cache bedient; Uploads (dieselbe URL kann
+  sich durch Ersatz-Upload inhaltlich ändern) bekommen eine kurze,
+  revalidierende Cache-Dauer statt gar keiner.
+
 ## [0.13.0] - 2026-07-21
 
 ### Added

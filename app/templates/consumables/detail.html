@@ -51,6 +51,19 @@
   {% endif %}
 
   {% if can_manage %}
+    <form method="post" action="/consumables/{{ consumable.id }}/adjust" style="margin-top: var(--space-4);" data-guard
+          title="Nur Nachschub - Entnahmen bitte über Scannen erfassen, damit sie in der Historie landen">
+      {% include "partials/csrf_field.html" %}
+      <span class="eyebrow" style="display:block; margin-bottom: var(--space-1);">Nachschub</span>
+      <div class="qty-stepper" style="max-width: 220px;">
+        <button type="button" data-step="-1" aria-label="Menge verringern">–</button>
+        <input type="number" name="delta" value="1" min="1" required inputmode="numeric">
+        <button type="button" data-step="1" aria-label="Menge erhöhen">+</button>
+      </div>
+      <input type="hidden" name="worker_id" value="">
+      <button type="submit" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">+ Nachschub</button>
+    </form>
+
     <div class="item-card-actions">
       <a href="/consumables/{{ consumable.id }}/edit" class="link-btn">Bearbeiten</a>
       <form method="post" action="/consumables/{{ consumable.id }}/delete" onsubmit="return confirm('{{ consumable.name }} wirklich entfernen?')">

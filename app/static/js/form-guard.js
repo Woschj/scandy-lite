@@ -39,3 +39,26 @@ document.addEventListener("submit", function (e) {
     }
   }, 15000);
 });
+
+/*
+ * Scanner-Pistolen "tippen" den Barcode und senden danach automatisch Enter.
+ * In Anlege-/Bearbeiten-Formularen (Aufkleber-Workflow: Barcode aufkleben,
+ * dann einscannen) würde das Enter das halb ausgefüllte Formular sofort
+ * abschicken - Felder mit data-scanner-enter="next" fangen es ab und springen
+ * stattdessen zum nächsten sichtbaren Feld. Auf der Scan-Seite selbst
+ * (einziges Feld, Absenden erwünscht) wird das Attribut bewusst NICHT gesetzt.
+ */
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Enter") return;
+  var input = e.target;
+  if (!input.matches || !input.matches('input[data-scanner-enter="next"]')) return;
+  e.preventDefault();
+  var form = input.form;
+  if (!form) return;
+  var fields = Array.prototype.filter.call(
+    form.querySelectorAll("input, select, textarea"),
+    function (el) { return !el.disabled && el.type !== "hidden" && el.offsetParent !== null; }
+  );
+  var idx = fields.indexOf(input);
+  if (idx > -1 && idx + 1 < fields.length) fields[idx + 1].focus();
+});

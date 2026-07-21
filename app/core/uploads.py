@@ -16,6 +16,7 @@ from pathlib import Path
 
 from fastapi import UploadFile
 from PIL import Image, ImageOps
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
 
@@ -44,11 +45,12 @@ def has_image(subdir: str, entity_id: uuid.UUID) -> bool:
     return image_path(subdir, entity_id).exists()
 
 
-async def save_image(file: UploadFile, subdir: str, entity_id: uuid.UUID) -> None:
-    raw = await file.read()
-    if len(raw) > settings.MAX_UPLOAD_BYTES:
-        raise InvalidImage(f"Datei ist größer als {settings.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
-
+def _process_and_save_sync(raw: bytes, subdir: str, entity_id: uuid.UUID) -> None:
+    """Reines CPU-Arbeitspaket (Decode/EXIF/Resize/Encode) - läuft über
+    run_in_threadpool im Threadpool, NICHT direkt im Event-Loop. Pillow ist
+    synchron/blockierend; ein Foto vom Handy (mehrere MB) bräuchte sonst
+    spürbar lange und würde für die gesamte Dauer JEDEN anderen Request auf
+    diesem Worker blockieren (Event-Loop ist single-threaded)."""
     try:
         img = Image.open(BytesIO(raw))
         img.verify()  # wirft bei kaputten/keinen echten Bilddaten
@@ -67,6 +69,14 @@ async def save_image(file: UploadFile, subdir: str, entity_id: uuid.UUID) -> Non
     target = image_path(subdir, entity_id)
     target.parent.mkdir(parents=True, exist_ok=True)
     img.save(target, format="JPEG", quality=85, optimize=True)
+
+
+async def save_image(file: UploadFile, subdir: str, entity_id: uuid.UUID) -> None:
+    raw = await file.read()
+    if len(raw) > settings.MAX_UPLOAD_BYTES:
+        raise InvalidImage(f"Datei ist größer als {settings.MAX_UPLOAD_BYTES // (1024 * 1024)} MB.")
+
+    await run_in_threadpool(_process_and_save_sync, raw, subdir, entity_id)
 
 
 def delete_image(subdir: str, entity_id: uuid.UUID) -> None:

@@ -55,11 +55,21 @@
     {% endif %}
     <div class="field">
       <label for="barcode">Barcode</label>
-      <input type="text" id="barcode" name="barcode" value="{{ item.barcode if item else '' }}" required autofocus>
+      <div class="barcode-input-row">
+        <input type="text" id="barcode" name="barcode" value="{{ item.barcode if item else '' }}" required autofocus autocomplete="off" data-scanner-enter="next">
+        <button type="button" id="barcode-camera-start-btn" class="icon-btn" aria-label="Barcode mit Kamera scannen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>
+        </button>
+      </div>
+      <div id="barcode-camera-wrap" class="barcode-camera-wrap" style="display:none;">
+        <div id="barcode-scan-video-container" style="width:100%; min-height:220px; border-radius: var(--radius); overflow:hidden; background:#000;"></div>
+        <button type="button" id="barcode-camera-cancel-btn" class="btn btn-ghost btn-block" style="margin-top: var(--space-2);">Kamera schließen</button>
+      </div>
+      <p id="barcode-camera-unsupported" class="form-error" style="display:none; margin-top: var(--space-2); margin-bottom: 0;"></p>
     </div>
     <div class="field">
       <label for="name">Bezeichnung</label>
-      <input type="text" id="name" name="name" value="{{ item.name if item else '' }}" required>
+      <input type="text" id="name" name="name" value="{{ item.name if item else '' }}" required data-scanner-enter="next">
     </div>
     {% if item %}
       <div class="field">
@@ -181,4 +191,22 @@
 </div>
 
 <p style="margin-top: var(--space-4);"><a href="/items" class="link-btn">← Zurück zur Übersicht</a></p>
+
+<script src="/static/js/vendor/html5-qrcode.min.js?v={{ asset_version }}"></script>
+<script src="/static/js/barcode-camera.js?v={{ asset_version }}"></script>
+<script>
+  ScandyCamera.attach({
+    startBtn: document.getElementById('barcode-camera-start-btn'),
+    cancelBtn: document.getElementById('barcode-camera-cancel-btn'),
+    wrap: document.getElementById('barcode-camera-wrap'),
+    videoContainerId: 'barcode-scan-video-container',
+    unsupportedMsg: document.getElementById('barcode-camera-unsupported'),
+    input: document.getElementById('barcode'),
+    centerContent: false,
+    // Formular NICHT automatisch absenden (Standardverhalten von ScandyCamera) -
+    // hier ist nur der Barcode bekannt, Bezeichnung etc. fehlen noch. Stattdessen
+    // weiter zum nächsten Feld, genau wie beim Enter einer Scanner-Pistole.
+    onScan: function () { document.getElementById('name').focus(); },
+  });
+</script>
 {% endblock %}

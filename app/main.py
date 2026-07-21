@@ -6,6 +6,7 @@ Phase 2: Auth (lokal, cookie-basiert), Abteilungs-Scoping, Frontend-Fundament
 Lending folgen in Phase 3/4.
 """
 from contextlib import asynccontextmanager
+import asyncio
 import os
 import socket
 import sys
@@ -14,13 +15,14 @@ import logging
 
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import get_settings
 from app.core.database import engine
 from app.core.deps import Forbidden, RedirectToLogin
+from app.core.low_stock import low_stock_check_loop
+from app.core.static_cache import CachedStaticFiles
 from app.core.templating import templates
 from app.routers import admin_import, admin_settings, auth, badge, consumables, history, items, oidc, pages, pickup, reservations, scan
 
@@ -55,7 +57,18 @@ async def lifespan(app: FastAPI):
         # Nichtgebrauch einfach entfernen") - dann gibt es auch keinen
         # Reverse-Proxy, dessen Header vertraut werden müsste.
         _trusted_proxy_ips = set()
+
+    # Läuft dauerhaft im Hintergrund neben den Request-Handlern (siehe
+    # app/core/low_stock.py) - kein externer Cron/Scheduler-Dienst nötig.
+    low_stock_task = asyncio.create_task(low_stock_check_loop())
+
     yield
+
+    low_stock_task.cancel()
+    try:
+        await low_stock_task
+    except asyncio.CancelledError:
+        pass
     await engine.dispose()
 
 
@@ -100,13 +113,29 @@ if settings.oidc_enabled:
         same_site="lax",
     )
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# CSS/JS werden seit der Cache-Busting-Umstellung immer mit ?v=<Version>
+# referenziert - eine SOLCHE Anfrage darf ein Jahr lang unrevalidiert aus dem
+# Browser-Cache bedient werden (ändert sich der Inhalt, ändert sich die URL).
+# Unversionierte Treffer (Manifest, Icons - ändern sich praktisch nie, tragen
+# aber kein ?v=) bekommen nur eine kurze, revalidierende Cache-Dauer.
+app.mount(
+    "/static",
+    CachedStaticFiles(directory="app/static", cache_control="public, max-age=3600", versioned_cache_control="public, max-age=31536000, immutable"),
+    name="static",
+)
 
 # Eigener Mount für Uploads (Bilder) - bewusst getrennt von /static, weil
 # /app/app/static im Image gebacken wird (Rebuild würde Uploads löschen),
 # /app/uploads liegt dagegen auf einem eigenen, persistenten Docker-Volume.
+# Bilder werden NICHT versioniert referenziert (dieselbe URL bei Ersatz-
+# Upload) - deshalb nur kurze Cache-Dauer mit Revalidierung (ETag/
+# Last-Modified liefert StaticFiles ohnehin automatisch), keine "immutable".
 os.makedirs(settings.UPLOADS_DIR, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=settings.UPLOADS_DIR), name="uploads")
+app.mount(
+    "/uploads",
+    CachedStaticFiles(directory=settings.UPLOADS_DIR, cache_control="public, max-age=300, must-revalidate"),
+    name="uploads",
+)
 
 app.include_router(auth.router)
 app.include_router(oidc.router)

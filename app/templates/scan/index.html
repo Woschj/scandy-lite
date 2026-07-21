@@ -18,7 +18,7 @@
       {% include "partials/csrf_field.html" %}
       <div class="field">
         <label for="barcode">Barcode</label>
-        <input type="text" id="barcode" name="barcode" required autofocus autocomplete="off"
+        <input type="text" id="barcode" name="barcode" required autocomplete="off"
                placeholder="Scannen oder eintippen…" class="scan-input-large">
       </div>
       <button type="submit" class="btn btn-primary btn-block">Suchen</button>
@@ -51,5 +51,17 @@
   });
   {% if ok %}ScandyCamera.vibrate(80);{% endif %}
   {% if error %}ScandyCamera.vibrate([60, 60, 60]);{% endif %}
+
+  // Explizites focus() statt des HTML-autofocus-Attributs: iOS Safari & Co.
+  // ignorieren autofocus ohne vorherige Nutzer-Geste, JS-focus() greift
+  // zuverlässiger - macht den Haupt-Workflow (Scanner-Pistole tippt Text +
+  // Enter) nach jeder Ausleihe/Rückgabe/Entnahme sofort wieder bedienbar,
+  // ohne erst manuell ins Feld klicken zu müssen. NUR auf Geräten ohne
+  // Touch-Hauptzeiger (Werkstatt-PC/Tablet mit USB-/Bluetooth-Scanner) -
+  // auf Touch-Geräten würde es sonst bei jedem Aufruf ungefragt die
+  // Bildschirmtastatur aufklappen (dort wird eher die Kamera genutzt).
+  if (window.matchMedia("(pointer: fine)").matches) {
+    document.getElementById("barcode").focus();
+  }
 </script>
 {% endblock %}

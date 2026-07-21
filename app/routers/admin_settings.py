@@ -17,6 +17,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.core.badge import qr_data_uri
 from app.core.changelog import parse_changelog
@@ -230,7 +231,7 @@ async def create_user(
         username=username,
         email=email or None,
         is_admin=bool(is_admin),
-        hashed_password=hash_password(password),
+        hashed_password=await run_in_threadpool(hash_password, password),
         first_name=first_name.strip(),
         last_name=last_name.strip(),
         barcode=barcode,
@@ -396,7 +397,7 @@ async def update_user(
     target.barcode = barcode
     target.department_id = department_id
     if new_password:
-        target.hashed_password = hash_password(new_password)
+        target.hashed_password = await run_in_threadpool(hash_password, new_password)
     session.add(target)
     await session.commit()
     return RedirectResponse(url="/admin/settings#users", status_code=303)
