@@ -8,6 +8,7 @@ wird) ist rein clientseitig (localStorage, app/static/js/cart.js) - hier im
 Backend gibt es dafür keine eigene Tabelle, nur die JSON-Detailabfrage und
 den gesammelten Versand.
 """
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -30,6 +31,7 @@ from app.models.reservation import Reservation
 from app.models.user import User
 
 router = APIRouter(prefix="/reservations", tags=["reservations"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
+logger = logging.getLogger("scandy-lite")
 
 
 async def get_linked_worker(session: AsyncSession, user: User) -> User | None:
@@ -201,6 +203,7 @@ async def _try_reserve_item(
         await session.commit()
     except IntegrityError:
         await session.rollback()
+        logger.warning("Reservierung für Item %s kollidierte mit einer gleichzeitigen Reservierung.", item.id)
         return False, f"{item.name}: wurde soeben bereits reserviert."
 
     return True, item.name
@@ -312,7 +315,7 @@ async def cart_items(
                 response["items"].append({"id": item_id, "found": False})
                 continue
             open_res = await get_open_reservation(session, item.id)
-            available = item.status.value == "verfuegbar" and open_res is None
+            available = item.status == ItemStatus.VERFUEGBAR and open_res is None
             response["items"].append({
                 "id": str(item.id), "found": True, "name": item.name, "barcode": item.barcode,
                 "department": item.department.name if item.department else "",

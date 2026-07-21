@@ -5,20 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block title %}Scandy-Lite{% endblock %}</title>
 
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/app.css?v={{ asset_version }}">
   <link rel="manifest" href="/static/manifest.webmanifest">
   <meta name="theme-color" content="#1b5e5a">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
 
-  <script src="/static/js/vendor/htmx.min.js" defer></script>
-  <script src="/static/js/vendor/alpine.min.js" defer></script>
-  <script src="/static/js/form-guard.js" defer></script>
-  <script src="/static/js/qty-stepper.js" defer></script>
-  <script src="/static/js/cart.js" defer></script>
-  <script src="/static/js/view-toggle.js" defer></script>
-  <script src="/static/js/lightbox.js" defer></script>
-  <script src="/static/js/offline-banner.js" defer></script>
+  <script src="/static/js/vendor/htmx.min.js?v={{ asset_version }}" defer></script>
+  <script src="/static/js/vendor/alpine.min.js?v={{ asset_version }}" defer></script>
+  <script src="/static/js/form-guard.js?v={{ asset_version }}" defer></script>
+  <script src="/static/js/qty-stepper.js?v={{ asset_version }}" defer></script>
+  <script src="/static/js/cart.js?v={{ asset_version }}" defer></script>
+  <script src="/static/js/view-toggle.js?v={{ asset_version }}" defer></script>
+  <script src="/static/js/lightbox.js?v={{ asset_version }}" defer></script>
+  <script src="/static/js/offline-banner.js?v={{ asset_version }}" defer></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", function () {

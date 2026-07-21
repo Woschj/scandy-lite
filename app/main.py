@@ -8,20 +8,29 @@ Lending folgen in Phase 3/4.
 from contextlib import asynccontextmanager
 import os
 import socket
+import sys
 
 import logging
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import get_settings
+from app.core.database import engine
 from app.core.deps import Forbidden, RedirectToLogin
 from app.core.templating import templates
 from app.routers import admin_import, admin_settings, auth, badge, consumables, history, items, oidc, pages, pickup, reservations, scan
 
 settings = get_settings()
+
+logging.basicConfig(
+    level=logging.DEBUG if settings.ENV == "development" else logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    stream=sys.stdout,
+)
 logger = logging.getLogger("scandy-lite")
 
 # Name des Caddy-Reverse-Proxy-Containers in docker-compose.yml. Uvicorn läuft
@@ -47,6 +56,7 @@ async def lifespan(app: FastAPI):
         # Reverse-Proxy, dessen Header vertraut werden müsste.
         _trusted_proxy_ips = set()
     yield
+    await engine.dispose()
 
 
 app = FastAPI(
@@ -142,6 +152,18 @@ async def handle_forbidden(request: Request, exc: Forbidden):
     return templates.TemplateResponse(request, "errors/403.html", {}, status_code=403)
 
 
+@app.exception_handler(Exception)
+async def handle_unexpected_error(request: Request, exc: Exception):
+    logger.error("Unerwarteter Fehler bei %s %s", request.method, request.url.path, exc_info=True)
+    return templates.TemplateResponse(request, "errors/500.html", {}, status_code=500)
+
+
 @app.get("/health")
-async def health() -> dict:
+async def health():
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception:
+        logger.error("Healthcheck: Datenbank nicht erreichbar", exc_info=True)
+        return JSONResponse({"status": "error"}, status_code=503)
     return {"status": "ok", "env": settings.ENV}

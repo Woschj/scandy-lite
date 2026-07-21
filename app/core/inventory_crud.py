@@ -26,6 +26,8 @@ from app.models.common import UserRole, utcnow
 from app.models.preset import Category, Location
 from app.models.user import User
 
+HISTORY_LIMIT = 20  # kompakte Ausleih-/Entnahme-Historie auf der Detailseite, siehe items.py/consumables.py
+
 
 async def presets(session: AsyncSession, department_id) -> tuple[list, list]:
     categories = (await session.exec(

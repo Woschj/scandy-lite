@@ -7,6 +7,7 @@ Abteilungsgescoped über UserDepartmentRole - siehe items.py für die
 ausführliche Erklärung des Berechtigungsmodells, hier identisch angewendet.
 Kein "aktuell aktive Abteilung"-Kontext (kein Umschalter).
 """
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
@@ -22,6 +23,7 @@ from app.core.barcodes import barcode_taken_by_other_kind
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
 from app.core.inventory_crud import (
+    HISTORY_LIMIT,
     InventoryKind,
     delete_entity,
     delete_entity_image,
@@ -36,6 +38,7 @@ from app.models.consumable import Consumable, ConsumableUsage
 from app.models.user import User
 
 router = APIRouter(prefix="/consumables", tags=["consumables"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
+logger = logging.getLogger("scandy-lite")
 
 CONSUMABLE_KIND = InventoryKind(model=Consumable, url_prefix="consumables")
 
@@ -48,6 +51,8 @@ CONSUMABLE_SORT_COLUMNS = {
     "quantity": (Consumable.quantity,),
 }
 
+_PAGE_SIZE = 60  # an die Kachel-/Listenansicht angepasst
+
 
 @router.get("")
 async def list_consumables(
@@ -57,12 +62,18 @@ async def list_consumables(
     category: str = "",
     location: str = "",
     sort: str = "status",
+    page: int = 1,
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     from app.routers.reservations import get_linked_worker
+
+    # page=0 oder negativ (z.B. per manipuliertem Query-Parameter) würde sonst
+    # über Pythons negative Slice-Indizierung ein falsches/leeres Ergebnis
+    # liefern statt auf Seite 1 zu klemmen (siehe history.py).
+    page = max(page, 1)
 
     linked_worker = await get_linked_worker(session, user)
     has_any_staff_role = getattr(request.state, "has_any_staff_role", False)
@@ -110,8 +121,13 @@ async def list_consumables(
     if location:
         stmt = stmt.where(Consumable.location == location)
 
+    # Ein Element mehr als die Seitengröße abfragen statt einer separaten
+    # COUNT-Query, um zu wissen, ob eine weitere Seite existiert (has_more).
+    stmt = stmt.offset((page - 1) * _PAGE_SIZE).limit(_PAGE_SIZE + 1)
     result = await session.exec(stmt)
     consumables = result.all()
+    has_more = len(consumables) > _PAGE_SIZE
+    consumables = consumables[:_PAGE_SIZE]
 
     category_stmt = select(Consumable.category).where(Consumable.deleted_at.is_(None), Consumable.category.is_not(None)).distinct()
     location_stmt = select(Consumable.location).where(Consumable.deleted_at.is_(None), Consumable.location.is_not(None)).distinct()
@@ -130,6 +146,7 @@ async def list_consumables(
             "available_categories": available_categories, "available_locations": available_locations,
             "linked_worker": linked_worker, "staff_department_ids": staff_department_ids,
             "has_any_staff_role": has_any_staff_role,
+            "page": page, "has_more": has_more,
         },
     )
 
@@ -204,6 +221,7 @@ async def create_consumable(
         await session.commit()
     except IntegrityError:
         await session.rollback()
+        logger.warning("Anlegen von Verbrauchsmaterial mit Barcode '%s' kollidierte mit einer gleichzeitigen Anlage.", barcode)
         return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/consumables", status_code=303)
 
@@ -247,7 +265,7 @@ async def consumable_detail(
                 .where(ConsumableUsage.consumable_id == consumable.id)
                 .options(selectinload(ConsumableUsage.worker))
                 .order_by(ConsumableUsage.used_at.desc())
-                .limit(20)
+                .limit(HISTORY_LIMIT)
             )
         ).all()
 
@@ -336,6 +354,7 @@ async def update_consumable(
         await session.commit()
     except IntegrityError:
         await session.rollback()
+        logger.warning("Aktualisieren von Verbrauchsmaterial %s kollidierte mit einer gleichzeitigen Änderung (Barcode '%s').", consumable.id, barcode)
         return RedirectResponse(url="/consumables?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/consumables", status_code=303)
 

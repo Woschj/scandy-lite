@@ -22,11 +22,11 @@ class Consumable(TimestampMixin, SoftDeleteMixin, table=True):
     id: uuid.UUID = Field(default_factory=new_uuid, primary_key=True)
     barcode: str = Field(index=True, max_length=100)  # Eindeutigkeit: partieller Unique-Index (nur aktive Datensätze), s. Migration 45dd75eab85a
     name: str = Field(max_length=200)
-    category: str | None = Field(default=None, max_length=100)
-    location: str | None = Field(default=None, max_length=100)
+    category: str | None = Field(default=None, index=True, max_length=100)
+    location: str | None = Field(default=None, index=True, max_length=100)
     unit: str = Field(default="Stück", max_length=50)  # Stück, Liter, Meter, ...
 
-    quantity: int = Field(default=0, ge=0)
+    quantity: int = Field(default=0, ge=0, index=True)
     min_quantity: int = Field(default=0, ge=0)  # für spätere Mindestbestand-Warnung
 
     department_id: uuid.UUID = Field(foreign_key="departments.id", index=True)

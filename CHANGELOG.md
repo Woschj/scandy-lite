@@ -13,6 +13,77 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.13.0] - 2026-07-21
+
+### Added
+- Zentrales Logging-Setup (`logging.basicConfig`, Level aus `ENV` abgeleitet) -
+  bisherige `logger.info`/`debug`-Aufrufe liefen zuvor ohne Konfiguration
+  ins Leere. `/health` prüft jetzt echt die Datenbank (`SELECT 1`), liefert
+  `503` statt `200` bei Ausfall, damit der Docker-`HEALTHCHECK` einen
+  DB-Ausfall tatsächlich erkennt.
+- Globaler 500-Fehler-Handler (`app/templates/errors/500.html`): ein
+  unerwarteter Fehler wird jetzt geloggt (mit Traceback) und zeigt eine
+  ruhige Fehlerseite statt eines rohen Stacktrace oder eines nichtssagenden
+  Server-Fehlers.
+- Pagination für die Gegenstände-/Verbrauchsmaterial-Listen (analog zur
+  Historie) - verhindert unbegrenztes Laden bei wachsendem Bestand.
+- Fail-Fast beim Start, wenn `POSTGRES_PASSWORD` in Produktion noch der aus
+  `docker-compose.yml` bekannte Platzhalter ist (gleiches Muster wie der
+  bestehende `SECRET_KEY`-Check).
+- Datenbank-Indizes für die in Listen gefilterten Spalten (`Item.status/
+  category/location`, `Consumable.quantity/category/location`).
+
+### Fixed
+- Top-Navigation kollidierte auf Desktop-Breiten um 1280px (Logo klebte am
+  ersten Menüpunkt, "Einstellungen" lief in den Benutzernamen, "Mein Ausweis"
+  brach zweizeilig um): Mindestabstände + `nowrap`, volle Leiste erst ab
+  1201px, darunter Hamburger-Menü (vorher schon ab 1025px volle Leiste, die
+  dort nicht hineinpasste).
+- Auf Mobilgeräten waren Übersicht, "Mein Ausweis" und Einstellungen
+  überhaupt nicht erreichbar (nicht in der Bottom-Tab-Bar, Hamburger dort
+  ausgeblendet) - der Hamburger ist jetzt auch mobil sichtbar.
+- Einstellungen → Benutzer: die vierte Aktion ("Entfernen") wurde auf
+  schmalen Screens am Kartenrand abgeschnitten und war nicht antippbar
+  (`flex-shrink: 0` ohne `flex-wrap`); die "(du)"-Markierung des eigenen
+  Kontos schwebte frei in der Aktionsspalte statt beim Namen zu stehen.
+- Veralteter Hinweistext auf der Reservierungen-Seite beschrieb den
+  Vor-Merge-Workflow ("Mitarbeiter bearbeiten → Login zuordnen") - jetzt
+  der reale Weg (Einstellungen → Benutzer → Bearbeiten, Feld "Barcode").
+- `scripts/seed_admin.py` legte den ersten Admin ohne `approved_at` an -
+  seit dem SSO-Update tauchte ein so angelegter Admin fälschlich als
+  "ausstehendes Konto" auf und hätte dort sogar abgelehnt (= gelöscht)
+  werden können.
+- Veraltetes CSS/JS nach Deploys: Browser durften Assets mangels
+  Cache-Control-Header heuristisch wiederverwenden - auch durch den
+  network-first Service Worker hindurch (dessen `fetch()` nutzt denselben
+  HTTP-Cache). Alle CSS/JS-Einbindungen tragen jetzt eine versionierte URL
+  (`?v=<App-Version>`), die sich mit jedem Release ändert.
+
+### Changed
+- Einstellungen-Navigation neu: auf breiten Screens vertikale Tab-Leiste
+  links neben dem Inhalt (alle neun Bereiche dauerhaft sichtbar, sticky),
+  auf schmalen Screens eine umbrechende Pill-Reihe - ersetzt die
+  horizontale Scroll-Leiste mit Fade-Rand und Pfeil-Buttons, die immer
+  einen Teil der Punkte versteckte.
+- Der orange "Scannen"-CTA-Pill der Desktop-Navigation erschien im
+  Hamburger-Dropdown als deplatzierter vollbreiter Balken - dort jetzt
+  eine normale Listenzeile mit Akzent-Punkt und Fettschrift.
+- Top-Nav-Beschriftungen: "Verbrauchsmaterial" → "Material" (deckungsgleich
+  mit der Bottom-Tab-Bar), Emoji aus "Mein Ausweis" entfernt (einziges
+  Emoji in einer sonst SVG-Icon-basierten Oberfläche, plattformabhängige
+  Darstellung).
+- Diverse Code-Smells aus einem Production-Readiness-Audit behoben:
+  dreifach dupliziertes Mitarbeiter-Barcode-Lookup in `scan.py`
+  zusammengefasst, inkonsistenter Enum-Vergleich in `reservations.py`
+  vereinheitlicht, Mindestpasswortlänge als Konstante statt hartkodierter
+  `8`, Rollen-Prüfungen in `admin_settings.py` über `UserRole`-Enum statt
+  rohe Strings.
+- Betrieblich relevante `IntegrityError`-Fälle (Race Conditions bei
+  gleichzeitigem Anlegen/Ändern/Ausleihen) loggen jetzt eine Warnung mit
+  Kontext, bevor die für Nutzer ohnehin unveränderte Fehlermeldung
+  zurückgegeben wird.
+- Sauberer Shutdown: `engine.dispose()` beim Herunterfahren.
+
 ## [0.12.0] - 2026-07-18
 
 ### Added

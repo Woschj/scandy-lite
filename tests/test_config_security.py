@@ -32,3 +32,30 @@ def test_production_with_proper_secret_key_succeeds():
 def test_development_with_default_secret_key_does_not_raise():
     settings = Settings(ENV="development", SECRET_KEY="change-me-in-production")
     assert settings.ENV == "development"
+
+
+def test_production_with_compose_default_db_password_raises():
+    with pytest.raises(ValueError, match="DATABASE_URL"):
+        Settings(
+            ENV="production",
+            SECRET_KEY="a" * 64,
+            DATABASE_URL="postgresql+asyncpg://scandy:change_me_immediately@db:5432/scandy_lite",
+        )
+
+
+def test_production_with_proper_db_password_succeeds():
+    settings = Settings(
+        ENV="production",
+        SECRET_KEY="a" * 64,
+        DATABASE_URL="postgresql+asyncpg://scandy:a-real-password@db:5432/scandy_lite",
+    )
+    assert "change_me_immediately" not in settings.DATABASE_URL
+
+
+def test_development_with_placeholder_db_password_does_not_raise():
+    settings = Settings(
+        ENV="development",
+        SECRET_KEY="change-me-in-production",
+        DATABASE_URL="postgresql+asyncpg://scandy:change_me_immediately@db:5432/scandy_lite",
+    )
+    assert settings.ENV == "development"

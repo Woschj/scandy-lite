@@ -11,6 +11,7 @@ gespeichert (keine eigene Tabelle nötig) - er wird als Liste von
 Reservierungs-IDs durch die URL/Formulare der einzelnen Schritte
 durchgereicht, bis am Ende die eigentlichen Lendings angelegt werden.
 """
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -31,6 +32,7 @@ from app.models.reservation import Reservation
 from app.models.user import User
 
 router = APIRouter(prefix="/scan/pickup", tags=["pickup"], dependencies=[Depends(populate_nav_context), Depends(require_staff), Depends(verify_csrf)])
+logger = logging.getLogger("scandy-lite")
 
 
 def _parse_checked(raw: str) -> list[uuid.UUID]:
@@ -240,6 +242,7 @@ async def pickup_confirm(
         # ausgeliehen. Sauber melden statt die ganze Charge mit einem
         # unbehandelten 500er zu verlieren - gleiches Muster wie scan.py scan_lend.
         await session.rollback()
+        logger.warning("Sammel-Ausgabe an Worker %s kollidierte mit einer gleichzeitigen Ausleihe.", worker_id)
         return redirect_with_query(
             f"/scan/pickup/{worker_id}",
             error="Mindestens ein Gegenstand wurde zwischenzeitlich anderweitig ausgeliehen - bitte erneut prüfen.",

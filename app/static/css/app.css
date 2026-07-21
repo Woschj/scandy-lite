@@ -290,6 +290,10 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  /* gap verhindert, dass Wortmarke, Linkleiste und User-Chip bei knapper
+     Breite aneinanderkleben (space-between allein garantiert KEINEN
+     Mindestabstand, sobald der Inhalt die volle Breite erreicht). */
+  gap: var(--space-4);
   padding: 0 var(--space-6);
   background: var(--bg-raised);
   border-bottom: 1px solid var(--line);
@@ -330,7 +334,7 @@ select {
 .topnav-links {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
 }
 
 .topnav-links a {
@@ -342,6 +346,9 @@ select {
   color: var(--ink-soft);
   padding: var(--space-2) 0;
   border-bottom: 2px solid transparent;
+  /* Nav-Einträge dürfen nie zweizeilig umbrechen ("Mein Ausweis" brach
+     vorher um und ragte aus der Leiste heraus). */
+  white-space: nowrap;
 }
 .topnav-links a.active,
 .topnav-links a:hover {
@@ -357,10 +364,13 @@ select {
   color: var(--ink-soft);
 }
 
-/* Zwischenbereich (schmalerer Desktop/Tablet, nicht schmal genug für die
-   mobile Bottom-Tab-Bar unten): Hauptmenü klappt zu einem Hamburger-
-   Dropdown zusammen statt einfach zu überlaufen/sich zusammenzuquetschen. */
-@media (max-width: 1024px) and (min-width: 721px) {
+/* Unterhalb der vollen Leiste (die volle Zeile braucht mit Admin-Navigation
+   real ~1200px - vorher klappte das Menü schon ab 1025px aus und die
+   Einträge kollidierten dann mit Wortmarke und User-Chip): Hauptmenü als
+   Hamburger-Dropdown. Gilt auch auf Mobile - die Bottom-Tab-Bar deckt dort
+   nur die fünf Kernziele ab, Übersicht/Mein Ausweis/Einstellungen sind
+   ausschließlich über dieses Menü erreichbar. */
+@media (max-width: 1200px) {
   .nav-trigger-btn { display: inline-flex; }
   .topnav-links {
     position: absolute;
@@ -408,10 +418,10 @@ select {
 }
 
 @media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
-  .topnav-links { display: none; }
-  /* Bottom-Tab-Bar übernimmt hier die Navigation (siehe unten) - kein
-     zusätzlicher Hamburger nötig/gewünscht. */
-  .nav-trigger-btn { display: none; }
+  /* Bottom-Tab-Bar übernimmt hier die PRIMÄR-Navigation (siehe unten) -
+     der Hamburger bleibt trotzdem sichtbar, weil Übersicht, Mein Ausweis
+     und Einstellungen nicht in der Tab-Bar liegen und sonst auf dem Handy
+     überhaupt nicht erreichbar wären. */
 
   /* Top-Leiste lief früher über den rechten Rand hinaus (Abteilungs-Select +
      Username + Abmelden zusammen zu breit für schmale Viewports). Der
@@ -1006,6 +1016,38 @@ select {
   border-bottom-color: transparent !important;
 }
 
+/* Im ausgeklappten Hamburger-Dropdown (unterhalb der vollen Desktop-Leiste)
+   stünde der orange CTA-Pill als vollbreiter Balken deplatziert zwischen den
+   schlichten Listenzeilen - dort stattdessen wie eine normale Zeile, mit
+   Fettschrift + kleinem Akzent-Punkt als dezenter Hervorhebung. */
+@media (max-width: 1200px) {
+  .topnav-links a.scan-cta,
+  .topnav-links a.scan-cta:hover,
+  .topnav-links a.scan-cta.active {
+    background: none;
+    border-radius: 0;
+    padding: var(--space-3) 0;
+    font-weight: 700;
+    color: var(--ink);
+    /* Trennlinie der Dropdown-Zeilen wiederherstellen - die Basis-Regel
+       oben blendet sie fuer den Desktop-Pill per !important aus. */
+    border-bottom-color: var(--line) !important;
+  }
+  .topnav-links a.scan-cta:last-child {
+    border-bottom-color: transparent !important;
+  }
+  .topnav-links a.scan-cta::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: var(--space-2);
+    vertical-align: middle;
+  }
+}
+
 @media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
   .tab-bar a.scan-fab {
     position: relative;
@@ -1242,7 +1284,14 @@ select {
 .settings-row .actions {
   display: flex;
   gap: var(--space-3);
-  flex-shrink: 0;
+  /* Vier Aktionen (Bearbeiten/Ausweis/Deaktivieren/Entfernen) passen auf
+     schmalen Screens nicht in eine Zeile - ohne wrap (und mit dem früheren
+     flex-shrink: 0, das den Container auf einzeiliger Breite festnagelte)
+     wurde die letzte Aktion am Kartenrand abgeschnitten und war nicht mehr
+     antippbar. */
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
+  min-width: 0;
 }
 
 /* Benutzer-Zeilen können viele Chips tragen (Abteilungsrolle PRO Abteilung,
@@ -1389,83 +1438,85 @@ select {
   justify-self: start;
 }
 
-/* Neun Tabs in einer Zeile umbrechen bei fast jeder Fensterbreite auf 2-3
-   Reihen und wirken dann unruhig/unübersichtlich, statt einfach als
-   Orientierungsleiste zu dienen - horizontales Scrollen (statt Umbruch)
-   hält es auf EINER Zeile. Eine sichtbare native Scrollbar direkt unter der
-   Tab-Reihe sah dabei selbst unschön/unfertig aus - stattdessen: Scrollbar
-   ausgeblendet, ein weicher Fade-Rand zeigt an, wohin noch gescrollt werden
-   kann (siehe .fade-left/.fade-right, per Alpine reaktiv), plus kleine
-   Pfeil-Buttons für Maus-Nutzer ohne Trackpad/Touch-Wischgeste - beide
-   nur sichtbar, wenn in die jeweilige Richtung tatsächlich noch etwas kommt. */
-.settings-tabs-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-6);
+/* Einstellungs-Navigation, neun Bereiche. Frühere Ansätze: Umbruch auf 2-3
+   Zeilen (unruhig), dann eine horizontale Scroll-Leiste mit Fade-Rand +
+   Pfeil-Buttons - die versteckte aber immer einen Teil der Punkte und wirkte
+   dadurch unübersichtlich. Jetzt: auf breiten Screens eine vertikale
+   Tab-Leiste links neben dem Inhalt (alle Punkte dauerhaft sichtbar, sticky
+   beim Scrollen), auf schmalen Screens eine umbrechende Pill-Reihe -
+   ebenfalls alles sichtbar, nichts scrollt seitlich. */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-4);
+  align-items: start;
 }
 
 .settings-tabs {
   display: flex;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--line);
-  flex: 1;
-  min-width: 0;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
-.settings-tabs::-webkit-scrollbar { display: none; }
-
-.settings-tabs.fade-left {
-  mask-image: linear-gradient(to right, transparent 0, black 28px);
-  -webkit-mask-image: linear-gradient(to right, transparent 0, black 28px);
-}
-.settings-tabs.fade-right {
-  mask-image: linear-gradient(to left, transparent 0, black 28px);
-  -webkit-mask-image: linear-gradient(to left, transparent 0, black 28px);
-}
-.settings-tabs.fade-left.fade-right {
-  mask-image: linear-gradient(to right, transparent 0, black 28px, black calc(100% - 28px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0, black 28px, black calc(100% - 28px), transparent 100%);
-}
-
-.settings-tabs-nav {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-bottom: var(--space-1);
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--bg-raised);
-  color: var(--ink-soft);
-  font-family: var(--font-display);
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-}
-.settings-tabs-nav:hover { color: var(--ink); border-color: var(--line-strong); }
 
 .settings-tabs a {
-  flex-shrink: 0;
-  padding: var(--space-2) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-raised);
   font-family: var(--font-display);
   font-size: 0.8125rem;
   letter-spacing: 0.02em;
   text-decoration: none;
   color: var(--ink-soft);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
 }
-.settings-tabs a.active,
-.settings-tabs a:hover {
-  color: var(--ink);
-  border-bottom-color: var(--brand);
+.settings-tabs a:hover { color: var(--ink); border-color: var(--line-strong); }
+.settings-tabs a.active {
+  color: #fff;
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.settings-tabs .count {
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.settings-tabs a.active .count { color: rgba(255, 255, 255, 0.75); }
+
+@media (min-width: 900px) {
+  .settings-layout {
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: var(--space-6);
+  }
+  .settings-tabs {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: var(--space-1);
+    position: sticky;
+    top: calc(var(--nav-height) + var(--space-4));
+  }
+  .settings-tabs a {
+    justify-content: space-between;
+    border: none;
+    border-left: 3px solid transparent;
+    border-radius: 0 var(--radius) var(--radius) 0;
+    background: none;
+    padding: var(--space-2) var(--space-3);
+  }
+  .settings-tabs a:hover {
+    background: var(--bg-raised);
+    color: var(--ink);
+  }
+  .settings-tabs a.active {
+    background: var(--bg-raised);
+    color: var(--ink);
+    border-left-color: var(--brand);
+    font-weight: 700;
+  }
+  .settings-tabs a.active .count { color: var(--ink-soft); }
 }
 
 /* -------------------------------------------------------------------------
@@ -1556,7 +1607,7 @@ select {
    Gleichstand gewinnt die später im Stylesheet stehende Regel. Stünde das
    hier vor [x-cloak], würde die Navigation auf breiten Screens bis zur
    Alpine-Initialisierung unsichtbar bleiben (kurzes Aufblitzen ohne Menü). */
-@media (min-width: 1025px) {
+@media (min-width: 1201px) {
   .nav-trigger-btn { display: none; }
   .nav-backdrop { display: none !important; }
   .topnav-links {
@@ -1726,26 +1777,81 @@ select {
 }
 .badge-close:hover { color: var(--ink); border-color: var(--line-strong); }
 
+/* Horizontales Kreditkarten-Layout: Seitenverhältnis einer echten Karte
+   (85,6 x 54 mm), Marken-Kopfleiste, Identität links, QR rechts. Auf dem
+   Handy quer vorzeigbar, beim Drucken exakt in Kartenmaßen (siehe
+   @media print unten). */
 .badge-card {
   width: 100%;
-  max-width: 340px;
+  max-width: 430px;
+  aspect-ratio: 856 / 540;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: 16px;
   box-shadow: var(--shadow-card);
-  padding: var(--space-8) var(--space-6);
+}
+
+/* Leerer Zustand (kein Barcode hinterlegt): Hinweistext braucht Platz statt
+   Kartenproportionen. */
+.badge-card-empty { aspect-ratio: auto; }
+.badge-card-empty .badge-card-body { padding: var(--space-4) var(--space-6); }
+
+.badge-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--brand);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.badge-brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+}
+.badge-brand span { color: var(--accent); }
+
+.badge-type {
+  font-family: var(--font-display);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+}
+
+.badge-card-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.badge-identity {
+  align-self: stretch;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  justify-content: center;
   gap: var(--space-1);
+  text-align: left;
 }
 
 .badge-qr {
-  width: 100%;
-  max-width: 240px;
-  height: auto;
-  margin: var(--space-4) 0;
+  height: 100%;
+  max-height: 170px;
+  width: auto;
+  flex-shrink: 0;
   /* qrcode liefert harte Blockkanten - Browser-Glättung beim Hochskalieren
      würde die wieder verwaschen (schlechter für die Scan-Erkennung als
      scharfe Kanten). */
@@ -1754,9 +1860,10 @@ select {
 
 .badge-name {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 1.25rem;
-  margin-top: var(--space-2);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
 }
 
 .badge-meta {
@@ -1769,7 +1876,8 @@ select {
   letter-spacing: 0.08em;
   font-size: 0.8125rem;
   color: var(--ink-soft);
-  margin-top: var(--space-2);
+  /* sitzt wie eine Kartennummer unten links, abgesetzt vom Namensblock */
+  margin-top: var(--space-4);
 }
 
 @media print {
@@ -1782,10 +1890,25 @@ select {
   .badge-screen {
     min-height: 0;
     padding: 0;
+    align-items: flex-start;
   }
   .badge-card {
+    /* Exakte Maße einer Scheckkarte (ISO/IEC 7810 ID-1) inkl. echtem
+       Eckenradius - so lässt sich der Ausdruck direkt auf Kartengröße
+       zuschneiden oder in eine Standard-Kartenhülle stecken. */
+    width: 85.6mm;
+    height: 54mm;
+    max-width: none;
+    aspect-ratio: auto;
+    border-radius: 3.18mm;
+    border: 1px solid var(--line-strong);
     box-shadow: none;
+    /* Kopfleiste (dunkelgrüner Hintergrund) auch im Druck ausgeben -
+       Browser unterdrücken Hintergrundfarben sonst standardmäßig. */
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
+  .badge-qr { max-height: 34mm; }
 }
 
 /* -------------------------------------------------------------------------

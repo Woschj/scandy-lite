@@ -13,7 +13,7 @@
       <a href="/scan" class="scan-cta {% if request.url.path.startswith('/scan') %}active{% endif %}">Scannen</a>
     {% endif %}
     <a href="/items" class="{% if request.url.path.startswith('/items') %}active{% endif %}">Gegenstände</a>
-    <a href="/consumables" class="{% if request.url.path.startswith('/consumables') %}active{% endif %}">Verbrauchsmaterial</a>
+    <a href="/consumables" class="{% if request.url.path.startswith('/consumables') %}active{% endif %}">Material</a>
     <a href="/reservations" class="{% if request.url.path.startswith('/reservations') and not request.url.path.startswith('/reservations/cart') %}active{% endif %}">Reservierungen</a>
     {% if user %}
       <a href="/reservations/cart" class="cart-link {% if request.url.path.startswith('/reservations/cart') %}active{% endif %}">
@@ -24,7 +24,7 @@
       <a href="/history" class="{% if request.url.path.startswith('/history') %}active{% endif %}">Historie</a>
     {% endif %}
     {% if user %}
-      <a href="/me/ausweis" class="{% if request.url.path == '/me/ausweis' %}active{% endif %}">🪪 Mein Ausweis</a>
+      <a href="/me/ausweis" class="{% if request.url.path == '/me/ausweis' %}active{% endif %}">Mein Ausweis</a>
     {% endif %}
     {% if user and user.is_admin %}
       <a href="/admin/settings" class="{% if request.url.path.startswith('/admin') %}active{% endif %}">Einstellungen</a>

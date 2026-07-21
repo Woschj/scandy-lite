@@ -4,6 +4,7 @@ Verbrauchsmaterial), Aktion bestätigen (ausleihen/zurückgeben/entnehmen),
 fertig. Barcodes sind global eindeutig (DB-Constraint), daher kein
 Abteilungs-Filter bei der Suche nötig - nur eine Berechtigungsprüfung danach.
 """
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -27,6 +28,7 @@ from app.routers.pickup import get_open_reservations_for_worker
 from app.routers.reservations import get_open_consumable_reservation_for_worker, get_open_reservation
 
 router = APIRouter(prefix="/scan", tags=["scan"], dependencies=[Depends(populate_nav_context), Depends(require_staff), Depends(verify_csrf)])
+logger = logging.getLogger("scandy-lite")
 
 
 async def _check_department_access(session: AsyncSession, user: User, entity_department_id: uuid.UUID) -> None:
@@ -34,6 +36,13 @@ async def _check_department_access(session: AsyncSession, user: User, entity_dep
     scannen - unabhängig davon, ob er in einer ANDEREN Abteilung Mitarbeiter ist."""
     if not await is_staff_in_department(session, user, entity_department_id):
         raise Forbidden()
+
+
+async def _find_active_worker_by_barcode(session: AsyncSession, barcode: str) -> User | None:
+    result = await session.exec(
+        select(User).where(User.barcode == barcode.strip(), User.deleted_at.is_(None), User.is_active == True)  # noqa: E712
+    )
+    return result.first()
 
 
 @router.get("")
@@ -94,10 +103,7 @@ async def scan_lookup(
     # Umweg über "Reservierungen ausgeben" -> Person aus Liste wählen zu
     # erzwingen. Ohne offene Reservierung(en) bringt die Weiterleitung nichts
     # (leere Checkliste) - dann stattdessen ein kurzer, eindeutiger Hinweis.
-    worker_result = await session.exec(
-        select(User).where(User.barcode == barcode, User.deleted_at.is_(None), User.is_active == True)  # noqa: E712
-    )
-    worker = worker_result.first()
+    worker = await _find_active_worker_by_barcode(session, barcode)
     if worker:
         reservations = await get_open_reservations_for_worker(session, worker.id)
         if reservations:
@@ -134,10 +140,7 @@ async def scan_lend(
     if not signature.startswith("data:image/png;base64,") or len(signature) > 200_000:
         return RedirectResponse(url="/scan?error=Unterschrift+fehlt+oder+ist+ungültig.", status_code=303)
 
-    worker_result = await session.exec(
-        select(User).where(User.barcode == worker_barcode.strip(), User.deleted_at.is_(None), User.is_active == True)  # noqa: E712
-    )
-    worker = worker_result.first()
+    worker = await _find_active_worker_by_barcode(session, worker_barcode)
     if not worker:
         return RedirectResponse(url="/scan?error=Mitarbeiter-Barcode+nicht+gefunden.", status_code=303)
 
@@ -164,6 +167,7 @@ async def scan_lend(
         # Partial-Unique-Index (uq_lendings_open_item) hat zugeschlagen: jemand
         # war zwischen Anzeige und Bestätigung schneller. Sauber melden statt 500.
         await session.rollback()
+        logger.warning("Ausleihe von Item %s kollidierte mit einer gleichzeitigen Ausleihe.", item_id)
         return RedirectResponse(url="/scan?error=Gegenstand+wurde+soeben+bereits+ausgeliehen.", status_code=303)
 
     return redirect_with_query("/scan", ok=f"{item.name} an {worker.full_name} ausgeliehen.")
@@ -212,10 +216,7 @@ async def scan_consume(
     if quantity <= 0:
         return RedirectResponse(url="/scan?error=Menge+muss+größer+als+0+sein.", status_code=303)
 
-    worker_result = await session.exec(
-        select(User).where(User.barcode == worker_barcode.strip(), User.deleted_at.is_(None), User.is_active == True)  # noqa: E712
-    )
-    worker = worker_result.first()
+    worker = await _find_active_worker_by_barcode(session, worker_barcode)
     if not worker:
         return RedirectResponse(url="/scan?error=Mitarbeiter-Barcode+nicht+gefunden.", status_code=303)
 

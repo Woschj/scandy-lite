@@ -12,21 +12,8 @@
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
-<div
-  class="settings-tabs-wrap"
-  x-data="{
-    fadeLeft: false, fadeRight: false,
-    check() {
-      const el = $refs.tabs;
-      this.fadeLeft = el.scrollLeft > 2;
-      this.fadeRight = el.scrollLeft + el.clientWidth < el.scrollWidth - 2;
-    },
-    scrollTabs(delta) { $refs.tabs.scrollBy({ left: delta, behavior: 'smooth' }); },
-  }"
-  x-init="check(); $nextTick(() => { $refs.tabs.querySelector('.active')?.scrollIntoView({ inline: 'center', block: 'nearest' }); check(); })"
->
-  <button type="button" class="settings-tabs-nav" x-show="fadeLeft" x-cloak @click="scrollTabs(-160)" aria-label="Tabs nach links scrollen">‹</button>
-  <nav class="settings-tabs" x-ref="tabs" @scroll="check()" @resize.window="check()" :class="{ 'fade-left': fadeLeft, 'fade-right': fadeRight }">
+<div class="settings-layout">
+  <nav class="settings-tabs" aria-label="Einstellungs-Bereiche">
     <a href="#departments" @click.prevent="tab = 'departments'" :class="{active: tab === 'departments'}">Abteilungen <span class="count">{{ departments | length }}</span></a>
     <a href="#users" @click.prevent="tab = 'users'" :class="{active: tab === 'users'}">Benutzer <span class="count">{{ users | length }}</span></a>
     <a href="#access" @click.prevent="tab = 'access'" :class="{active: tab === 'access'}">Zugriff</a>
@@ -37,8 +24,8 @@
     <a href="#trash" @click.prevent="tab = 'trash'" :class="{active: tab === 'trash'}">Papierkorb <span class="count">{{ (trash_items | length) + (trash_consumables | length) + (trash_users | length) }}</span></a>
     <a href="#changelog" @click.prevent="tab = 'changelog'" :class="{active: tab === 'changelog'}">Changelog</a>
   </nav>
-  <button type="button" class="settings-tabs-nav" x-show="fadeRight" x-cloak @click="scrollTabs(160)" aria-label="Tabs nach rechts scrollen">›</button>
-</div>
+
+  <div class="settings-content">
 
 {% if department %}
   {% set ordered_departments = [department] + (departments | rejectattr("id", "equalto", department.id) | list) %}
@@ -111,7 +98,7 @@
         <div class="main">
           <div class="user-identity">
             <span class="name">{{ u.full_name }}</span>
-            <span class="meta">@{{ u.username }}{% if u.barcode %} · {{ u.barcode }}{% endif %}</span>
+            <span class="meta">@{{ u.username }}{% if u.barcode %} · {{ u.barcode }}{% endif %}{% if u.id == user.id %} · (du){% endif %}</span>
           </div>
           <div class="user-tags">
             {% if not u.barcode %}<span class="chip chip-danger">Kein Ausweis</span>{% endif %}
@@ -143,8 +130,6 @@
               {% include "partials/csrf_field.html" %}
               <button type="submit" class="link-btn danger">Entfernen</button>
             </form>
-          {% else %}
-            <span class="meta">(du)</span>
           {% endif %}
         </div>
       </div>
@@ -651,6 +636,9 @@
     {% endfor %}
   </div>
 </section>
+
+  </div> {# /settings-content #}
+</div> {# /settings-layout #}
 
 </div>
 {% endblock %}

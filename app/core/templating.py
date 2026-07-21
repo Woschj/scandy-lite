@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from app.core.config import get_settings
 from app.core.security import generate_csrf_token
 from app.core.uploads import has_image, image_url
+from app.version import __version__
 
 settings = get_settings()
 
@@ -44,6 +45,13 @@ templates = Jinja2Templates(
 templates.env.globals["has_image"] = has_image
 templates.env.globals["image_url"] = image_url
 templates.env.globals["csrf_token"] = csrf_token
+# Cache-Busting für CSS/JS: StaticFiles sendet kein Cache-Control, Browser
+# dürfen Assets deshalb heuristisch (Last-Modified-basiert) wiederverwenden -
+# nach einem Deploy kann so veraltetes CSS/JS aktiv bleiben, sogar durch den
+# network-first Service Worker hindurch (dessen fetch() nutzt denselben
+# HTTP-Cache). Eine versionierte URL (?v=...) ändert sich mit jedem Release
+# und erzwingt damit garantiert einen frischen Abruf.
+templates.env.globals["asset_version"] = __version__
 # `tojson` ist eine Flask-Eigenheit, kein Jinja2-Kernfilter - wird hier für
 # Alpine.js-`x-data`-Attribute gebraucht (JSON aus Python-Werten in HTML-
 # Attribute einbetten, siehe items/form.html). Bewusst KEIN Markup/safe-

@@ -17,7 +17,7 @@ from app.core.database import get_session
 from app.core.deps import verify_csrf
 from app.core.email import send_email
 from app.core.password_reset import create_reset_token, invalidate_all_tokens_for_user, resolve_reset_token
-from app.core.security import create_access_token, hash_password, set_session_cookie, verify_password
+from app.core.security import MIN_PASSWORD_LENGTH, create_access_token, hash_password, set_session_cookie, verify_password
 from app.core.templating import templates
 from app.models.common import AuthSource
 from app.models.user import User
@@ -196,11 +196,11 @@ async def reset_password_submit(
             request, "auth/reset_password.html", {"error": "invalid", "token": token}
         )
 
-    if len(new_password) < 8:
+    if len(new_password) < MIN_PASSWORD_LENGTH:
         return templates.TemplateResponse(
             request,
             "auth/reset_password.html",
-            {"error": "Passwort zu kurz (min. 8 Zeichen).", "token": token},
+            {"error": f"Passwort zu kurz (min. {MIN_PASSWORD_LENGTH} Zeichen).", "token": token},
         )
 
     user = await session.get(User, reset_token.user_id)

@@ -8,6 +8,7 @@ Kein "aktuell aktive Abteilung"-Kontext (kein Umschalter) - die Liste zeigt
 immer alles Sichtbare gemischt (mit Abteilungs-Badge pro Karte), und beim
 Anlegen ist die Abteilung ein normales Formularfeld.
 """
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
@@ -30,6 +31,7 @@ from app.core.custom_fields import (
 from app.core.database import get_session
 from app.core.deps import Forbidden, get_current_user, populate_nav_context, require_staff, verify_csrf
 from app.core.inventory_crud import (
+    HISTORY_LIMIT,
     InventoryKind,
     delete_entity,
     delete_entity_image,
@@ -45,6 +47,7 @@ from app.models.lending import Lending
 from app.models.user import User
 
 router = APIRouter(prefix="/items", tags=["items"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
+logger = logging.getLogger("scandy-lite")
 
 ITEM_KIND = InventoryKind(model=Item, url_prefix="items")
 
@@ -59,6 +62,8 @@ ITEM_SORT_COLUMNS = {
     "barcode": (Item.barcode,),
 }
 
+_PAGE_SIZE = 60  # an die Kachel-/Listenansicht angepasst
+
 
 @router.get("")
 async def list_items(
@@ -68,6 +73,7 @@ async def list_items(
     category: str = "",
     location: str = "",
     sort: str = "status",
+    page: int = 1,
     ok: str = "",
     error: str = "",
     user: User = Depends(get_current_user),
@@ -75,6 +81,11 @@ async def list_items(
 ):
     from app.models.reservation import Reservation
     from app.routers.reservations import get_linked_worker
+
+    # page=0 oder negativ (z.B. per manipuliertem Query-Parameter) würde sonst
+    # über Pythons negative Slice-Indizierung ein falsches/leeres Ergebnis
+    # liefern statt auf Seite 1 zu klemmen (siehe history.py).
+    page = max(page, 1)
 
     linked_worker = await get_linked_worker(session, user)
     has_any_staff_role = getattr(request.state, "has_any_staff_role", False)
@@ -133,8 +144,13 @@ async def list_items(
     if location:
         stmt = stmt.where(Item.location == location)
 
+    # Ein Element mehr als die Seitengröße abfragen statt einer separaten
+    # COUNT-Query, um zu wissen, ob eine weitere Seite existiert (has_more).
+    stmt = stmt.offset((page - 1) * _PAGE_SIZE).limit(_PAGE_SIZE + 1)
     result = await session.exec(stmt)
     items = result.all()
+    has_more = len(items) > _PAGE_SIZE
+    items = items[:_PAGE_SIZE]
 
     # Kategorie-/Standort-Werte fürs Filter-Dropdown: unabhängig von den
     # aktuell gesetzten Filtern/der Suche, damit Optionen nicht verschwinden,
@@ -169,6 +185,7 @@ async def list_items(
             "available_categories": available_categories, "available_locations": available_locations,
             "reserved_ids": reserved_ids, "linked_worker": linked_worker,
             "staff_department_ids": staff_department_ids, "has_any_staff_role": has_any_staff_role,
+            "page": page, "has_more": has_more,
         },
     )
 
@@ -252,6 +269,7 @@ async def create_item(
         await session.flush()
     except IntegrityError:
         await session.rollback()
+        logger.warning("Anlegen von Gegenstand mit Barcode '%s' kollidierte mit einer gleichzeitigen Anlage.", barcode)
         return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
 
     form_data = await request.form()
@@ -279,6 +297,7 @@ async def create_item(
         await session.commit()
     except IntegrityError:
         await session.rollback()
+        logger.warning("Anlegen von Gegenstand mit Barcode '%s' kollidierte mit einer gleichzeitigen Anlage (Custom-Field-Commit).", barcode)
         return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/items", status_code=303)
 
@@ -352,7 +371,7 @@ async def item_detail(
                 .where(Lending.item_id == item.id)
                 .options(selectinload(Lending.worker))
                 .order_by(Lending.lent_at.desc())
-                .limit(20)
+                .limit(HISTORY_LIMIT)
             )
         ).all()
 
@@ -499,6 +518,7 @@ async def update_item(
         await session.commit()
     except IntegrityError:
         await session.rollback()
+        logger.warning("Aktualisieren von Gegenstand %s kollidierte mit einer gleichzeitigen Änderung (Barcode '%s').", item_id, barcode)
         return RedirectResponse(url="/items?error=Barcode+ist+bereits+vergeben.", status_code=303)
     return RedirectResponse(url="/items", status_code=303)
 

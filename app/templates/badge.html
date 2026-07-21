@@ -10,27 +10,38 @@
 <div class="badge-screen">
   <a href="{{ back_url }}" class="badge-close no-print" aria-label="Schließen">✕</a>
 
-  <div class="badge-card">
-    <span class="eyebrow">Mitarbeiterausweis</span>
-    {% if qr %}
-      <img class="badge-qr" src="{{ qr }}" alt="QR-Code {{ target.barcode }}">
-      <div class="badge-name">{{ target.full_name }}</div>
-      {% if target.department %}<div class="badge-meta">{{ target.department.name }}</div>{% endif %}
-      <div class="badge-barcode">{{ target.barcode }}</div>
-    {% else %}
-      <p style="margin-top: var(--space-3);">
-        {% if target.id == user.id %}
-          Für dein Konto ist noch kein Ausweis-Barcode hinterlegt.
-        {% else %}
-          Für {{ target.full_name }} ist noch kein Ausweis-Barcode hinterlegt.
-        {% endif %}
-        {% if user.is_admin %}
-          Unter Einstellungen → Benutzer → Bearbeiten nachtragen.
-        {% else %}
-          Bitte bei einem Admin nachfragen.
-        {% endif %}
-      </p>
-    {% endif %}
+  {# Horizontales Kreditkarten-Layout (Seitenverhältnis 85,6 x 54 mm):
+     Marken-Kopfleiste oben, Name/Abteilung links, QR-Code rechts, Barcode
+     unten links wie eine Kartennummer. Beim Drucken bekommt die Karte per
+     @media print exakt echte Kartenmaße (siehe app.css). #}
+  <div class="badge-card {% if not qr %}badge-card-empty{% endif %}">
+    <div class="badge-card-head">
+      <span class="badge-brand">SCANDY<span>//</span>LITE</span>
+      <span class="badge-type">Mitarbeiterausweis</span>
+    </div>
+    <div class="badge-card-body">
+      {% if qr %}
+        <div class="badge-identity">
+          <div class="badge-name">{{ target.full_name }}</div>
+          {% if target.department %}<div class="badge-meta">{{ target.department.name }}</div>{% endif %}
+          <div class="badge-barcode">{{ target.barcode }}</div>
+        </div>
+        <img class="badge-qr" src="{{ qr }}" alt="QR-Code {{ target.barcode }}">
+      {% else %}
+        <p>
+          {% if target.id == user.id %}
+            Für dein Konto ist noch kein Ausweis-Barcode hinterlegt.
+          {% else %}
+            Für {{ target.full_name }} ist noch kein Ausweis-Barcode hinterlegt.
+          {% endif %}
+          {% if user.is_admin %}
+            Unter Einstellungen → Benutzer → Bearbeiten nachtragen.
+          {% else %}
+            Bitte bei einem Admin nachfragen.
+          {% endif %}
+        </p>
+      {% endif %}
+    </div>
   </div>
 
   {% if qr %}

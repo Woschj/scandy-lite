@@ -26,7 +26,7 @@ from app.core.deps import require_admin, populate_nav_context, verify_csrf
 from app.core.email import get_email_settings, send_email
 from app.core.password_reset import create_reset_token
 from app.core.responses import redirect_with_query
-from app.core.security import hash_password
+from app.core.security import MIN_PASSWORD_LENGTH, hash_password
 from app.core.templating import templates
 from app.core.trash import (
     get_trash_entries,
@@ -158,7 +158,7 @@ async def approve_pending_account(
     session.add(target)
     await session.flush()  # target.id existiert schon (SSO-Konten werden beim ersten Login sofort committet)
 
-    if initial_role in ("mitarbeiter", "nutzer"):
+    if initial_role in {UserRole.MITARBEITER.value, UserRole.NUTZER.value}:
         session.add(UserDepartmentRole(user_id=target.id, department_id=department_id, role=UserRole(initial_role)))
 
     await session.commit()
@@ -219,8 +219,8 @@ async def create_user(
     existing_user = await session.exec(select(User).where(User.username == username))
     if existing_user.first():
         return RedirectResponse(url="/admin/settings?error=Benutzername+bereits+vergeben.#users", status_code=303)
-    if len(password) < 8:
-        return RedirectResponse(url="/admin/settings?error=Passwort+zu+kurz+(min.+8+Zeichen).#users", status_code=303)
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return RedirectResponse(url=f"/admin/settings?error=Passwort+zu+kurz+(min.+{MIN_PASSWORD_LENGTH}+Zeichen).#users", status_code=303)
 
     existing_barcode = await session.exec(select(User).where(User.barcode == barcode, User.deleted_at.is_(None)))
     if existing_barcode.first():
@@ -240,7 +240,7 @@ async def create_user(
     session.add(new_user)
     await session.flush()  # user.id wird für die optionale UserDepartmentRole gebraucht
 
-    if initial_role in ("mitarbeiter", "nutzer") and not new_user.is_admin:
+    if initial_role in {UserRole.MITARBEITER.value, UserRole.NUTZER.value} and not new_user.is_admin:
         session.add(UserDepartmentRole(user_id=new_user.id, department_id=home_department_id, role=UserRole(initial_role)))
 
     await session.commit()
@@ -380,8 +380,8 @@ async def update_user(
     if barcode_conflict.first():
         return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Barcode+ist+bereits+vergeben.", status_code=303)
 
-    if new_password and len(new_password) < 8:
-        return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Neues+Passwort+zu+kurz+(min.+8+Zeichen).", status_code=303)
+    if new_password and len(new_password) < MIN_PASSWORD_LENGTH:
+        return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Neues+Passwort+zu+kurz+(min.+{MIN_PASSWORD_LENGTH}+Zeichen).", status_code=303)
 
     # Sich selbst die Admin-Rechte zu entziehen wäre eine Selbstaussperrung -
     # verhindern, genau wie beim Deaktivieren/Löschen des eigenen Kontos.
@@ -633,7 +633,7 @@ async def create_access(
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    if role not in ("mitarbeiter", "nutzer"):
+    if role not in {UserRole.MITARBEITER.value, UserRole.NUTZER.value}:
         return RedirectResponse(url="/admin/settings#access", status_code=303)
 
     existing = await session.get(UserDepartmentRole, (user_id, department_id))

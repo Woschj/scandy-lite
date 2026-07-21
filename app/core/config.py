@@ -17,6 +17,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 _INSECURE_SECRET_KEYS = {"change-me-in-production", "change_me_secret_key", ""}
 _MIN_SECRET_KEY_LENGTH = 32  # openssl rand -hex 32 erzeugt 64 Zeichen - großzügige Untergrenze
 
+# Platzhalter aus docker-compose.yml (POSTGRES_PASSWORD-Fallback) - landet bei
+# unverändertem .env unverschlüsselt als Teilstring in DATABASE_URL.
+_INSECURE_DB_PASSWORD_PLACEHOLDER = "change_me_immediately"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -76,6 +80,20 @@ class Settings(BaseSettings):
                 "SECRET_KEY ist nicht sicher gesetzt (Standardwert oder kürzer als "
                 f"{_MIN_SECRET_KEY_LENGTH} Zeichen), ENV=production verlangt aber einen echten Schlüssel. "
                 "Erzeugen mit: openssl rand -hex 32 - siehe INSTALL.md."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _require_real_db_password_in_production(self) -> "Settings":
+        """Analog zu SECRET_KEY: der docker-compose.yml-Fallback für
+        POSTGRES_PASSWORD ist öffentlich in diesem Repo sichtbar - bleibt er
+        in Produktion unverändert, ist die Datenbank für jeden erreichbar,
+        der Netzwerkzugriff auf sie hat."""
+        if self.ENV == "production" and _INSECURE_DB_PASSWORD_PLACEHOLDER in self.DATABASE_URL:
+            raise ValueError(
+                "DATABASE_URL enthält noch das unsichere Standard-Passwort "
+                f"({_INSECURE_DB_PASSWORD_PLACEHOLDER!r}), ENV=production verlangt aber ein echtes "
+                "POSTGRES_PASSWORD. Setzen in der .env - siehe INSTALL.md."
             )
         return self
 

@@ -22,9 +22,10 @@ dist/
 # Alembic (Versionen bleiben im Repo, nur lokale Caches raus)
 .alembic_cache/
 
-# IDE
+# IDE / lokale Tooling-Konfiguration
 .idea/
 .vscode/
+.claude/
 *.swp
 
 # OS

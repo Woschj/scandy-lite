@@ -17,6 +17,7 @@ from sqlmodel import select
 
 from app.core.database import async_session_maker
 from app.core.security import hash_password
+from app.models.common import utcnow
 from app.models.department import Department
 from app.models.user import User
 
@@ -44,6 +45,11 @@ async def seed(username: str, password: str, department_code: str, department_na
             username=username,
             is_admin=True,
             hashed_password=hash_password(password),
+            # Ohne approved_at würde der frisch angelegte Admin als
+            # "ausstehendes Konto" (SSO-Freischaltungs-Workflow, siehe
+            # app/routers/oidc.py) auf dem Dashboard auftauchen und könnte
+            # dort sogar abgelehnt = gelöscht werden.
+            approved_at=utcnow(),
         )
         session.add(user)
         await session.commit()

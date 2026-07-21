@@ -19,6 +19,7 @@ from app.core.config import get_settings
 settings = get_settings()
 
 _BCRYPT_MAX_BYTES = 72  # bcrypt-Grenze; längere Passwörter werden sauber abgeschnitten statt zu crashen
+MIN_PASSWORD_LENGTH = 8
 
 
 def hash_password(plain_password: str) -> str:

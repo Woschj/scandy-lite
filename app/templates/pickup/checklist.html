@@ -86,13 +86,13 @@
       <button type="submit" class="btn btn-primary btn-block">Ausgabe bestätigen ({{ done | length }})</button>
     </form>
   </div>
-  <script src="/static/js/signature.js" defer></script>
+  <script src="/static/js/signature.js?v={{ asset_version }}" defer></script>
 {% endif %}
 
 <p style="margin-top: var(--space-6);"><a href="/scan/pickup" class="link-btn">← Zurück zur Übersicht</a></p>
 
-<script src="/static/js/vendor/html5-qrcode.min.js"></script>
-<script src="/static/js/barcode-camera.js"></script>
+<script src="/static/js/vendor/html5-qrcode.min.js?v={{ asset_version }}"></script>
+<script src="/static/js/barcode-camera.js?v={{ asset_version }}"></script>
 <script>
   ScandyCamera.attach({
     startBtn: document.getElementById('camera-start-btn'),

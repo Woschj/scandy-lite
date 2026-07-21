@@ -138,6 +138,23 @@
       </div>
     {% endfor %}
   </div>
+  {% if page > 1 or has_more %}
+    {% set qs = "&q=" + q if q else "" %}
+    {% set qs = qs + ("&status=" + status if status else "") %}
+    {% set qs = qs + ("&category=" + category if category else "") %}
+    {% set qs = qs + ("&location=" + location if location else "") %}
+    {% set qs = qs + ("&sort=" + sort if sort else "") %}
+    <div class="pagination">
+      {% if page > 1 %}
+        <a href="/items?page={{ page - 1 }}{{ qs }}" class="btn btn-ghost">← Zurück</a>
+      {% else %}
+        <span></span>
+      {% endif %}
+      {% if has_more %}
+        <a href="/items?page={{ page + 1 }}{{ qs }}" class="btn btn-ghost">Weiter →</a>
+      {% endif %}
+    </div>
+  {% endif %}
 {% else %}
   <div class="empty-state">
     {% if q %}

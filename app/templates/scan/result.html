@@ -55,9 +55,9 @@
         </div>
         <button type="submit" class="btn btn-primary btn-block">Ausgabe bestätigen</button>
       </form>
-      <script src="/static/js/signature.js" defer></script>
-      <script src="/static/js/vendor/html5-qrcode.min.js"></script>
-      <script src="/static/js/barcode-camera.js"></script>
+      <script src="/static/js/signature.js?v={{ asset_version }}" defer></script>
+      <script src="/static/js/vendor/html5-qrcode.min.js?v={{ asset_version }}"></script>
+      <script src="/static/js/barcode-camera.js?v={{ asset_version }}"></script>
       <script>
         ScandyCamera.attach({
           startBtn: document.getElementById('worker-camera-start-btn'),
@@ -132,8 +132,8 @@
 
       <button type="submit" class="btn btn-primary btn-block">Entnahme bestätigen</button>
     </form>
-    <script src="/static/js/vendor/html5-qrcode.min.js"></script>
-    <script src="/static/js/barcode-camera.js"></script>
+    <script src="/static/js/vendor/html5-qrcode.min.js?v={{ asset_version }}"></script>
+    <script src="/static/js/barcode-camera.js?v={{ asset_version }}"></script>
     <script>
       ScandyCamera.attach({
         startBtn: document.getElementById('worker-camera-start-btn'),
