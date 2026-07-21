@@ -6,6 +6,7 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 (kein Ticketsystem, kein Kantinenplan, keine Job-Verwaltung).
 
 **→ Schritt-für-Schritt-Installation via Portainer: [INSTALL.md](INSTALL.md)**
+**→ Optionales SSO-Login via Authentik: [SSO_AUTHENTIK.md](SSO_AUTHENTIK.md)**
 **→ Versionsgeschichte: [CHANGELOG.md](CHANGELOG.md)**
 
 ## Tech-Stack

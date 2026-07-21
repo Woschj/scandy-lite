@@ -76,6 +76,13 @@ Mit `ADMIN_USERNAME`/`ADMIN_PASSWORD` unter `/auth/login` anmelden.
 deployen (Passwort steht sonst dauerhaft im Klartext in der Stack-Konfiguration).
 Das Admin-Konto bleibt bestehen, es wird nur nicht erneut angelegt/überschrieben.
 
+## Optional: SSO-Login über Authentik
+
+Zusätzlich zum lokalen Login lässt sich ein "Mit Authentik anmelden"-Button
+aktivieren - siehe [SSO_AUTHENTIK.md](SSO_AUTHENTIK.md) für die komplette
+Einrichtung (Authentik-Seite + drei Umgebungsvariablen hier). Ohne diese
+Variablen bleibt das Feature einfach aus, keine Pflicht.
+
 ## Updates einspielen
 
 Nach jedem `git push` auf `master`:
