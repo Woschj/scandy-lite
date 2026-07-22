@@ -13,6 +13,33 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.16.0] - 2026-07-22
+
+### Fixed
+- **Gegenstände/Verbrauchsmaterial ließen sich nach dem Anlegen NIE wieder
+  einer anderen Abteilung zuordnen** (gemeldeter Bug: "nachträgliches
+  Zuweisen/Ändern von Abteilungen wird nicht übernommen") - das Bearbeiten-
+  Formular zeigte das Abteilungsfeld gar nicht erst an, `update_item`/
+  `update_consumable` nahmen `department_id` serverseitig nicht mal als
+  Parameter entgegen. Jetzt nachträglich änderbar:
+  - Formular zeigt/erlaubt die Abteilungsauswahl auch beim Bearbeiten,
+    Kategorie/Standort/Zusatzfelder reagieren reaktiv auf die gewählte
+    Abteilung (gleiches Alpine-Muster wie beim Anlegen, jetzt für beide
+    Modi vereinheitlicht) - ein bestehender, nicht mehr in den Vorgaben der
+    aktuellen Abteilung auftauchender Kategorie-/Standort-Wert bleibt beim
+    Laden erhalten statt beim nächsten Speichern stillschweigend zu leeren.
+  - Blockiert, solange der Gegenstand noch ausgeliehen oder reserviert ist
+    bzw. das Material noch vorgemerkt ist - Lending/Reservation/
+    ConsumableReservation.department_id wird beim Anlegen immer vom Item/
+    Material übernommen und mehrere Stellen (unter anderem der in 0.15.0
+    N+1-optimierte `purge_department`) verlassen sich darauf, dass das
+    dauerhaft stimmt.
+  - Erfordert Mitarbeiter-Rolle in der ZIEL-Abteilung, nicht nur der
+    aktuellen - sonst könnte sich jemand per Formular in eine Abteilung
+    "hineinverschieben", in der er keine Rechte hat.
+  - Neue Regressionstests (`tests/test_department_reassignment.py`) decken
+    Erfolgsfall, beide Blockaden und die Berechtigungsprüfung ab.
+
 ## [0.15.0] - 2026-07-21
 
 ### Changed

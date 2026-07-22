@@ -27,7 +27,6 @@ from app.core.inventory_crud import (
     InventoryKind,
     delete_entity,
     delete_entity_image,
-    presets,
     presets_by_department,
     staff_departments,
     upload_entity_image,
@@ -35,6 +34,7 @@ from app.core.inventory_crud import (
 from app.core.templating import templates
 from app.models.common import UserRole
 from app.models.consumable import Consumable, ConsumableUsage
+from app.models.department import Department
 from app.models.user import User
 
 router = APIRouter(prefix="/consumables", tags=["consumables"], dependencies=[Depends(populate_nav_context), Depends(verify_csrf)])
@@ -280,6 +280,38 @@ async def consumable_detail(
     )
 
 
+async def _edit_form_context(session: AsyncSession, user: User, consumable: Consumable) -> dict:
+    """Kontext fürs Bearbeiten-Formular: ALLE Abteilungen, in denen dieser
+    User Mitarbeiter ist (nicht nur die aktuelle des Materials) - seit
+    dieser Änderung lässt sich die Abteilung nachträglich wechseln, das
+    Formular braucht deshalb dieselben abteilungs-reaktiven Kategorie-/
+    Standort-Daten wie das Anlegen-Formular (siehe consumables/form.html)."""
+    departments = await staff_departments(session, user)
+    if consumable.department_id not in {d.id for d in departments}:
+        current_department = await session.get(Department, consumable.department_id)
+        if current_department:
+            departments = [*departments, current_department]
+
+    department_ids = [d.id for d in departments]
+    categories_by_department, locations_by_department = await presets_by_department(session, department_ids)
+
+    # Vorhandener Kategorie-/Standort-Wert erhalten, auch wenn er (mehr) nicht
+    # in den Vorgaben der AKTUELLEN Abteilung auftaucht (Altdaten, umbenannte/
+    # gelöschte Vorgabe) - sonst würde die rein reaktive Auswahl ihn beim
+    # Speichern stillschweigend leeren, obwohl niemand das Feld angefasst hat.
+    dept_key = str(consumable.department_id)
+    if consumable.category and consumable.category not in categories_by_department.get(dept_key, []):
+        categories_by_department.setdefault(dept_key, []).append(consumable.category)
+    if consumable.location and consumable.location not in locations_by_department.get(dept_key, []):
+        locations_by_department.setdefault(dept_key, []).append(consumable.location)
+
+    return {
+        "departments": departments,
+        "categories_by_department": categories_by_department,
+        "locations_by_department": locations_by_department,
+    }
+
+
 @router.get("/{consumable_id}/edit")
 async def edit_consumable_form(
     request: Request,
@@ -295,14 +327,11 @@ async def edit_consumable_form(
     if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
 
-    categories, locations = await presets(session, consumable.department_id)
+    context = await _edit_form_context(session, user, consumable)
     return templates.TemplateResponse(
         request,
         "consumables/form.html",
-        {
-            "user": user, "consumable": consumable, "error": error, "ok": ok,
-            "categories": categories, "locations": locations,
-        },
+        {"user": user, "consumable": consumable, "error": error, "ok": ok, **context},
     )
 
 
@@ -312,6 +341,7 @@ async def update_consumable(
     consumable_id: uuid.UUID,
     barcode: str = Form(...),
     name: str = Form(...),
+    department_id: uuid.UUID = Form(...),
     category: str = Form(""),
     location: str = Form(""),
     unit: str = Form("Stück"),
@@ -324,6 +354,11 @@ async def update_consumable(
         raise Forbidden()
     if not await is_staff_in_department(session, user, consumable.department_id):
         raise Forbidden()
+    # Ziel-Abteilung braucht dieselbe Berechtigung wie die aktuelle - sonst
+    # könnte sich ein Mitarbeiter per Formular-Manipulation Zugriff auf eine
+    # Abteilung verschaffen, in der er keine Mitarbeiter-Rolle hat.
+    if department_id != consumable.department_id and not await is_staff_in_department(session, user, department_id):
+        raise Forbidden()
 
     result = await session.exec(
         select(Consumable).where(
@@ -331,17 +366,43 @@ async def update_consumable(
         )
     )
     if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="consumable"):
-        categories, locations = await presets(session, consumable.department_id)
+        context = await _edit_form_context(session, user, consumable)
         return templates.TemplateResponse(
             request,
             "consumables/form.html",
-            {
-                "user": user, "consumable": consumable,
-                "error": f"Barcode '{barcode}' ist bereits vergeben.",
-                "categories": categories, "locations": locations,
-            },
+            {"user": user, "consumable": consumable, "error": f"Barcode '{barcode}' ist bereits vergeben.", **context},
             status_code=409,
         )
+
+    # Abteilungswechsel: ConsumableReservation.department_id wird beim
+    # Anlegen immer von consumable.department_id übernommen (siehe
+    # reservations.py) - mehrere Stellen im Code (u.a. purge_department,
+    # siehe app/core/trash.py) verlassen sich darauf, dass das dauerhaft
+    # stimmt. Ein Wechsel während einer noch offenen Vormerkung würde diese
+    # Annahme verletzen, deshalb dieselbe Blockade wie bei purge_consumable.
+    if department_id != consumable.department_id:
+        from app.models.consumable_reservation import ConsumableReservation
+
+        open_reservations = await session.exec(
+            select(ConsumableReservation).where(
+                ConsumableReservation.consumable_id == consumable.id,
+                ConsumableReservation.fulfilled_at.is_(None),
+                ConsumableReservation.cancelled_at.is_(None),
+            )
+        )
+        if open_reservations.first():
+            context = await _edit_form_context(session, user, consumable)
+            return templates.TemplateResponse(
+                request,
+                "consumables/form.html",
+                {
+                    "user": user, "consumable": consumable,
+                    "error": "Material ist noch vorgemerkt - erst stornieren oder abholen lassen, bevor die Abteilung gewechselt wird.",
+                    **context,
+                },
+                status_code=409,
+            )
+        consumable.department_id = department_id
 
     consumable.barcode = barcode
     consumable.name = name

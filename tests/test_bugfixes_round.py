@@ -84,6 +84,7 @@ async def test_update_item_blocks_status_change_with_open_lending(staff_client, 
         data={
             "barcode": "ITEM-LEND-BUGFIX-1",
             "name": "Bohrer",
+            "department_id": str(seed_data["department_id"]),
             "category": "",
             "location": "",
             "notes": "",

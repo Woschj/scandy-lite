@@ -115,6 +115,7 @@ async def test_custom_field_value_appears_on_detail_page(admin_client, session_m
         data={
             "barcode": "LAPTOP-1",
             "name": "ThinkPad",
+            "department_id": str(seed_data["department_id"]),
             "category": "Laptops",
             "location": "",
             "notes": "",
@@ -150,6 +151,7 @@ async def test_field_not_visible_to_all_is_hidden_from_external_user(admin_clien
         data={
             "barcode": "LAPTOP-1",
             "name": "ThinkPad",
+            "department_id": str(seed_data["department_id"]),
             "category": "Laptops",
             "location": "",
             "notes": "",
@@ -213,6 +215,7 @@ async def test_number_field_rejects_non_numeric_value(admin_client, session_make
         data={
             "barcode": "LAPTOP-1",
             "name": "ThinkPad",
+            "department_id": str(seed_data["department_id"]),
             "category": "Laptops",
             "location": "",
             "notes": "",
@@ -240,6 +243,7 @@ async def test_number_field_normalizes_comma_decimal(admin_client, session_maker
         data={
             "barcode": "LAPTOP-1",
             "name": "ThinkPad",
+            "department_id": str(seed_data["department_id"]),
             "category": "Laptops",
             "location": "",
             "notes": "",
@@ -275,7 +279,7 @@ async def test_custom_field_value_removed_after_category_change_and_back(admin_c
     resp1 = await admin_client.post(
         f"/items/{item.id}/edit",
         data={
-            "barcode": "LAPTOP-1", "name": "ThinkPad", "category": "Laptops",
+            "barcode": "LAPTOP-1", "name": "ThinkPad", "department_id": str(seed_data["department_id"]), "category": "Laptops",
             "location": "", "notes": "", "status": "verfuegbar",
             f"custom_field_{field.id}": "SN-12345",
             "csrf_token": csrf_value(admin_client),
@@ -287,7 +291,7 @@ async def test_custom_field_value_removed_after_category_change_and_back(admin_c
     resp2 = await admin_client.post(
         f"/items/{item.id}/edit",
         data={
-            "barcode": "LAPTOP-1", "name": "ThinkPad", "category": "Büromaterial",
+            "barcode": "LAPTOP-1", "name": "ThinkPad", "department_id": str(seed_data["department_id"]), "category": "Büromaterial",
             "location": "", "notes": "", "status": "verfuegbar",
             "csrf_token": csrf_value(admin_client),
         },
@@ -298,7 +302,7 @@ async def test_custom_field_value_removed_after_category_change_and_back(admin_c
     resp3 = await admin_client.post(
         f"/items/{item.id}/edit",
         data={
-            "barcode": "LAPTOP-1", "name": "ThinkPad", "category": "Laptops",
+            "barcode": "LAPTOP-1", "name": "ThinkPad", "department_id": str(seed_data["department_id"]), "category": "Laptops",
             "location": "", "notes": "", "status": "verfuegbar",
             "csrf_token": csrf_value(admin_client),
         },

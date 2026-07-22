@@ -22,7 +22,6 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.access import get_department_roles, get_visible_department_ids, is_staff_in_department
 from app.core.barcodes import barcode_taken_by_other_kind
 from app.core.custom_fields import (
-    get_definitions_by_category,
     get_definitions_by_department_and_category,
     get_definitions_for_item,
     get_values_for_item,
@@ -35,13 +34,13 @@ from app.core.inventory_crud import (
     InventoryKind,
     delete_entity,
     delete_entity_image,
-    presets,
     presets_by_department,
     staff_departments,
     upload_entity_image,
 )
 from app.core.templating import templates
 from app.models.common import ItemStatus, UserRole
+from app.models.department import Department
 from app.models.item import Item
 from app.models.lending import Lending
 from app.models.user import User
@@ -211,6 +210,7 @@ async def new_item_form(
             "categories_by_department": categories_by_department,
             "locations_by_department": locations_by_department,
             "custom_fields_by_department_category": custom_fields_by_department_category,
+            "custom_field_values": {},
         },
     )
 
@@ -245,6 +245,7 @@ async def create_item(
                 "categories_by_department": categories_by_department,
                 "locations_by_department": locations_by_department,
                 "custom_fields_by_department_category": custom_fields_by_department_category,
+                "custom_field_values": {},
                 "selected_department_id": department_id,
             },
             status_code=409,
@@ -288,6 +289,7 @@ async def create_item(
                 "categories_by_department": categories_by_department,
                 "locations_by_department": locations_by_department,
                 "custom_fields_by_department_category": custom_fields_by_department_category,
+                "custom_field_values": {},
                 "selected_department_id": department_id,
             },
             status_code=400,
@@ -387,6 +389,49 @@ async def item_detail(
     )
 
 
+async def _edit_form_context(session: AsyncSession, user: User, item: Item) -> dict:
+    """Kontext fürs Bearbeiten-Formular: ALLE Abteilungen, in denen dieser
+    User Mitarbeiter ist (nicht nur die aktuelle des Gegenstands) - das
+    Formular erlaubt seit dieser Änderung, die Abteilung nachträglich zu
+    wechseln, also braucht es dieselben abteilungs-reaktiven Kategorie-/
+    Standort-/Zusatzfeld-Daten wie das Anlegen-Formular (siehe
+    items/form.html, gleiches Alpine-Muster für beide Modi)."""
+    departments = await staff_departments(session, user)
+    # Der Gegenstand selbst muss in der Auswahl bleiben, auch falls die
+    # Mitarbeiter-Rolle des Users dort inzwischen entzogen wurde (sonst
+    # würde das Formular seine EIGENE aktuelle Abteilung nicht mehr anbieten).
+    if item.department_id not in {d.id for d in departments}:
+        current_department = await session.get(Department, item.department_id)
+        if current_department:
+            departments = [*departments, current_department]
+
+    department_ids = [d.id for d in departments]
+    categories_by_department, locations_by_department = await presets_by_department(session, department_ids)
+    custom_fields_by_department_category = await get_definitions_by_department_and_category(session, department_ids)
+
+    # Vorhandener Kategorie-/Standort-Wert, der (mehr) in den Vorgaben der
+    # AKTUELLEN Abteilung des Gegenstands auftaucht (z.B. Altdaten, oder die
+    # Vorgabe wurde inzwischen umbenannt/gelöscht) - ohne diesen Fallback
+    # würde die rein Alpine-reaktive Auswahl (kein serverseitiges "(nicht in
+    # Vorgaben)"-Extra-Option mehr wie früher) den Wert beim Speichern
+    # stillschweigend auf leer zurücksetzen, obwohl der Admin das Feld gar
+    # nicht angefasst hat.
+    dept_key = str(item.department_id)
+    if item.category and item.category not in categories_by_department.get(dept_key, []):
+        categories_by_department.setdefault(dept_key, []).append(item.category)
+    if item.location and item.location not in locations_by_department.get(dept_key, []):
+        locations_by_department.setdefault(dept_key, []).append(item.location)
+
+    custom_field_values = await get_values_for_item(session, item.id)
+    return {
+        "departments": departments,
+        "categories_by_department": categories_by_department,
+        "locations_by_department": locations_by_department,
+        "custom_fields_by_department_category": custom_fields_by_department_category,
+        "custom_field_values": custom_field_values,
+    }
+
+
 @router.get("/{item_id}/edit")
 async def edit_item_form(
     request: Request,
@@ -402,19 +447,11 @@ async def edit_item_form(
     if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
 
-    categories, locations = await presets(session, item.department_id)
-    custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
-    custom_field_values = await get_values_for_item(session, item.id)
+    context = await _edit_form_context(session, user, item)
     return templates.TemplateResponse(
         request,
         "items/form.html",
-        {
-            "ok": ok, "error": error,
-            "user": user, "item": item,
-            "categories": categories, "locations": locations,
-            "custom_fields_by_category": custom_fields_by_category,
-            "custom_field_values": custom_field_values,
-        },
+        {"ok": ok, "error": error, "user": user, "item": item, **context},
     )
 
 
@@ -424,6 +461,7 @@ async def update_item(
     item_id: uuid.UUID,
     barcode: str = Form(...),
     name: str = Form(...),
+    department_id: uuid.UUID = Form(...),
     category: str = Form(""),
     location: str = Form(""),
     notes: str = Form(""),
@@ -436,24 +474,22 @@ async def update_item(
         raise Forbidden()
     if not await is_staff_in_department(session, user, item.department_id):
         raise Forbidden()
+    # Ziel-Abteilung braucht dieselbe Berechtigung wie die aktuelle - sonst
+    # könnte ein Mitarbeiter einer Abteilung sich per Formular-Manipulation
+    # Zugriff auf eine andere Abteilung verschaffen, in der er keine
+    # Mitarbeiter-Rolle hat.
+    if department_id != item.department_id and not await is_staff_in_department(session, user, department_id):
+        raise Forbidden()
 
     result = await session.exec(
         select(Item).where(Item.barcode == barcode, Item.id != item_id, Item.deleted_at.is_(None))
     )
     if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="item"):
-        categories, locations = await presets(session, item.department_id)
-        custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
-        custom_field_values = await get_values_for_item(session, item.id)
+        context = await _edit_form_context(session, user, item)
         return templates.TemplateResponse(
             request,
             "items/form.html",
-            {
-                "user": user, "item": item,
-                "error": f"Barcode '{barcode}' ist bereits vergeben.",
-                "categories": categories, "locations": locations,
-                "custom_fields_by_category": custom_fields_by_category,
-                "custom_field_values": custom_field_values,
-            },
+            {"user": user, "item": item, "error": f"Barcode '{barcode}' ist bereits vergeben.", **context},
             status_code=409,
         )
 
@@ -471,21 +507,67 @@ async def update_item(
             select(Lending).where(Lending.item_id == item.id, Lending.returned_at.is_(None))
         )
         if open_lending.first():
-            categories, locations = await presets(session, item.department_id)
-            custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
-            custom_field_values = await get_values_for_item(session, item.id)
+            context = await _edit_form_context(session, user, item)
             return templates.TemplateResponse(
                 request,
                 "items/form.html",
                 {
                     "user": user, "item": item,
                     "error": "Gegenstand hat noch eine offene Ausleihe - erst über Scannen zurückgeben, dann Status ändern.",
-                    "categories": categories, "locations": locations,
-                    "custom_fields_by_category": custom_fields_by_category,
-                    "custom_field_values": custom_field_values,
+                    **context,
                 },
                 status_code=409,
             )
+
+    # Abteilungswechsel: Lending.department_id/Reservation.department_id
+    # werden beim Anlegen immer von item.department_id übernommen (siehe
+    # scan.py/reservations.py) und mehrere Stellen im Code (u.a. der N+1-
+    # optimierte purge_department, siehe app/core/trash.py) verlassen sich
+    # darauf, dass das für ALLE Zeilen eines Items dauerhaft stimmt - ein
+    # Wechsel während einer noch offenen Ausleihe/Reservierung würde diese
+    # Annahme verletzen (die offene Zeile bliebe an der ALTEN Abteilung
+    # hängen, obwohl der Gegenstand schon in der neuen ist). Eigener,
+    # UNBEDINGTER Check hier (nicht der new_status-Zweig oben, der bei
+    # gleichbleibendem status="ausgeliehen" gar nicht erst läuft) - deckt
+    # zusätzlich offene Reservierungen ab, die der Status-Wechsel bisher
+    # ignorieren durfte, weil er den Gegenstand nicht aus seiner Abteilung nimmt.
+    if department_id != item.department_id:
+        open_lending_for_move = await session.exec(
+            select(Lending).where(Lending.item_id == item.id, Lending.returned_at.is_(None))
+        )
+        if open_lending_for_move.first():
+            context = await _edit_form_context(session, user, item)
+            return templates.TemplateResponse(
+                request,
+                "items/form.html",
+                {
+                    "user": user, "item": item,
+                    "error": "Gegenstand hat noch eine offene Ausleihe - erst über Scannen zurückgeben, bevor die Abteilung gewechselt wird.",
+                    **context,
+                },
+                status_code=409,
+            )
+
+        from app.models.reservation import Reservation
+
+        open_reservation = await session.exec(
+            select(Reservation).where(
+                Reservation.item_id == item.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None)
+            )
+        )
+        if open_reservation.first():
+            context = await _edit_form_context(session, user, item)
+            return templates.TemplateResponse(
+                request,
+                "items/form.html",
+                {
+                    "user": user, "item": item,
+                    "error": "Gegenstand ist noch reserviert - erst stornieren oder abholen lassen, bevor die Abteilung gewechselt wird.",
+                    **context,
+                },
+                status_code=409,
+            )
+        item.department_id = department_id
 
     item.barcode = barcode
     item.name = name
@@ -495,21 +577,18 @@ async def update_item(
     item.status = new_status
 
     form_data = await request.form()
+    # save_values_for_item ordnet Werte über item.department_id + item.category
+    # zu (siehe app/core/custom_fields.py::get_definitions_for_item) - MUSS
+    # deshalb NACH dem Setzen von item.department_id/item.category oben
+    # laufen, sonst würden bei einem Abteilungswechsel noch die Zusatzfelder
+    # der alten Abteilung/Kategorie ausgewertet.
     custom_field_errors = await save_values_for_item(session, item, form_data)
     if custom_field_errors:
-        categories, locations = await presets(session, item.department_id)
-        custom_fields_by_category = await get_definitions_by_category(session, item.department_id)
-        custom_field_values = await get_values_for_item(session, item.id)
+        context = await _edit_form_context(session, user, item)
         return templates.TemplateResponse(
             request,
             "items/form.html",
-            {
-                "user": user, "item": item,
-                "error": " ".join(custom_field_errors),
-                "categories": categories, "locations": locations,
-                "custom_fields_by_category": custom_fields_by_category,
-                "custom_field_values": custom_field_values,
-            },
+            {"user": user, "item": item, "error": " ".join(custom_field_errors), **context},
             status_code=400,
         )
 

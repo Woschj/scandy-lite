@@ -32,27 +32,28 @@
   {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
   <form data-guard method="post" action="{% if item %}/items/{{ item.id }}/edit{% else %}/items/new{% endif %}"
-        {% if item %}
-          x-data="{ selectedCategory: {{ (item.category or '') | tojson }} }"
-        {% else %}
-          x-data="{
-            selectedDepartmentId: {{ (selected_department_id or (departments[0].id if departments else '')) | string | tojson }},
-            selectedCategory: '',
-            categoriesByDepartment: {{ categories_by_department | tojson }},
-            locationsByDepartment: {{ locations_by_department | tojson }}
-          }"
-        {% endif %}>
+        x-data="{
+          selectedDepartmentId: {{ (item.department_id if item else (selected_department_id or (departments[0].id if departments else ''))) | string | tojson }},
+          selectedCategory: {{ (item.category if item else '') | tojson }},
+          selectedLocation: {{ (item.location if item else '') | tojson }},
+          categoriesByDepartment: {{ categories_by_department | tojson }},
+          locationsByDepartment: {{ locations_by_department | tojson }}
+        }"
+        x-init="$watch('selectedDepartmentId', () => { selectedCategory = ''; selectedLocation = ''; })">
     {% include "partials/csrf_field.html" %}
-    {% if not item %}
-      <div class="field">
-        <label for="department_id">Abteilung</label>
-        <select id="department_id" name="department_id" x-model="selectedDepartmentId" required>
-          {% for d in departments %}
-            <option value="{{ d.id }}" {% if selected_department_id and d.id == selected_department_id %}selected{% endif %}>{{ d.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    {% endif %}
+    <div class="field">
+      <label for="department_id">Abteilung</label>
+      <select id="department_id" name="department_id" x-model="selectedDepartmentId" required>
+        {% for d in departments %}
+          <option value="{{ d.id }}" {% if selected_department_id and d.id == selected_department_id %}selected{% endif %}>{{ d.name }}</option>
+        {% endfor %}
+      </select>
+      {% if item %}
+        <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:var(--space-1); margin-bottom:0;">
+          Abteilung wechseln setzt Kategorie/Standort/Zusatzfelder zurück (gehören zur jeweiligen Abteilung) - blockiert, solange der Gegenstand noch ausgeliehen oder reserviert ist.
+        </p>
+      {% endif %}
+    </div>
     <div class="field">
       <label for="barcode">Barcode</label>
       <div class="barcode-input-row">
@@ -71,33 +72,30 @@
       <label for="name">Bezeichnung</label>
       <input type="text" id="name" name="name" value="{{ item.name if item else '' }}" required data-scanner-enter="next">
     </div>
-    {% if item %}
-      <div class="field">
-        <label for="category">Kategorie</label>
-        <select id="category" name="category" x-model="selectedCategory">
-          <option value="">— keine —</option>
-          {% for c in categories %}
-            <option value="{{ c.name }}" {% if item.category == c.name %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-          {% if item.category and item.category not in categories | map(attribute="name") | list %}
-            <option value="{{ item.category }}" selected>{{ item.category }} (nicht in Vorgaben)</option>
-          {% endif %}
-        </select>
-      </div>
-      <div class="field">
-        <label for="location">Standort</label>
-        <select id="location" name="location">
-          <option value="">— keiner —</option>
-          {% for l in locations %}
-            <option value="{{ l.name }}" {% if item.location == l.name %}selected{% endif %}>{{ l.name }}</option>
-          {% endfor %}
-          {% if item.location and item.location not in locations | map(attribute="name") | list %}
-            <option value="{{ item.location }}" selected>{{ item.location }} (nicht in Vorgaben)</option>
-          {% endif %}
-        </select>
-      </div>
-      {% for cat_name, fields in custom_fields_by_category.items() %}
-        <div x-show="selectedCategory === {{ cat_name | tojson }}" x-cloak>
+    <div class="field">
+      <label for="category">Kategorie</label>
+      <select id="category" name="category" x-model="selectedCategory">
+        <option value="">— keine —</option>
+        <template x-for="name in (categoriesByDepartment[selectedDepartmentId] || [])" :key="name">
+          <option :value="name" x-text="name"></option>
+        </template>
+      </select>
+    </div>
+    <div class="field">
+      <label for="location">Standort</label>
+      <select id="location" name="location" x-model="selectedLocation">
+        <option value="">— keiner —</option>
+        <template x-for="name in (locationsByDepartment[selectedDepartmentId] || [])" :key="name">
+          <option :value="name" x-text="name"></option>
+        </template>
+      </select>
+    </div>
+    <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:calc(-1 * var(--space-2)); margin-bottom: var(--space-4);">
+      Zeigt die für die gewählte Abteilung hinterlegten Vorschläge. Fehlt eine Kategorie/ein Standort, erst unter Einstellungen → Kategorien/Standorte anlegen.
+    </p>
+    {% for dept_id, cats in custom_fields_by_department_category.items() %}
+      {% for cat_name, fields in cats.items() %}
+        <div x-show="selectedDepartmentId === {{ dept_id | tojson }} && selectedCategory === {{ cat_name | tojson }}" x-cloak>
           {% for f in fields %}
             <div class="field">
               <label for="cf-{{ f.id }}">{{ f.name }}</label>
@@ -120,55 +118,7 @@
           {% endfor %}
         </div>
       {% endfor %}
-    {% else %}
-      <div class="field">
-        <label for="category">Kategorie</label>
-        <select id="category" name="category" x-model="selectedCategory">
-          <option value="">— keine —</option>
-          <template x-for="name in (categoriesByDepartment[selectedDepartmentId] || [])" :key="name">
-            <option :value="name" x-text="name"></option>
-          </template>
-        </select>
-      </div>
-      <div class="field">
-        <label for="location">Standort</label>
-        <select id="location" name="location">
-          <option value="">— keiner —</option>
-          <template x-for="name in (locationsByDepartment[selectedDepartmentId] || [])" :key="name">
-            <option :value="name" x-text="name"></option>
-          </template>
-        </select>
-      </div>
-      <p style="font-size:0.75rem; color:var(--ink-soft); margin-top:calc(-1 * var(--space-2)); margin-bottom: var(--space-4);">
-        Zeigt die für die gewählte Abteilung hinterlegten Vorschläge. Fehlt eine Kategorie/ein Standort, erst unter Einstellungen → Kategorien/Standorte anlegen.
-      </p>
-      {% for dept_id, cats in custom_fields_by_department_category.items() %}
-        {% for cat_name, fields in cats.items() %}
-          <div x-show="selectedDepartmentId === {{ dept_id | tojson }} && selectedCategory === {{ cat_name | tojson }}" x-cloak>
-            {% for f in fields %}
-              <div class="field">
-                <label for="cf-{{ f.id }}">{{ f.name }}</label>
-                {% if f.field_type.value == "select" %}
-                  <select id="cf-{{ f.id }}" name="custom_field_{{ f.id }}">
-                    <option value="">—</option>
-                    {% for opt in (f.options or "").split(",") %}
-                      {% set opt = opt.strip() %}
-                      {% if opt %}<option value="{{ opt }}">{{ opt }}</option>{% endif %}
-                    {% endfor %}
-                  </select>
-                {% elif f.field_type.value == "number" %}
-                  <input type="number" step="any" id="cf-{{ f.id }}" name="custom_field_{{ f.id }}">
-                {% elif f.field_type.value == "date" %}
-                  <input type="date" id="cf-{{ f.id }}" name="custom_field_{{ f.id }}">
-                {% else %}
-                  <input type="text" id="cf-{{ f.id }}" name="custom_field_{{ f.id }}">
-                {% endif %}
-              </div>
-            {% endfor %}
-          </div>
-        {% endfor %}
-      {% endfor %}
-    {% endif %}
+    {% endfor %}
     <div class="field">
       <label for="notes">Bemerkungen</label>
       <textarea id="notes" name="notes" rows="3" style="width:100%; padding:0.75rem; border:1px solid var(--line-strong); border-radius:var(--radius); font-family:inherit; resize:vertical;">{{ item.notes if item else '' }}</textarea>
