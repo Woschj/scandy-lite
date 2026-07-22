@@ -99,7 +99,6 @@ async def settings_page(
             "locations": locations,
             "users": users,
             "access_by_user": access_by_user,
-            "all_access": all_access,
             "email_settings": email_settings,
             "custom_fields": custom_fields,
             "trash_items": trash_items,
@@ -316,6 +315,15 @@ async def edit_user_form(
 
     departments = (await session.exec(select(Department).order_by(Department.name))).all()
 
+    # Zugriffsrolle pro Abteilung wird seit dieser Änderung direkt hier
+    # mitbearbeitet statt auf einem eigenen "Zugriff"-Tab (der lief bei
+    # Abteilungswechseln leicht auseinander, siehe CHANGELOG 0.16.1) -
+    # dept_id (als String, wie im Formular/Template) -> Rollen-Wert.
+    access_roles = {
+        str(r.department_id): r.role.value
+        for r in (await session.exec(select(UserDepartmentRole).where(UserDepartmentRole.user_id == target.id))).all()
+    }
+
     # Kompakte, chronologische Historie DIESES Benutzers (Ausleihen +
     # Entnahmen gemeinsam sortiert) - einfacheres Merge-Prinzip als
     # app/routers/history.py, weil hier keine Signatur-Gruppierung nötig ist.
@@ -341,12 +349,16 @@ async def edit_user_form(
 
     return templates.TemplateResponse(
         request, "admin/user_edit.html",
-        {"user": user, "target": target, "departments": departments, "error": error, "user_history": user_history},
+        {
+            "user": user, "target": target, "departments": departments, "error": error,
+            "user_history": user_history, "access_roles": access_roles,
+        },
     )
 
 
 @router.post("/users/{user_id}/edit")
 async def update_user(
+    request: Request,
     user_id: uuid.UUID,
     username: str = Form(...),
     email: str = Form(""),
@@ -389,8 +401,6 @@ async def update_user(
     if user_id == user.id and not bool(is_admin):
         return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Eigene+Admin-Rechte+können+nicht+selbst+entzogen+werden.", status_code=303)
 
-    old_department_id = target.department_id
-
     target.username = username
     target.email = email or None
     target.is_admin = bool(is_admin)
@@ -402,25 +412,33 @@ async def update_user(
         target.hashed_password = await run_in_threadpool(hash_password, new_password)
     session.add(target)
 
-    # Heimat-Abteilung (Ausweis) und Zugriffsrolle (UserDepartmentRole, siehe
-    # Tab "Zugriff") sind zwei getrennte Datensätze - ohne diesen Schritt
-    # bliebe die Rolle stur an der ALTEN Abteilung hängen: der Ausweis zeigt
-    # schon die neue Abteilung, im Zugriff-Tab taucht der Mitarbeiter aber
-    # weiterhin nur bei der alten auf (wirkt für den Admin wie "Änderung
-    # wurde nicht übernommen" - gemeldeter Bug). Nur die Rolle AN DER ALTEN
-    # HEIMAT-Abteilung wandert mit, andere Abteilungs-Rollen (z.B. zusätzlich
-    # Nutzer in einer dritten Abteilung) bleiben unangetastet. Existiert an
-    # der neuen Abteilung bereits eine eigene Rolle, gewinnt die (bewusst
-    # zuvor im Zugriff-Tab gesetzt) - die alte wird nur aufgeräumt, nicht
-    # überschrieben.
-    if department_id != old_department_id and old_department_id is not None:
-        old_role = await session.get(UserDepartmentRole, (target.id, old_department_id))
-        if old_role:
-            role_value = old_role.role
-            existing_role_at_new_department = await session.get(UserDepartmentRole, (target.id, department_id))
-            await session.delete(old_role)
-            if not existing_role_at_new_department:
-                session.add(UserDepartmentRole(user_id=target.id, department_id=department_id, role=role_value))
+    # Zugriffsrolle pro Abteilung wird auf DERSELBEN Seite mitgepflegt (kein
+    # eigener "Zugriff"-Tab mehr, siehe CHANGELOG 0.16.1/0.17.0) - das
+    # Formular schickt ein role_<department_id>-Feld pro Abteilung
+    # (Werte: "", "nutzer", "mitarbeiter"). Admin braucht keine Einträge
+    # (globaler Zugriff), also bei is_admin alle vorhandenen Rollen entfernen
+    # statt sie als bedeutungslose Karteileichen stehen zu lassen.
+    form_data = await request.form()
+    existing_roles = {
+        r.department_id: r
+        for r in (await session.exec(select(UserDepartmentRole).where(UserDepartmentRole.user_id == target.id))).all()
+    }
+    if target.is_admin:
+        for role_row in existing_roles.values():
+            await session.delete(role_row)
+    else:
+        all_departments = (await session.exec(select(Department.id))).all()
+        for dept_id in all_departments:
+            desired = (form_data.get(f"role_{dept_id}") or "").strip()
+            current = existing_roles.get(dept_id)
+            if desired in {UserRole.NUTZER.value, UserRole.MITARBEITER.value}:
+                if current and current.role.value != desired:
+                    current.role = UserRole(desired)
+                    session.add(current)
+                elif not current:
+                    session.add(UserDepartmentRole(user_id=target.id, department_id=dept_id, role=UserRole(desired)))
+            elif current:
+                await session.delete(current)
 
     await session.commit()
     return RedirectResponse(url="/admin/settings#users", status_code=303)
@@ -645,44 +663,6 @@ async def delete_location(
         await session.delete(location)
         await session.commit()
     return RedirectResponse(url="/admin/settings#locations", status_code=303)
-
-
-# --- Zugriff: Rolle pro Benutzer und Abteilung --------------------------
-
-@router.post("/access/new")
-async def create_access(
-    user_id: uuid.UUID = Form(...),
-    department_id: uuid.UUID = Form(...),
-    role: str = Form(...),
-    user: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_session),
-):
-    if role not in {UserRole.MITARBEITER.value, UserRole.NUTZER.value}:
-        return RedirectResponse(url="/admin/settings#access", status_code=303)
-
-    existing = await session.get(UserDepartmentRole, (user_id, department_id))
-    if existing:
-        # Schon ein Eintrag für diese Kombination -> Rolle aktualisieren statt Duplikat
-        existing.role = UserRole(role)
-        session.add(existing)
-    else:
-        session.add(UserDepartmentRole(user_id=user_id, department_id=department_id, role=UserRole(role)))
-    await session.commit()
-    return RedirectResponse(url="/admin/settings#access", status_code=303)
-
-
-@router.post("/access/{user_id}/{department_id}/delete")
-async def delete_access(
-    user_id: uuid.UUID,
-    department_id: uuid.UUID,
-    user: User = Depends(require_admin),
-    session: AsyncSession = Depends(get_session),
-):
-    entry = await session.get(UserDepartmentRole, (user_id, department_id))
-    if entry:
-        await session.delete(entry)
-        await session.commit()
-    return RedirectResponse(url="/admin/settings#access", status_code=303)
 
 
 # --- E-Mail (SMTP-Konto für System-Mails) -------------------------------

@@ -13,6 +13,26 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.17.0] - 2026-07-22
+
+### Changed
+- **Separaten "Zugriff"-Tab aufgelöst** - Zugriffsrollen pro Abteilung
+  (Nutzer/Mitarbeiter) werden jetzt direkt auf der Benutzer-Bearbeiten-Seite
+  gesetzt, in einer Checkliste mit einer Rollen-Auswahl pro Abteilung, im
+  selben Formular wie die restlichen Stammdaten. Grund: zwei getrennte
+  Screens für "Heimat-Abteilung" und "Zugriffsrolle" waren die eigentliche
+  Ursache des in 0.16.1 gefixten Bugs (Änderung an der einen Stelle wirkte
+  an der anderen nicht) - mit nur noch einem Screen kann das strukturell
+  nicht mehr auseinanderlaufen. Mehrere Abteilungen gleichzeitig bleiben
+  möglich (z.B. Mitarbeiter in Werkstatt, gleichzeitig Nutzer in Büro).
+  Die schnelle Ersteinrichtung beim Anlegen eines Benutzers (Heimat-
+  Abteilung + eine Zugriffsrolle in einem Schritt) bleibt unverändert.
+  Admin-Konten räumen beim Umschalten auf Admin ihre (dann wirkungslosen)
+  Abteilungsrollen automatisch auf.
+  Die Benutzer-Liste zeigt weiterhin auf einen Blick, wer wo welche Rolle
+  hat (nur die Bearbeitung ist jetzt an einer Stelle). Vier neue/ersetzte
+  Tests in `tests/test_user_edit.py`.
+
 ## [0.16.1] - 2026-07-22
 
 ### Fixed

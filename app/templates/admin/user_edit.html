@@ -8,7 +8,8 @@
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
 
 <div class="detail-layout">
-<form class="tag-card form-card" method="post" action="/admin/users/{{ target.id }}/edit" data-guard>
+<form class="tag-card form-card" method="post" action="/admin/users/{{ target.id }}/edit" data-guard
+      x-data="{ isAdmin: {{ 'true' if target.is_admin else 'false' }} }">
   {% include "partials/csrf_field.html" %}
   <div class="field">
     <label for="edit-username">Benutzername</label>
@@ -23,8 +24,8 @@
     <input type="password" id="edit-password" name="new_password" minlength="8" placeholder="min. 8 Zeichen, nur ausfüllen um zu ändern">
   </div>
   <div class="checkbox-field">
-    <input type="checkbox" id="edit-is-admin" name="is_admin" value="true" {% if target.is_admin %}checked{% endif %} {% if target.id == user.id %}disabled{% endif %}>
-    <label for="edit-is-admin">Admin (voller Zugriff überall)</label>
+    <input type="checkbox" id="edit-is-admin" name="is_admin" value="true" x-model="isAdmin" {% if target.id == user.id %}disabled{% endif %}>
+    <label for="edit-is-admin">Admin (voller Zugriff überall - Zugriffsrollen unten dann wirkungslos)</label>
   </div>
   {% if target.id == user.id %}
     <input type="hidden" name="is_admin" value="true">
@@ -55,6 +56,29 @@
     <select id="edit-department" name="department_id" required>
       {% for d in departments %}<option value="{{ d.id }}" {% if d.id == target.department_id %}selected{% endif %}>{{ d.name }}</option>{% endfor %}
     </select>
+  </div>
+
+  <hr style="border-color: var(--line); margin: var(--space-4) 0;">
+  <p class="settings-hint" style="margin-top: 0;" x-show="!isAdmin">
+    Zugriffsrolle pro Abteilung - bestimmt, was diese Person sehen/verwalten
+    darf (unabhängig von der Ausweis-Abteilung oben, eine Person kann in
+    mehreren Abteilungen unterschiedliche Rollen haben).
+  </p>
+  <p class="settings-hint" style="margin-top: 0;" x-show="isAdmin" x-cloak>
+    Admin hat vollen Zugriff überall - Abteilungsrollen sind hier ohne Wirkung.
+  </p>
+  <div x-show="!isAdmin" x-cloak>
+    {% for d in departments %}
+      <div class="field">
+        <label for="role-{{ d.id }}">{{ d.name }}</label>
+        <select id="role-{{ d.id }}" name="role_{{ d.id }}">
+          {% set current_role = access_roles.get(d.id | string, "") %}
+          <option value="" {% if current_role not in ("nutzer", "mitarbeiter") %}selected{% endif %}>Kein Zugriff</option>
+          <option value="nutzer" {% if current_role == "nutzer" %}selected{% endif %}>Nutzer (ansehen + reservieren)</option>
+          <option value="mitarbeiter" {% if current_role == "mitarbeiter" %}selected{% endif %}>Mitarbeiter (verwalten + ausgeben)</option>
+        </select>
+      </div>
+    {% endfor %}
   </div>
 
   <button type="submit" class="btn btn-primary btn-block" style="margin-top: var(--space-4);">Speichern</button>
@@ -97,6 +121,5 @@
 
 <p style="margin-top: var(--space-4);">
   <a href="/admin/settings#users" class="link-btn">← Zurück zu Benutzer</a>
-  <a href="/admin/settings#access" class="link-btn">Zugriffsrollen verwalten →</a>
 </p>
 {% endblock %}

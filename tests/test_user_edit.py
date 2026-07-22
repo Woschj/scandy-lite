@@ -101,15 +101,20 @@ async def test_update_user_rejects_barcode_already_used_by_another_user(admin_lo
         assert untouched_user.barcode != "W-TAKEN"
 
 
-async def test_update_user_moves_access_role_to_new_home_department(admin_logged_in, session_maker, seed_data):
-    """Gemeldeter Bug: Heimat-Abteilung (Ausweis) ändern schien zu klappen,
-    aber im Zugriff-Tab blieb der Mitarbeiter an der ALTEN Abteilung hängen -
-    department_id und UserDepartmentRole sind getrennte Datensätze, die
-    Rolle muss beim Wechsel der Heimat-Abteilung mitwandern."""
+async def _current_role(session_maker, user_id, department_id):
+    async with session_maker() as session:
+        row = await session.get(UserDepartmentRole, (user_id, department_id))
+        return row.role if row else None
+
+
+async def test_update_user_assigns_role_via_edit_form(admin_logged_in, session_maker, seed_data):
+    """Der 'Zugriff'-Tab ist aufgelöst (siehe CHANGELOG 0.17.0) - Rollen pro
+    Abteilung werden jetzt direkt auf der Benutzer-Bearbeiten-Seite gesetzt,
+    ein role_<department_id>-Feld pro Abteilung im selben Formular."""
     client = admin_logged_in
 
     async with session_maker() as session:
-        second_department = Department(code="buero-move", name="Büro Move")
+        second_department = Department(code="zweite-abt", name="Zweite Abteilung")
         session.add(second_department)
         await session.commit()
         await session.refresh(second_department)
@@ -120,92 +125,87 @@ async def test_update_user_moves_access_role_to_new_home_department(admin_logged
     payload = {
         "username": "staff", "email": "", "new_password": "",
         "first_name": "Staff", "last_name": "Worker", "barcode": "W-STAFF",
-        "department_id": str(second_department_id),
+        "department_id": str(seed_data["department_id"]),
+        f"role_{seed_data['department_id']}": "mitarbeiter",
+        f"role_{second_department_id}": "nutzer",
         "csrf_token": csrf_value(client),
     }
     resp = await client.post(f"/admin/users/{staff_user_id}/edit", data=payload)
     assert resp.status_code == 303
 
-    async with session_maker() as session:
-        old_role = await session.get(UserDepartmentRole, (staff_user_id, seed_data["department_id"]))
-        assert old_role is None, "Rolle an der alten Abteilung haette entfernt werden muessen"
-
-        new_role = await session.get(UserDepartmentRole, (staff_user_id, second_department_id))
-        assert new_role is not None, "Rolle haette zur neuen Heimat-Abteilung mitwandern muessen"
-        assert new_role.role == UserRole.MITARBEITER
+    assert await _current_role(session_maker, staff_user_id, seed_data["department_id"]) == UserRole.MITARBEITER
+    assert await _current_role(session_maker, staff_user_id, second_department_id) == UserRole.NUTZER
 
 
-async def test_update_user_home_department_move_keeps_other_department_roles(admin_logged_in, session_maker, seed_data):
-    """Eine ZUSÄTZLICHE Rolle in einer dritten (nicht der Heimat-)Abteilung
-    darf beim Wechsel der Heimat-Abteilung nicht angetastet werden."""
+async def test_update_user_changes_existing_role_via_edit_form(admin_logged_in, session_maker, seed_data):
+    """Rolle ändern (statt neu anlegen) - darf keinen Duplikat-Fehler an der
+    Composite-PK (user_id, department_id) auslösen."""
     client = admin_logged_in
-
-    async with session_maker() as session:
-        third_department = Department(code="dritte-abt", name="Dritte Abteilung")
-        new_home = Department(code="neue-heimat", name="Neue Heimat")
-        session.add(third_department)
-        session.add(new_home)
-        await session.commit()
-        await session.refresh(third_department)
-        await session.refresh(new_home)
-
-        staff_user_id = await _get_user_id_by_username(session_maker, "staff")
-        session.add(UserDepartmentRole(user_id=staff_user_id, department_id=third_department.id, role=UserRole.NUTZER))
-        await session.commit()
-        third_department_id, new_home_id = third_department.id, new_home.id
+    staff_user_id = await _get_user_id_by_username(session_maker, "staff")
+    assert await _current_role(session_maker, staff_user_id, seed_data["department_id"]) == UserRole.MITARBEITER
 
     payload = {
         "username": "staff", "email": "", "new_password": "",
         "first_name": "Staff", "last_name": "Worker", "barcode": "W-STAFF",
-        "department_id": str(new_home_id),
+        "department_id": str(seed_data["department_id"]),
+        f"role_{seed_data['department_id']}": "nutzer",
         "csrf_token": csrf_value(client),
     }
     resp = await client.post(f"/admin/users/{staff_user_id}/edit", data=payload)
     assert resp.status_code == 303
 
-    async with session_maker() as session:
-        third_role = await session.get(UserDepartmentRole, (staff_user_id, third_department_id))
-        assert third_role is not None
-        assert third_role.role == UserRole.NUTZER
-
-        new_home_role = await session.get(UserDepartmentRole, (staff_user_id, new_home_id))
-        assert new_home_role is not None
-        assert new_home_role.role == UserRole.MITARBEITER
+    assert await _current_role(session_maker, staff_user_id, seed_data["department_id"]) == UserRole.NUTZER
 
 
-async def test_update_user_home_department_move_does_not_overwrite_existing_role_at_target(admin_logged_in, session_maker, seed_data):
-    """Existiert an der NEUEN Heimat-Abteilung bereits eine eigene (im
-    Zugriff-Tab bewusst gesetzte) Rolle, gewinnt die - die alte Rolle an der
-    bisherigen Heimat-Abteilung wird nur aufgeräumt, nicht überschrieben."""
+async def test_update_user_removes_role_when_deselected_in_edit_form(admin_logged_in, session_maker, seed_data):
+    """role_<department_id> auf leer ("Kein Zugriff") gesetzt - Eintrag muss
+    komplett verschwinden, nicht nur auf einen leeren Rollenwert stehen."""
     client = admin_logged_in
-
-    async with session_maker() as session:
-        new_home = Department(code="ziel-mit-rolle", name="Ziel mit Rolle")
-        session.add(new_home)
-        await session.commit()
-        await session.refresh(new_home)
-        new_home_id = new_home.id
-
-        staff_user_id = await _get_user_id_by_username(session_maker, "staff")
-        session.add(UserDepartmentRole(user_id=staff_user_id, department_id=new_home_id, role=UserRole.NUTZER))
-        await session.commit()
+    staff_user_id = await _get_user_id_by_username(session_maker, "staff")
+    assert await _current_role(session_maker, staff_user_id, seed_data["department_id"]) is not None
 
     payload = {
         "username": "staff", "email": "", "new_password": "",
         "first_name": "Staff", "last_name": "Worker", "barcode": "W-STAFF",
-        "department_id": str(new_home_id),
+        "department_id": str(seed_data["department_id"]),
+        f"role_{seed_data['department_id']}": "",
         "csrf_token": csrf_value(client),
     }
     resp = await client.post(f"/admin/users/{staff_user_id}/edit", data=payload)
     assert resp.status_code == 303
 
-    async with session_maker() as session:
-        old_role = await session.get(UserDepartmentRole, (staff_user_id, seed_data["department_id"]))
-        assert old_role is None
+    assert await _current_role(session_maker, staff_user_id, seed_data["department_id"]) is None
 
-        target_role = await session.get(UserDepartmentRole, (staff_user_id, new_home_id))
-        assert target_role is not None
-        assert target_role.role == UserRole.NUTZER, "bereits gesetzte Rolle an der Ziel-Abteilung darf nicht ueberschrieben werden"
+
+async def test_update_user_setting_admin_removes_all_department_roles(admin_logged_in, session_maker, seed_data):
+    """Admin-Logins brauchen keine UserDepartmentRole-Einträge (globaler
+    Zugriff) - vorhandene Rollen werden beim Umschalten auf Admin aufgeräumt
+    statt als wirkungslose Karteileichen liegen zu bleiben."""
+    client = admin_logged_in
+
+    async with session_maker() as session:
+        second_department = Department(code="admin-cleanup", name="Admin Cleanup")
+        session.add(second_department)
+        await session.commit()
+        await session.refresh(second_department)
+        second_department_id = second_department.id
+
+        staff_user_id = await _get_user_id_by_username(session_maker, "staff")
+        session.add(UserDepartmentRole(user_id=staff_user_id, department_id=second_department_id, role=UserRole.NUTZER))
+        await session.commit()
+
+    payload = {
+        "username": "staff", "email": "", "new_password": "",
+        "is_admin": "true",
+        "first_name": "Staff", "last_name": "Worker", "barcode": "W-STAFF",
+        "department_id": str(seed_data["department_id"]),
+        "csrf_token": csrf_value(client),
+    }
+    resp = await client.post(f"/admin/users/{staff_user_id}/edit", data=payload)
+    assert resp.status_code == 303
+
+    assert await _current_role(session_maker, staff_user_id, seed_data["department_id"]) is None
+    assert await _current_role(session_maker, staff_user_id, second_department_id) is None
 
 
 async def test_update_user_can_add_email_that_was_empty_at_creation(admin_logged_in, session_maker, seed_data):
