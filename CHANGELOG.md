@@ -13,6 +13,22 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.16.1] - 2026-07-22
+
+### Fixed
+- **Heimat-Abteilung eines Mitarbeiters ändern nahm die Zugriffsrolle nicht
+  mit** (gemeldeter Bug: "ich konnte Mitarbeitern keine Abteilungen
+  zuweisen" - Speichern wirkte erfolgreich, im Zugriff-Tab blieb die Person
+  aber an der alten Abteilung hängen). Heimat-Abteilung (`User.department_id`,
+  bestimmt den Ausweis) und Zugriffsrolle (`UserDepartmentRole`, bestimmt
+  was die Person sehen/verwalten darf - siehe Tab "Zugriff") sind zwei
+  getrennte Datensätze; `update_user` änderte bisher nur den ersten.
+  Wechselt jetzt die Rolle mit auf die neue Heimat-Abteilung um (nur die
+  Rolle AN DER ALTEN Heimat-Abteilung - zusätzliche Rollen in anderen
+  Abteilungen bleiben unangetastet; existiert an der neuen Abteilung schon
+  eine eigene Rolle, gewinnt die). Drei neue Regressionstests in
+  `tests/test_user_edit.py`.
+
 ## [0.16.0] - 2026-07-22
 
 ### Fixed

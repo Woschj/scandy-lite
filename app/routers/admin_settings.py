@@ -389,6 +389,8 @@ async def update_user(
     if user_id == user.id and not bool(is_admin):
         return RedirectResponse(url=f"/admin/users/{user_id}/edit?error=Eigene+Admin-Rechte+können+nicht+selbst+entzogen+werden.", status_code=303)
 
+    old_department_id = target.department_id
+
     target.username = username
     target.email = email or None
     target.is_admin = bool(is_admin)
@@ -399,6 +401,27 @@ async def update_user(
     if new_password:
         target.hashed_password = await run_in_threadpool(hash_password, new_password)
     session.add(target)
+
+    # Heimat-Abteilung (Ausweis) und Zugriffsrolle (UserDepartmentRole, siehe
+    # Tab "Zugriff") sind zwei getrennte Datensätze - ohne diesen Schritt
+    # bliebe die Rolle stur an der ALTEN Abteilung hängen: der Ausweis zeigt
+    # schon die neue Abteilung, im Zugriff-Tab taucht der Mitarbeiter aber
+    # weiterhin nur bei der alten auf (wirkt für den Admin wie "Änderung
+    # wurde nicht übernommen" - gemeldeter Bug). Nur die Rolle AN DER ALTEN
+    # HEIMAT-Abteilung wandert mit, andere Abteilungs-Rollen (z.B. zusätzlich
+    # Nutzer in einer dritten Abteilung) bleiben unangetastet. Existiert an
+    # der neuen Abteilung bereits eine eigene Rolle, gewinnt die (bewusst
+    # zuvor im Zugriff-Tab gesetzt) - die alte wird nur aufgeräumt, nicht
+    # überschrieben.
+    if department_id != old_department_id and old_department_id is not None:
+        old_role = await session.get(UserDepartmentRole, (target.id, old_department_id))
+        if old_role:
+            role_value = old_role.role
+            existing_role_at_new_department = await session.get(UserDepartmentRole, (target.id, department_id))
+            await session.delete(old_role)
+            if not existing_role_at_new_department:
+                session.add(UserDepartmentRole(user_id=target.id, department_id=department_id, role=role_value))
+
     await session.commit()
     return RedirectResponse(url="/admin/settings#users", status_code=303)
 
