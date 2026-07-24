@@ -14,12 +14,17 @@
 # Containers trotzdem wiederverwendet, siehe
 # proxmox/install/scandy-lite-install.sh.
 #
+# Abfragen laufen über `whiptail` (Menüs/vorausgefüllte Felder statt
+# Freitext-Tippen) - Storage- und Netzwerk-Bridge-Auswahl wird direkt aus
+# `pvesm status`/`ip link` gespeist, damit dort keine Tippfehler mehr
+# möglich sind. Ist `whiptail` nicht verfügbar (und lässt sich nicht
+# nachinstallieren), fällt das Skript auf einfache Texteingaben zurück.
+#
 # Aufruf auf dem Proxmox-Host (als root):
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Woschj/scandy-lite/master/proxmox/ct/scandy-lite.sh)"
 #
-# Erneuter Aufruf mit der Container-ID einer bestehenden Installation
-# aktualisiert diese stattdessen (git pull gegen master + Migrationen +
-# Dienst-Neustart) - siehe INSTALL.md.
+# Erneuter Aufruf aktualisiert stattdessen eine bestehende Installation
+# (git pull gegen master + Migrationen + Dienst-Neustart) - siehe INSTALL.md.
 
 set -Eeuo pipefail
 
@@ -35,16 +40,85 @@ if ! command -v pct >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v whiptail >/dev/null 2>&1; then
+  apt-get update -qq >/dev/null 2>&1 || true
+  apt-get install -y -qq whiptail >/dev/null 2>&1 || true
+fi
+HAVE_WHIPTAIL=0
+command -v whiptail >/dev/null 2>&1 && HAVE_WHIPTAIL=1
+
+# --- kleine Helfer für Menü-/Eingabe-Dialoge mit Text-Fallback -------------
+# Jede Funktion gibt den gewählten Wert auf stdout aus, Abbruch (ESC/Cancel)
+# beendet das Skript.
+
+wt_menu() {
+  # wt_menu <Titel> <Text> <fallback-prompt> <fallback-default> <tag> <desc> [<tag> <desc> ...]
+  local title="$1" text="$2" fb_prompt="$3" fb_default="$4"
+  shift 4
+  if [[ "$HAVE_WHIPTAIL" -eq 1 && $# -gt 0 ]]; then
+    local height=$((8 + $#/2))
+    [[ $height -gt 24 ]] && height=24
+    whiptail --title "$title" --menu "$text" "$height" 70 $(($#/2)) "$@" 3>&1 1>&2 2>&3
+    return $?
+  fi
+  echo "$text" >&2
+  while [[ $# -gt 0 ]]; do
+    echo "  - $1: $2" >&2
+    shift 2
+  done
+  read -r -p "$fb_prompt [$fb_default]: " reply
+  echo "${reply:-$fb_default}"
+}
+
+wt_input() {
+  # wt_input <Titel> <Text> <default>
+  local title="$1" text="$2" default="$3"
+  if [[ "$HAVE_WHIPTAIL" -eq 1 ]]; then
+    whiptail --title "$title" --inputbox "$text" 10 70 "$default" 3>&1 1>&2 2>&3
+    return $?
+  fi
+  read -r -p "$text [$default]: " reply
+  echo "${reply:-$default}"
+}
+
+wt_yesno() {
+  # wt_yesno <Titel> <Text> <yes-label> <no-label>  -> exit 0 = ja
+  local title="$1" text="$2" yes_label="$3" no_label="$4"
+  if [[ "$HAVE_WHIPTAIL" -eq 1 ]]; then
+    whiptail --title "$title" --yesno "$text" 20 72 --yes-button "$yes_label" --no-button "$no_label"
+    return $?
+  fi
+  read -r -p "$text ($yes_label/$no_label) [${yes_label}]: " reply
+  [[ -z "$reply" || "${reply,,}" == "${yes_label,,}" ]]
+}
+
 echo "=== ${APP} - Proxmox VE LXC-Installer ==="
-echo ""
-read -r -p "Container-ID einer bestehenden ${APP}-Installation zum Aktualisieren (leer = neu installieren): " EXISTING_CTID
+
+# --- Modus wählen: Neuinstallation oder Update -----------------------------
+MODE="$(wt_menu "${APP} Installer" "Was möchtest du tun?" \
+  "Modus (install/update)" "install" \
+  install "Neue Installation" \
+  update  "Bestehende Installation aktualisieren")"
 
 # --- Update-Pfad: gegen einen bereits laufenden Container -----------------
-if [[ -n "$EXISTING_CTID" ]]; then
-  if ! pct status "$EXISTING_CTID" >/dev/null 2>&1; then
-    echo "FEHLER: Container ${EXISTING_CTID} existiert nicht." >&2
+if [[ "$MODE" == "update" ]]; then
+  MENU_ITEMS=()
+  while read -r ctid status rest; do
+    [[ -z "$ctid" ]] && continue
+    MENU_ITEMS+=("$ctid" "$rest ($status)")
+  done < <(pct list | tail -n +2)
+
+  if [[ "${#MENU_ITEMS[@]}" -eq 0 ]]; then
+    echo "FEHLER: Keine LXC-Container auf diesem Host gefunden." >&2
     exit 1
   fi
+  EXISTING_CTID="$(wt_menu "${APP} aktualisieren" "Welcher Container soll aktualisiert werden?" \
+    "Container-ID" "" "${MENU_ITEMS[@]}")"
+  if [[ -z "$EXISTING_CTID" ]]; then
+    echo "Abgebrochen." >&2
+    exit 1
+  fi
+
   echo "Prüfe auf Updates in Container ${EXISTING_CTID}..."
   pct exec "$EXISTING_CTID" -- bash -c '
     set -Eeuo pipefail
@@ -76,22 +150,59 @@ fi
 
 # --- Neuinstallation --------------------------------------------------------
 DEFAULT_CTID="$(pvesh get /cluster/nextid 2>/dev/null || echo 100)"
-read -r -p "Container-ID [${DEFAULT_CTID}]: " CTID
-CTID="${CTID:-$DEFAULT_CTID}"
-read -r -p "Hostname [scandy-lite]: " CT_HOSTNAME
-CT_HOSTNAME="${CT_HOSTNAME:-scandy-lite}"
-read -r -p "CPU-Kerne [2]: " CORES
-CORES="${CORES:-2}"
-read -r -p "RAM in MB [1024]: " RAM_MB
-RAM_MB="${RAM_MB:-1024}"
-read -r -p "Diskgröße in GB [6]: " DISK_GB
-DISK_GB="${DISK_GB:-6}"
-read -r -p "Storage für Rootfs [local-lvm]: " STORAGE
-STORAGE="${STORAGE:-local-lvm}"
-read -r -p "Storage für Templates [local]: " TEMPLATE_STORAGE
-TEMPLATE_STORAGE="${TEMPLATE_STORAGE:-local}"
-read -r -p "Netzwerk-Bridge [vmbr0]: " BRIDGE
-BRIDGE="${BRIDGE:-vmbr0}"
+DEFAULT_CT_HOSTNAME="scandy-lite"
+DEFAULT_CORES="2"
+DEFAULT_RAM_MB="1024"
+DEFAULT_DISK_GB="6"
+
+# Storage-Liste einmal einlesen (Name + Typ), fuer Rootfs- und Template-Auswahl
+STORAGE_MENU=()
+while read -r name type rest; do
+  [[ -z "$name" || "$name" == "Name" ]] && continue
+  STORAGE_MENU+=("$name" "Typ: $type")
+done < <(pvesm status 2>/dev/null | tail -n +2)
+if [[ "${#STORAGE_MENU[@]}" -eq 0 ]]; then
+  STORAGE_MENU=("local-lvm" "Typ: unbekannt" "local" "Typ: unbekannt")
+fi
+
+# Bridge-Liste einmal einlesen
+BRIDGE_MENU=()
+while read -r br; do
+  [[ -z "$br" ]] && continue
+  BRIDGE_MENU+=("$br" "Netzwerk-Bridge")
+done < <(ip -o link show type bridge 2>/dev/null | awk -F': ' '{print $2}')
+if [[ "${#BRIDGE_MENU[@]}" -eq 0 ]]; then
+  BRIDGE_MENU=("vmbr0" "Netzwerk-Bridge")
+fi
+
+DEFAULT_STORAGE="${STORAGE_MENU[0]}"
+DEFAULT_TEMPLATE_STORAGE="local"
+DEFAULT_BRIDGE="${BRIDGE_MENU[0]}"
+
+if wt_yesno "${APP} Installer" \
+  "Standard-Einstellungen verwenden?\n\nContainer-ID:      ${DEFAULT_CTID}\nHostname:           ${DEFAULT_CT_HOSTNAME}\nCPU-Kerne:          ${DEFAULT_CORES}\nRAM:                ${DEFAULT_RAM_MB} MB\nDisk:               ${DEFAULT_DISK_GB} GB\nStorage (Rootfs):   ${DEFAULT_STORAGE}\nStorage (Template): ${DEFAULT_TEMPLATE_STORAGE}\nNetzwerk-Bridge:    ${DEFAULT_BRIDGE}\n\n'Erweitert' öffnet je ein Auswahlfeld pro Einstellung." \
+  "Standard" "Erweitert"; then
+  CTID="$DEFAULT_CTID"
+  CT_HOSTNAME="$DEFAULT_CT_HOSTNAME"
+  CORES="$DEFAULT_CORES"
+  RAM_MB="$DEFAULT_RAM_MB"
+  DISK_GB="$DEFAULT_DISK_GB"
+  STORAGE="$DEFAULT_STORAGE"
+  TEMPLATE_STORAGE="$DEFAULT_TEMPLATE_STORAGE"
+  BRIDGE="$DEFAULT_BRIDGE"
+else
+  CTID="$(wt_input "${APP} Installer" "Container-ID (frei wählbar, muss unbenutzt sein):" "$DEFAULT_CTID")"
+  CT_HOSTNAME="$(wt_input "${APP} Installer" "Hostname:" "$DEFAULT_CT_HOSTNAME")"
+  CORES="$(wt_input "${APP} Installer" "CPU-Kerne:" "$DEFAULT_CORES")"
+  RAM_MB="$(wt_input "${APP} Installer" "RAM in MB:" "$DEFAULT_RAM_MB")"
+  DISK_GB="$(wt_input "${APP} Installer" "Diskgröße in GB:" "$DEFAULT_DISK_GB")"
+  STORAGE="$(wt_menu "${APP} Installer" "Storage für den Container (Rootfs):" \
+    "Storage (Rootfs)" "$DEFAULT_STORAGE" "${STORAGE_MENU[@]}")"
+  TEMPLATE_STORAGE="$(wt_menu "${APP} Installer" "Storage für das Debian-Template:" \
+    "Storage (Template)" "$DEFAULT_TEMPLATE_STORAGE" "${STORAGE_MENU[@]}")"
+  BRIDGE="$(wt_menu "${APP} Installer" "Netzwerk-Bridge:" \
+    "Bridge" "$DEFAULT_BRIDGE" "${BRIDGE_MENU[@]}")"
+fi
 
 ROOT_PASSWORD="$(openssl rand -hex 12)"
 
@@ -146,4 +257,4 @@ echo ""
 echo "Admin-Zugangsdaten: pct exec ${CTID} -- cat /root/scandy-lite.creds"
 echo "Root-Passwort des Containers (Konsole/SSH): ${ROOT_PASSWORD}"
 echo ""
-echo "Update später: dieses Skript erneut ausführen und Container-ID ${CTID} angeben."
+echo "Update später: dieses Skript erneut ausführen und im Menü 'Aktualisieren' wählen."
