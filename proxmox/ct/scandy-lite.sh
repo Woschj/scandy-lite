@@ -285,6 +285,13 @@ pct exec "$CTID" -- bash -c "curl -fsSL '${INSTALL_SCRIPT_URL}' -o /root/scandy-
 
 IP="$(pct exec "$CTID" -- hostname -I | awk '{print $1}')"
 
+# Root-Passwort zusätzlich im Container speichern (nicht nur einmalig hier
+# anzeigen) - wird sonst unwiederbringlich vergessen, wenn es beim ersten
+# Anzeigen nicht notiert wurde. Ohne Kenntnis des alten Passworts lässt es
+# sich zwar jederzeit vom Proxmox-Host aus per `pct exec <ID> -- passwd`
+# zurücksetzen, aber das sollte nicht der Normalfall sein.
+pct exec "$CTID" -- bash -c "printf '\nContainer-Root-Passwort (Konsole/SSH): %s\n' '$ROOT_PASSWORD' >> /root/scandy-lite.creds"
+
 echo ""
 echo "=== Fertig! ==="
 echo "HTTP  (Hardware-Scanner/Tastatur):                 http://${IP}:8000"

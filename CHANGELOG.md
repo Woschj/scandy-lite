@@ -13,6 +13,18 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.18.8] - 2026-07-24
+
+### Fixed
+- **LXC-Installer: Root-Passwort des Containers ging verloren, wenn es beim
+  ersten Anzeigen nicht notiert wurde** - stand bisher nur einmalig am Ende
+  der Installation auf dem Terminal, ohne jede weitere Speicherung. Landet
+  jetzt zusätzlich in `/root/scandy-lite.creds` **innerhalb des Containers**
+  (zusammen mit den Admin-Zugangsdaten). Ohne Kenntnis des alten Passworts
+  lässt es sich davon unabhängig jederzeit vom Proxmox-Host aus per
+  `pct exec <ID> -- passwd` zurücksetzen (Proxmox hat als Hypervisor vollen
+  Zugriff auf den Container).
+
 ## [0.18.7] - 2026-07-24
 
 ### Added
