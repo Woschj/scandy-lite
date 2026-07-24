@@ -13,6 +13,35 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.18.0] - 2026-07-24
+
+### Added
+- **Nativer Proxmox-VE-LXC-Installer** (`proxmox/ct/scandy-lite.sh` +
+  `proxmox/install/scandy-lite-install.sh`) - an die community-scripts-
+  Konvention angelehnt (nutzt deren generische, app-unabhängige Helper aus
+  `misc/install.func`/`misc/tools.func`: `setup_postgresql`,
+  `create_self_signed_cert`, `msg_info`/`msg_ok`, ...), aber bewusst ohne
+  deren `build.func`: dessen `build_container()` lädt das
+  App-Installationsskript hart-codiert aus dem offiziellen
+  community-scripts/ProxmoxVE-Repo, das würde für ein eigenständiges Skript
+  wie dieses (kein offizieller community-scripts-Eintrag) ins Leere laufen.
+  Stattdessen legt `ct/scandy-lite.sh` den Container direkt per
+  `pct create` an und reicht die Installation per `pct exec` hinein.
+  Installiert die App ohne Docker direkt in eine frische Debian-LXC:
+  PostgreSQL, Python-venv, Repo-Klon nach `/opt/scandy-lite`,
+  Alembic-Migrationen, Admin-Bootstrap, zwei systemd-Dienste (`scandy-lite`
+  auf Port 8000 für HTTP, `scandy-lite-https` auf Port 8443 mit uvicorns
+  eingebautem TLS über ein selbstsigniertes Zertifikat - ersetzt den
+  separaten Caddy-Container aus dem Docker-Setup, der ausschließlich für
+  dieses eine Zertifikat lief). Erneuter Aufruf des Skripts mit der
+  Container-ID einer bestehenden Installation aktualisiert diese per
+  `git fetch`/`git reset --hard` gegen `origin/master` (das Repo pflegt
+  aktuell keine GitHub-Releases, daher direkt gegen den Branch statt
+  release-basiert). `INSTALL.md` führt diesen Weg jetzt als primäre
+  Installationsmethode,
+  der bestehende Docker/Portainer-Weg bleibt als dokumentierte Alternative
+  bestehen.
+
 ## [0.17.0] - 2026-07-22
 
 ### Changed
