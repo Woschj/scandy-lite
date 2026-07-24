@@ -43,6 +43,9 @@ htmlcov/
 # Backups (scripts/backup.sh) - enthalten echte Datenbank-/Bilddaten, niemals committen
 /backups/
 
+# Rein lokales Test-/Demo-Werkzeug, bewusst nicht im Repo
+scripts/seed_demo_data.py
+
 # Migrations-Passwörter (enthalten Klartext-Passwörter, niemals committen)
 migration_passwords*.txt
 
