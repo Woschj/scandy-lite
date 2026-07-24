@@ -157,7 +157,12 @@ DEFAULT_CORES="2"
 # laufende Betrieb - mit 1024 MB kam es beim Testen zu starkem Swapping und
 # einer entsprechend langsamen Installation.
 DEFAULT_RAM_MB="2048"
-DEFAULT_DISK_GB="6"
+# 16 statt 6 GB: bei Thin-Provisioning (Standard bei local-lvm) ist das nur
+# eine Obergrenze, kein reservierter Platz - kostet also nichts, gibt aber
+# genug Puffer für Datenbank + Uploads (Item-/Consumable-Bilder), falls das
+# Inventar deutlich wächst. Spaeter jederzeit erweiterbar per
+# `pct resize <CTID> rootfs +10G`, auch ohne Thin-Provisioning.
+DEFAULT_DISK_GB="16"
 DEFAULT_SWAP_MB="1024"
 
 # Storage-Listen getrennt nach Verwendungszweck einlesen: Rootfs braucht

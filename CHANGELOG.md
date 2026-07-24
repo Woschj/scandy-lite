@@ -13,6 +13,16 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.18.2] - 2026-07-24
+
+### Changed
+- **LXC-Installer: Disk-Default von 6 auf 16 GB erhöht** - bei
+  Thin-Provisioning (Standard bei `local-lvm`) nur eine Obergrenze, kein
+  reservierter Platz, kostet also nichts. Gibt Puffer für Datenbank +
+  hochgeladene Item-/Consumable-Bilder, falls das Inventar deutlich wächst.
+  Bei Bedarf jederzeit nachträglich erweiterbar per
+  `pct resize <CTID> rootfs +10G`, auch ohne Thin-Provisioning.
+
 ## [0.18.1] - 2026-07-24
 
 ### Fixed

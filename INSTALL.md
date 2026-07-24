@@ -22,8 +22,10 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Woschj/scandy-lite/maste
 Das Skript fragt zuerst nach einer bestehenden Container-ID (leer lassen für
 eine Neuinstallation, siehe "Updates einspielen" unten), dann interaktiv
 Container-ID/Hostname/CPU/RAM/Disk/Storage/Netzwerk-Bridge ab (Defaults: 2
-Kerne, 1 GB RAM, 6 GB Disk, `local-lvm`/`local`/`vmbr0` - für den üblichen
-Werkstatt-Betrieb reichlich, einfach Enter drücken um zu übernehmen). Danach
+Kerne, 2 GB RAM, 16 GB Disk - bei Thin-Provisioning (Standard bei
+`local-lvm`) nur eine Obergrenze, kostet also nichts -, `local-lvm`/`local`/
+`vmbr0` - für den üblichen Werkstatt-Betrieb reichlich, einfach Enter
+drücken um zu übernehmen). Danach
 erstellt es die LXC automatisch und führt darin aus:
 
 1. PostgreSQL installieren + Datenbank/User anlegen (zufälliges Passwort)
