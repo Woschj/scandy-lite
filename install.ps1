@@ -48,8 +48,10 @@ if (Test-Path $envPath) {
     # vorhanden) - liefert denselben Effekt: kryptografisch sichere,
     # zufaellige Hex-Strings.
     function New-RandomHex([int]$bytes) {
+        $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
         $buffer = New-Object byte[] $bytes
-        [System.Security.Cryptography.RandomNumberGenerator]::Fill($buffer)
+        $rng.GetBytes($buffer)
+        $rng.Dispose()
         return ([System.BitConverter]::ToString($buffer) -replace '-', '').ToLower()
     }
 
