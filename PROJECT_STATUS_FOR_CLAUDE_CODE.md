@@ -330,8 +330,8 @@ app/
 alembic/versions/              # 10 Migrationen bisher
 migrations_legacy/              # CLI-Migrationsskript + eigene Tests, eigenes requirements.txt
 scripts/seed_admin.py            # Bootstrap-Admin für lokale Entwicklung
-docker-compose.yml               # Produktiv-Stack (App + Postgres + optional Caddy)
-docker-compose.dev.yml           # Nur Postgres, für lokale Entwicklung mit uvicorn --reload
+compose.yaml               # Produktiv-Stack (App + Postgres + optional Caddy)
+compose.dev.yaml           # Nur Postgres, für lokale Entwicklung mit uvicorn --reload
 INSTALL.md                       # Schritt-für-Schritt Portainer-Anleitung
 ```
 

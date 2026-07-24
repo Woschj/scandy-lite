@@ -3,6 +3,25 @@
 Diese Anleitung deckt den kompletten Weg ab: vom leeren GitHub-Repo bis zur
 laufenden App inkl. HTTPS für den Kamera-Scan.
 
+## Kurzstart (lokal, ohne Portainer)
+
+Für einen schnellen lokalen Test oder eine Installation ohne Portainer reicht:
+
+```bash
+git clone <repo-url> && cd scandy-lite
+./install.sh          # Linux/Mac
+# oder: .\install.ps1   # Windows (PowerShell)
+```
+
+Erzeugt automatisch eine `.env` mit sicheren, zufällig generierten Werten
+(`SECRET_KEY`, `POSTGRES_PASSWORD`, `ADMIN_PASSWORD`), baut und startet den
+Stack, wartet auf den ersten erfolgreichen Health-Check und zeigt danach
+URL + Admin-Zugangsdaten an. Erneutes Ausführen ist gefahrlos (eine bereits
+vorhandene `.env` wird nicht überschrieben).
+
+Der Rest dieser Anleitung beschreibt den **Portainer-Weg** (empfohlen für
+einen dauerhaften Server-Betrieb, z.B. auf einem Proxmox-Host) im Detail.
+
 ## Voraussetzungen
 
 - Portainer läuft bereits auf eurem Docker-Host (Proxmox-LXC o. ä.)
@@ -20,7 +39,7 @@ laufenden App inkl. HTTPS für den Kamera-Scan.
 | Build method | **Repository** |
 | Repository URL | euer GitHub-Repo, z. B. `https://github.com/Woschj/scandy-lite.git` |
 | Repository reference | `refs/heads/master` (**wichtig** - nicht `main`, sonst "reference not found") |
-| Compose path | `docker-compose.yml` |
+| Compose path | `compose.yaml` |
 
 ## 2. Umgebungsvariablen setzen
 
@@ -87,7 +106,7 @@ Variablen bleibt das Feature einfach aus, keine Pflicht.
 
 Alle Daten (Gegenstände, Verbrauchsmaterial, Historie, Benutzer) liegen in
 der Postgres-Datenbank im `scandy_lite_db_data`-Volume - hochgeladene Bilder
-zusätzlich im `uploads`-Volume (siehe `docker-compose.yml`). Kein
+zusätzlich im `uploads`-Volume (siehe `compose.yaml`). Kein
 automatisches Backup ist eingerichtet; für ein produktiv genutztes
 Ausleihsystem sollte mindestens eines der beiden folgenden Verfahren
 regelmäßig (z.B. täglich per Cron auf dem Host) laufen.
@@ -140,3 +159,29 @@ Neustart automatisch mit - kein manueller Schritt nötig.
 | Kamera-Button zeigt "benötigt HTTPS" | Zugriff über `APP_PORT` (HTTP) statt `APP_HTTPS_PORT` | über `https://...:8443` aufrufen |
 | App-Container startet gar nicht, Log zeigt "SECRET_KEY ist nicht sicher gesetzt" | `SECRET_KEY` fehlt oder ist noch der Standardwert | echten Wert setzen (`openssl rand -hex 32`), Stack neu deployen - **Absicht**, kein Bug: ein vergessener Schlüssel würde sonst Logins/CSRF-Schutz/gespeicherte SMTP-Passwörter angreifbar machen |
 | App-Container startet gar nicht, Log zeigt "DATABASE_URL enthält noch das unsichere Standard-Passwort" | `POSTGRES_PASSWORD` fehlt oder ist noch `change_me_immediately` | echtes Passwort in der `.env` setzen, Stack neu deployen - **Absicht**, kein Bug: ein vergessenes Passwort würde die Datenbank sonst für jeden mit Netzwerkzugriff offenlassen |
+
+## Fortgeschritten: Docker/Swarm-Secrets statt Umgebungsvariablen
+
+Für den normalen Portainer-Einzelserver-Betrieb sind die Umgebungsvariablen
+oben völlig ausreichend. Wer stattdessen echte Docker-Secrets nutzen möchte
+(z.B. unter Docker Swarm, oder weil ein Secrets-Manager schon Dateien statt
+Umgebungsvariablen ausliefert): siehe `compose.secrets.yaml` und
+`secrets/README.md` im Repo. Kurzfassung:
+
+```bash
+openssl rand -hex 32 > secrets/secret_key.txt
+openssl rand -hex 24 > secrets/postgres_password.txt
+openssl rand -hex 12 > secrets/admin_password.txt
+docker compose -f compose.yaml -f compose.secrets.yaml up -d --build
+```
+
+`docker/entrypoint.sh` löst die `*_FILE`-Variablen automatisch auf - der
+Rest der App merkt keinen Unterschied zur gewöhnlichen Umgebungsvariable.
+
+## CI
+
+Jeder Push/Pull-Request auf `master` läuft automatisch durch
+`.github/workflows/ci.yml`: die komplette Testsuite (`pytest`, gegen SQLite,
+kein externer Service nötig) plus ein Docker-Build-Check (stellt sicher,
+dass das Image überhaupt baubar bleibt). Linting (`ruff check .`) läuft
+bewusst nicht in CI, siehe `ruff.toml` - nur als lokales Werkzeug gedacht.

@@ -35,6 +35,13 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change_me_secret_key}
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-scandy}:${POSTGRES_PASSWORD:-change_me_immediately}@db:5432/${POSTGRES_DB:-scandy_lite}
       DATABASE_URL_SYNC: postgresql+psycopg2://${POSTGRES_USER:-scandy}:${POSTGRES_PASSWORD:-change_me_immediately}@db:5432/${POSTGRES_DB:-scandy_lite}
+      # Nur für den Fall, dass DATABASE_URL(_SYNC) vom entrypoint.sh neu
+      # zusammengesetzt werden muss (siehe compose.secrets.yaml) - werden
+      # sonst nirgends direkt ausgewertet, DATABASE_URL(_SYNC) oben bleibt
+      # die eigentliche Quelle der Wahrheit für die App selbst.
+      POSTGRES_USER: ${POSTGRES_USER:-scandy}
+      POSTGRES_DB: ${POSTGRES_DB:-scandy_lite}
+      POSTGRES_HOST: db
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-720}
       # Nur auf "true" setzen, wenn ein Reverse-Proxy davor TLS terminiert
       # (sonst verwirft der Browser das Login-Cookie über HTTP stillschweigend).

@@ -73,7 +73,7 @@ https://<authentik-host>/application/o/<slug>/
 
 Drei Umgebungsvariablen setzen (Portainer: Stack-Editor → Environment
 variables, siehe [INSTALL.md](INSTALL.md) Abschnitt 2 für den generellen
-Ablauf) - `docker-compose.yml` reicht diese bereits durch:
+Ablauf) - `compose.yaml` reicht diese bereits durch:
 
 | Variable | Wert |
 |---|---|

@@ -45,3 +45,6 @@ migration_passwords*.txt
 
 # Docker
 *.log
+
+# Docker-Secrets (siehe secrets/README.md) - echte Werte nie committen
+secrets/*.txt

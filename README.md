@@ -495,7 +495,7 @@ Zertifikat erzeugt (kein Domain-/Let's-Encrypt-Aufwand nötig):
 
 Der bisherige HTTP-Zugriff über `APP_PORT` bleibt parallel nutzbar - falls ihr
 den `caddy`-Service nicht braucht, könnt ihr ihn und den `caddy_data`-Eintrag
-einfach aus der `docker-compose.yml` entfernen. `SESSION_COOKIE_SECURE` muss
+einfach aus der `compose.yaml` entfernen. `SESSION_COOKIE_SECURE` muss
 dafür **nicht** auf `true` gesetzt werden - nicht-sichere Cookies funktionieren
 über HTTP und HTTPS gleichermaßen, nur umgekehrt (sicheres Cookie über HTTP)
 wäre das Problem, das wir schon hatten.
@@ -552,7 +552,7 @@ Scandy-Lite ist als Portainer-Stack deploybar (App + PostgreSQL, ein Stack, kein
 1. Repo zuerst auf GitHub pushen (siehe unten), dann in Portainer: **Stacks → Add stack**
 2. **Build method:** Repository
 3. **Repository URL:** dein Git-Remote, z. B. `https://github.com/woschj/scandy-lite.git`
-4. **Compose path:** `docker-compose.yml`
+4. **Compose path:** `compose.yaml`
 5. **Environment variables:** siehe Tabelle unten
 6. **Deploy the stack**
 
@@ -561,7 +561,7 @@ Portainer baut das Image dabei selbst aus dem `Dockerfile` im Repo (kein separat
 ### Methode 2: Web Editor
 
 1. **Stacks → Add stack → Web editor**
-2. Inhalt von `docker-compose.yml` einfügen
+2. Inhalt von `compose.yaml` einfügen
 3. Environment variables ergänzen (Tabelle unten)
 4. **Deploy the stack**
 
@@ -605,7 +605,7 @@ Migrations-Schritt nötig.
 
 ```bash
 # 1. Nur Postgres lokal starten (App läuft direkt via uvicorn, für schnelles Reload)
-docker compose -f docker-compose.dev.yml up -d
+docker compose -f compose.dev.yaml up -d
 
 # 2. Virtualenv + Dependencies
 python3 -m venv .venv

@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    name: Testsuite (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Abhängigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: Testsuite laufen lassen
+        # Läuft komplett gegen SQLite (siehe tests/conftest.py) - kein
+        # Postgres-Service-Container nötig, siehe PROJECT_STATUS_FOR_CLAUDE_CODE.md
+        # Abschnitt 7 für den Hintergrund (SQLite verdeckt sonst reale
+        # Postgres-Bugs, deshalb PRAGMA foreign_keys=ON in den Fixtures).
+        run: pytest -v
+
+  docker-build:
+    name: Docker-Image baubar?
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Buildx einrichten
+        uses: docker/setup-buildx-action@v3
+
+      - name: Image bauen (kein Push, nur Build-Check)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
