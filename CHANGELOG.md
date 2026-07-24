@@ -13,6 +13,24 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.18.1] - 2026-07-24
+
+### Fixed
+- **LXC-Installer: Storage-Auswahl schlug fehl** (`pct create` brach mit
+  "storage 'local' does not support container directories" ab) - die
+  Auswahlmenüs für "Storage (Rootfs)" und "Storage (Template)" teilten sich
+  bisher eine ungefilterte `pvesm status`-Liste und konnten so `local`
+  (unterstützt meist nur `vztmpl`/`iso`/`backup`, kein `rootdir`) als
+  Rootfs-Storage vorschlagen. Beide Listen werden jetzt getrennt per
+  `pvesm status --content rootdir` bzw. `--content vztmpl` gefiltert.
+- **LXC-Installer: RAM-Default zu knapp** - 1024 MB/512 MB Swap reichten
+  beim Testen nicht für `apt-get dist-upgrade` während der
+  Container-Einrichtung (führte zu starkem Swapping und einer entsprechend
+  sehr langsamen Installation ohne sichtbaren Fortschritt, da die Ausgabe
+  dieses Schritts von der geteilten Helper-Bibliothek in eine Logdatei statt
+  auf den Bildschirm umgeleitet wird). Neuer Default: 2048 MB RAM / 1024 MB
+  Swap, weiterhin über "Erweitert" anpassbar.
+
 ## [0.18.0] - 2026-07-24
 
 ### Added

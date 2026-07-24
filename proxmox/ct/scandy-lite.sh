@@ -152,17 +152,44 @@ fi
 DEFAULT_CTID="$(pvesh get /cluster/nextid 2>/dev/null || echo 100)"
 DEFAULT_CT_HOSTNAME="scandy-lite"
 DEFAULT_CORES="2"
-DEFAULT_RAM_MB="1024"
+# 2048 MB statt 1024 MB: apt-get dist-upgrade beim Einrichten des Containers
+# (misc/install.func::update_os) braucht spürbar mehr Speicher als der
+# laufende Betrieb - mit 1024 MB kam es beim Testen zu starkem Swapping und
+# einer entsprechend langsamen Installation.
+DEFAULT_RAM_MB="2048"
 DEFAULT_DISK_GB="6"
+DEFAULT_SWAP_MB="1024"
 
-# Storage-Liste einmal einlesen (Name + Typ), fuer Rootfs- und Template-Auswahl
+# Storage-Listen getrennt nach Verwendungszweck einlesen: Rootfs braucht
+# Content-Typ "rootdir" (z.B. local-lvm), Templates brauchen "vztmpl" (z.B.
+# local) - "local" unterstützt in den meisten Standard-Setups NUR vztmpl/
+# iso/backup, kein rootdir. Eine gemeinsame, ungefilterte Liste (frühere
+# Version dieses Skripts) konnte daher "local" als Rootfs-Storage vorschlagen
+# und pct create ließ das mit "storage 'local' does not support container
+# directories" scheitern.
 STORAGE_MENU=()
 while read -r name type rest; do
   [[ -z "$name" || "$name" == "Name" ]] && continue
   STORAGE_MENU+=("$name" "Typ: $type")
-done < <(pvesm status 2>/dev/null | tail -n +2)
+done < <(pvesm status --content rootdir 2>/dev/null | tail -n +2)
 if [[ "${#STORAGE_MENU[@]}" -eq 0 ]]; then
-  STORAGE_MENU=("local-lvm" "Typ: unbekannt" "local" "Typ: unbekannt")
+  # Fallback fuer aeltere pvesm-Versionen ohne --content-Filter
+  while read -r name type rest; do
+    [[ -z "$name" || "$name" == "Name" ]] && continue
+    STORAGE_MENU+=("$name" "Typ: $type")
+  done < <(pvesm status 2>/dev/null | tail -n +2)
+fi
+if [[ "${#STORAGE_MENU[@]}" -eq 0 ]]; then
+  STORAGE_MENU=("local-lvm" "Typ: unbekannt")
+fi
+
+TEMPLATE_STORAGE_MENU=()
+while read -r name type rest; do
+  [[ -z "$name" || "$name" == "Name" ]] && continue
+  TEMPLATE_STORAGE_MENU+=("$name" "Typ: $type")
+done < <(pvesm status --content vztmpl 2>/dev/null | tail -n +2)
+if [[ "${#TEMPLATE_STORAGE_MENU[@]}" -eq 0 ]]; then
+  TEMPLATE_STORAGE_MENU=("local" "Typ: unbekannt")
 fi
 
 # Bridge-Liste einmal einlesen
@@ -176,16 +203,17 @@ if [[ "${#BRIDGE_MENU[@]}" -eq 0 ]]; then
 fi
 
 DEFAULT_STORAGE="${STORAGE_MENU[0]}"
-DEFAULT_TEMPLATE_STORAGE="local"
+DEFAULT_TEMPLATE_STORAGE="${TEMPLATE_STORAGE_MENU[0]}"
 DEFAULT_BRIDGE="${BRIDGE_MENU[0]}"
 
 if wt_yesno "${APP} Installer" \
-  "Standard-Einstellungen verwenden?\n\nContainer-ID:      ${DEFAULT_CTID}\nHostname:           ${DEFAULT_CT_HOSTNAME}\nCPU-Kerne:          ${DEFAULT_CORES}\nRAM:                ${DEFAULT_RAM_MB} MB\nDisk:               ${DEFAULT_DISK_GB} GB\nStorage (Rootfs):   ${DEFAULT_STORAGE}\nStorage (Template): ${DEFAULT_TEMPLATE_STORAGE}\nNetzwerk-Bridge:    ${DEFAULT_BRIDGE}\n\n'Erweitert' öffnet je ein Auswahlfeld pro Einstellung." \
+  "Standard-Einstellungen verwenden?\n\nContainer-ID:      ${DEFAULT_CTID}\nHostname:           ${DEFAULT_CT_HOSTNAME}\nCPU-Kerne:          ${DEFAULT_CORES}\nRAM:                ${DEFAULT_RAM_MB} MB\nSwap:               ${DEFAULT_SWAP_MB} MB\nDisk:               ${DEFAULT_DISK_GB} GB\nStorage (Rootfs):   ${DEFAULT_STORAGE}\nStorage (Template): ${DEFAULT_TEMPLATE_STORAGE}\nNetzwerk-Bridge:    ${DEFAULT_BRIDGE}\n\n'Erweitert' öffnet je ein Auswahlfeld pro Einstellung." \
   "Standard" "Erweitert"; then
   CTID="$DEFAULT_CTID"
   CT_HOSTNAME="$DEFAULT_CT_HOSTNAME"
   CORES="$DEFAULT_CORES"
   RAM_MB="$DEFAULT_RAM_MB"
+  SWAP_MB="$DEFAULT_SWAP_MB"
   DISK_GB="$DEFAULT_DISK_GB"
   STORAGE="$DEFAULT_STORAGE"
   TEMPLATE_STORAGE="$DEFAULT_TEMPLATE_STORAGE"
@@ -195,11 +223,12 @@ else
   CT_HOSTNAME="$(wt_input "${APP} Installer" "Hostname:" "$DEFAULT_CT_HOSTNAME")"
   CORES="$(wt_input "${APP} Installer" "CPU-Kerne:" "$DEFAULT_CORES")"
   RAM_MB="$(wt_input "${APP} Installer" "RAM in MB:" "$DEFAULT_RAM_MB")"
+  SWAP_MB="$(wt_input "${APP} Installer" "Swap in MB:" "$DEFAULT_SWAP_MB")"
   DISK_GB="$(wt_input "${APP} Installer" "Diskgröße in GB:" "$DEFAULT_DISK_GB")"
   STORAGE="$(wt_menu "${APP} Installer" "Storage für den Container (Rootfs):" \
     "Storage (Rootfs)" "$DEFAULT_STORAGE" "${STORAGE_MENU[@]}")"
   TEMPLATE_STORAGE="$(wt_menu "${APP} Installer" "Storage für das Debian-Template:" \
-    "Storage (Template)" "$DEFAULT_TEMPLATE_STORAGE" "${STORAGE_MENU[@]}")"
+    "Storage (Template)" "$DEFAULT_TEMPLATE_STORAGE" "${TEMPLATE_STORAGE_MENU[@]}")"
   BRIDGE="$(wt_menu "${APP} Installer" "Netzwerk-Bridge:" \
     "Bridge" "$DEFAULT_BRIDGE" "${BRIDGE_MENU[@]}")"
 fi
@@ -224,7 +253,7 @@ pct create "$CTID" "${TEMPLATE_STORAGE}:vztmpl/${TEMPLATE}" \
   --hostname "$CT_HOSTNAME" \
   --cores "$CORES" \
   --memory "$RAM_MB" \
-  --swap 512 \
+  --swap "$SWAP_MB" \
   --rootfs "${STORAGE}:${DISK_GB}" \
   --net0 "name=eth0,bridge=${BRIDGE},ip=dhcp,ip6=dhcp" \
   --unprivileged 1 \
