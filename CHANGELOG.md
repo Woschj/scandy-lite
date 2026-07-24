@@ -13,6 +13,15 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.18.6] - 2026-07-24
+
+### Changed
+- **README: Quick-Install-Abschnitt für den Proxmox-VE-LXC-Weg ergänzt**
+  (One-Liner-Befehl + Update-Hinweis) - stand bisher nur in `INSTALL.md`,
+  in der README gab es noch gar keinen Hinweis auf den neuen Weg. Portainer-
+  Abschnitt umbenannt zu "Alternative", verlinkt auf den entsprechenden
+  `INSTALL.md`-Abschnitt.
+
 ## [0.18.5] - 2026-07-24
 
 ### Fixed

@@ -5,9 +5,28 @@ mit Mehr-Abteilungs-Unterstützung. Extrahiert und clean neu aufgebaut aus
 [scandy2](https://github.com/woschj/scandy2), reduziert auf den Kern-Workflow
 (kein Ticketsystem, kein Kantinenplan, keine Job-Verwaltung).
 
-**→ Schritt-für-Schritt-Installation via Portainer: [INSTALL.md](INSTALL.md)**
+**→ Ausführliche Installationsanleitung (Proxmox VE + Docker/Portainer): [INSTALL.md](INSTALL.md)**
 **→ Optionales SSO-Login via Authentik: [SSO_AUTHENTIK.md](SSO_AUTHENTIK.md)**
 **→ Versionsgeschichte: [CHANGELOG.md](CHANGELOG.md)**
+
+## 🚀 Quick Install (Proxmox VE, empfohlen)
+
+Natives LXC ohne Docker - ein Befehl auf der Proxmox-Host-Shell (als root):
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Woschj/scandy-lite/master/proxmox/ct/scandy-lite.sh)"
+```
+
+Menügeführt (CPU/RAM/Disk/Storage/Netzwerk-Bridge, mit sinnvollen Defaults),
+erstellt eine Debian-LXC und installiert darin alles nativ: PostgreSQL,
+Python-venv, App, zwei systemd-Dienste (HTTP für Hardware-Scanner, HTTPS mit
+selbstsigniertem Zertifikat für Kamera-Scan). Details, Voraussetzungen und
+der alternative Docker/Portainer-Weg: [INSTALL.md](INSTALL.md).
+
+**Update:** denselben Befehl erneut ausführen, im Menü "Bestehende
+Installation aktualisieren" wählen und den Container aus der Liste
+auswählen - vergleicht den lokalen Stand per `git fetch` gegen
+`origin/master` und aktualisiert nur, wenn es tatsächlich etwas Neues gibt.
 
 ## Tech-Stack
 
@@ -543,9 +562,11 @@ Wenn LDAP/SSO angebunden wird, kommt nur ein neuer Auth-Provider hinzu, der
 `User`-Datensätze mit `auth_source="ldap"`/`"sso"` erzeugt/synchronisiert — der
 Rest der App (Rechte, Abteilungs-Scoping, Ausleihe) bleibt unverändert.
 
-## ⛴️ Installation via Portainer
+## ⛴️ Alternative: Installation via Portainer
 
-Scandy-Lite ist als Portainer-Stack deploybar (App + PostgreSQL, ein Stack, kein separates DB-Setup nötig).
+Wer lieber Docker nutzt (oder keinen Proxmox-Host hat): Scandy-Lite ist auch
+als Portainer-Stack deploybar (App + PostgreSQL, ein Stack, kein separates
+DB-Setup nötig). Ausführlich in [INSTALL.md](INSTALL.md#alternative-dockerportainer).
 
 ### Methode 1: Repository (empfohlen)
 
