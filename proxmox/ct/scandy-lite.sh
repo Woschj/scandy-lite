@@ -269,10 +269,12 @@ pct start "$CTID"
 
 echo "Warte auf Netzwerk und installiere Grundpakete (curl, git)..."
 ATTEMPTS=0
-until pct exec "$CTID" -- bash -c "apt-get update -qq && apt-get install -y -qq curl ca-certificates git" >/dev/null 2>&1; do
+LAST_OUTPUT=""
+until LAST_OUTPUT="$(pct exec "$CTID" -- bash -c "apt-get update -qq && apt-get install -y -qq curl ca-certificates git" 2>&1)"; do
   ATTEMPTS=$((ATTEMPTS + 1))
   if [[ "$ATTEMPTS" -ge 15 ]]; then
-    echo "FEHLER: Grundpakete konnten nach mehreren Versuchen nicht installiert werden (Netzwerk-Problem im Container?)." >&2
+    echo "FEHLER: Grundpakete konnten nach mehreren Versuchen nicht installiert werden. Letzte Fehlermeldung:" >&2
+    echo "$LAST_OUTPUT" >&2
     exit 1
   fi
   sleep 4

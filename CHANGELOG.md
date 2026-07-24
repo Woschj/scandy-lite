@@ -13,6 +13,21 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.18.3] - 2026-07-24
+
+### Changed
+- **LXC-Installer: sichtbarer Fortschritt + etwas schneller.**
+  `VERBOSE=yes` vor dem Laden von `misc/install.func` gesetzt - die geteilte
+  Bibliothek leitet `apt`/`pip`/etc. sonst standardmäßig still in eine
+  Logdatei um (`$STD`-Wrapper), ohne das offizielle Advanced-Settings-Menü
+  gab es dafür keinen anderen Schalter. Grundpakete-Installation
+  (`curl`/`git`) im Launcher zeigt bei endgültigem Fehlschlag jetzt die
+  letzte tatsächliche Fehlermeldung statt nur "Netzwerk-Problem?". `pip
+  install` installiert nur noch Laufzeit-Abhängigkeiten (Test-/Lint-Tools
+  wie `pytest`/`ruff` werden aus der gemeinsamen `requirements.txt`
+  herausgefiltert statt eine zweite Datei zu pflegen) und nutzt
+  `--prefer-binary`, um versehentliche Kompilier-Versuche auszuschließen.
+
 ## [0.18.2] - 2026-07-24
 
 ### Changed

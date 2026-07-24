@@ -16,6 +16,14 @@
 # misc/tools.func nach, das ist derselbe Ablauf wie in jedem offiziellen
 # install/*-install.sh.
 
+# VERBOSE=yes schaltet den $STD-Wrapper der geteilten Bibliothek ab (der
+# leitet apt/pip/etc. sonst standardmaessig still in eine Logdatei um, siehe
+# misc/core.func::set_std_mode) - ohne die eigene build.func/das Advanced-
+# Settings-Menu des offiziellen Frontends gibt es keinen anderen Weg, den
+# Fortschritt live zu sehen. Muss VOR dem Sourcen von install.func gesetzt
+# sein, das liest VERBOSE beim Laden einmalig aus.
+export VERBOSE=yes
+
 source <(curl -fsSL https://raw.githubusercontent.com/community-scripts/ProxmoxVE/main/misc/install.func)
 color
 verb_ip6
@@ -39,7 +47,18 @@ msg_info "Setting up Python environment (kann etwas dauern)"
 cd /opt/scandy-lite
 python3 -m venv venv
 $STD venv/bin/pip install --upgrade pip
-$STD venv/bin/pip install -r requirements.txt
+# Nur Laufzeit-Abhängigkeiten installieren - requirements.txt enthält auch
+# Test-/Lint-Werkzeuge (pytest, ruff, ...), die im Container nie gebraucht
+# werden (ruff bringt z.B. eine komplette Rust-Binary mit). Filtert on-the-fly
+# aus der einen, gemeinsamen requirements.txt statt eine zweite Datei im Repo
+# zu pflegen - bei neuen Dev-only-Paketen ggf. hier ergänzen.
+grep -Ev '^(pytest|pytest-asyncio|aiosqlite|httpx|ruff)==' requirements.txt >requirements-runtime.txt
+# --prefer-binary: alle übrigen Pakete liefern fertige Wheels für
+# linux/amd64+arm64 (siehe Dockerfile-Kommentar) - verhindert, dass pip bei
+# einer neueren, nur-als-Source-Release verfügbaren Version versehentlich
+# einen Kompilier-Versuch startet (langsam, bräuchte zusätzlich build-essential).
+$STD venv/bin/pip install --prefer-binary -r requirements-runtime.txt
+rm -f requirements-runtime.txt
 mkdir -p uploads
 msg_ok "Setup Python environment"
 
