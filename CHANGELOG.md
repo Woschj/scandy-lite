@@ -13,6 +13,19 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.18.7] - 2026-07-24
+
+### Added
+- **INSTALL.md: Abschnitt "Migration von einer bestehenden
+  Docker-Installation"** - beide Wege nutzen PostgreSQL 16 mit demselben
+  Schema, daher reicht ein normaler `pg_dump`/`psql`-Umzug statt eines
+  eigenen Migrationsskripts. Dokumentiert Dump auf dem Docker-Host,
+  Uploads-Volume sichern, Übertragung per `scp`, Einspielen in die LXC
+  (DB neu anlegen + Dump importieren + `alembic upgrade head` für den Fall
+  eines älteren Docker-Standes + Uploads-Ordner ersetzen) sowie den Hinweis,
+  dass die zuvor generierten Admin-Zugangsdaten danach durch die echten,
+  migrierten Daten ersetzt werden.
+
 ## [0.18.6] - 2026-07-24
 
 ### Changed

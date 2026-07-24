@@ -84,6 +84,61 @@ und Uploads gemeinsam, ohne manuelles Skripting.
 | Kamera-Button zeigt "benötigt HTTPS" | Zugriff über Port 8000 (HTTP) statt 8443 | über `https://<IP>:8443` aufrufen |
 | Login-Loop | siehe Docker-Abschnitt unten - gleiche Ursache/Lösung, `.env` liegt hier unter `/opt/scandy-lite/.env` |
 
+### Migration von einer bestehenden Docker-Installation
+
+Beide Wege nutzen PostgreSQL 16 mit demselben Schema - ein normaler
+`pg_dump`/`psql`-Umzug reicht, kein spezielles Migrationsskript nötig.
+Zugangsdaten (DB-Passwort, `SECRET_KEY`) bleiben dabei die vom LXC-Installer
+generierten - nur der Dateninhalt der Datenbank wird ersetzt.
+
+**1. Auf dem Docker-Host: Datenbank + Uploads sichern** (App-Container vorher
+stoppen, damit während des Dumps nichts mehr reinschreibt):
+
+```bash
+docker compose stop app
+docker exec <db-container> pg_dump -U scandy scandy_lite | gzip > scandy_lite_migration.sql.gz
+docker run --rm -v scandy_lite_uploads:/data -v $(pwd):/backup alpine \
+  tar czf /backup/uploads_migration.tar.gz -C /data .
+```
+
+(`<db-container>` per `docker ps` ermitteln, siehe Backup-Abschnitt weiter
+unten. `scandy`/`scandy_lite` ggf. an eigene `POSTGRES_USER`/`POSTGRES_DB`
+anpassen.)
+
+**2. Beide Dateien zur LXC übertragen**, z.B. per `scp` vom Docker-Host aus:
+
+```bash
+scp scandy_lite_migration.sql.gz uploads_migration.tar.gz root@<lxc-ip>:/root/
+```
+
+**3. Auf der LXC einspielen** (`pct enter <ID>` oder direkt per SSH):
+
+```bash
+systemctl stop scandy-lite scandy-lite-https
+
+sudo -u postgres psql -c "DROP DATABASE scandy_lite;"
+sudo -u postgres psql -c "CREATE DATABASE scandy_lite WITH OWNER scandy ENCODING 'UTF8' TEMPLATE template0;"
+gunzip -c /root/scandy_lite_migration.sql.gz | sudo -u postgres psql scandy_lite
+
+rm -rf /opt/scandy-lite/uploads
+mkdir -p /opt/scandy-lite/uploads
+tar xzf /root/uploads_migration.tar.gz -C /opt/scandy-lite/uploads
+
+cd /opt/scandy-lite && venv/bin/alembic upgrade head
+
+systemctl start scandy-lite scandy-lite-https
+```
+
+Der `alembic upgrade head`-Schritt ist wichtig, falls die Docker-Installation
+noch auf einem älteren App-Stand lief als der frisch geklonte LXC-Code -
+bringt die migrierte Datenbank auf den aktuellen Schema-Stand.
+
+**Danach gilt:** die vom LXC-Installer generierten Admin-Zugangsdaten
+(`/root/scandy-lite.creds`) sind ungültig geworden (überschrieben durch die
+echten, migrierten Daten) - ab jetzt mit den Zugangsdaten aus der
+Docker-Installation einloggen. Alte Sessions/Logins aus Docker bleiben nicht
+erhalten (anderer `SECRET_KEY`) - einmal neu anmelden reicht.
+
 ## Alternative: Docker/Portainer
 
 Für alle, die schon einen Docker-Host betreiben (egal ob eigener Server,
