@@ -13,6 +13,21 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.19.1] - 2026-07-24
+
+### Added
+- **`scripts/seed_demo_data.py`** - erzeugt einen realistischen Demo-
+  Datensatz zum Ausprobieren/Vorführen: fiktive Firma mit 5 Abteilungen,
+  ~250 Mitarbeitern, ~150 Gegenständen, ~75 Verbrauchsmaterial-Einträgen
+  und 2 Jahren Historie (Ausleihen inkl. aktuell offener Vorgänge und
+  digitaler Unterschriften-Platzhalter, Verbrauchsmaterial-Entnahmen,
+  Reservierungen, Vormerkungen) - realistisch verteilt über Werktage/
+  Arbeitszeit statt gleichverteilt. Setzt eine leere Datenbank voraus
+  (bricht sonst ab, außer `--force`). Per Smoke-Test gegen eine SQLite-
+  Testdatenbank verifiziert (keine Constraint-Verletzungen, u.a. der
+  partielle Unique-Index für offene Ausleihen pro Gegenstand). Nutzung:
+  `python -m scripts.seed_demo_data`.
+
 ## [0.19.0] - 2026-07-24
 
 ### Added
