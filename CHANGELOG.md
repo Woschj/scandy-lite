@@ -13,6 +13,17 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.18.4] - 2026-07-24
+
+### Fixed
+- **LXC-Installer: `sudo: command not found` beim PostgreSQL-Datenbank-Setup.**
+  `setup_postgresql_db()` aus der geteilten Bibliothek nutzt intern
+  `sudo -u postgres psql ...` - im offiziellen community-scripts-Ablauf
+  bereits Teil des von `build_container()` installierten Basis-Pakets, das
+  wir bewusst nicht nutzen (siehe Kommentar in `ct/scandy-lite.sh`). Die
+  minimale Debian-12-Vorlage bringt `sudo` nicht mit. Jetzt explizit vor dem
+  PostgreSQL-Setup mitinstalliert.
+
 ## [0.18.3] - 2026-07-24
 
 ### Changed

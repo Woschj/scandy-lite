@@ -33,7 +33,12 @@ network_check
 update_os
 
 msg_info "Installing Dependencies"
-$STD apt-get install -y git python3 python3-venv python3-pip
+# sudo wird von setup_postgresql_db() intern gebraucht (sudo -u postgres
+# psql ...) - im offiziellen community-scripts-Ablauf schon Teil des
+# Basis-Pakets aus build_container(), das wir hier bewusst nicht nutzen
+# (siehe ct/scandy-lite.sh), deshalb hier selbst ergänzen. Die minimale
+# Debian-Vorlage bringt es nicht mit.
+$STD apt-get install -y sudo git python3 python3-venv python3-pip
 msg_ok "Installed Dependencies"
 
 PG_VERSION="16" setup_postgresql
