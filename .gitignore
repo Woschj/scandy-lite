@@ -40,6 +40,9 @@ htmlcov/
 # Uploads (lokal - in Produktion liegt das auf einem Docker-Volume)
 /uploads/
 
+# Backups (scripts/backup.sh) - enthalten echte Datenbank-/Bilddaten, niemals committen
+/backups/
+
 # Migrations-Passwörter (enthalten Klartext-Passwörter, niemals committen)
 migration_passwords*.txt
 

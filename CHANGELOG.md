@@ -13,6 +13,26 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.19.0] - 2026-07-24
+
+### Added
+- **`scripts/backup.sh` + `scripts/restore.sh`** - vereinheitlichtes
+  Backup/Restore für Datenbank + Uploads, funktioniert automatisch sowohl
+  gegen die Docker/Portainer-Installation als auch gegen die native
+  Proxmox-VE-LXC-Installation (Erkennung anhand eines laufenden
+  Docker-Compose-`db`-Service). Nutzt für den Docker-Weg `docker compose
+  exec` statt roher `docker exec`/Volume-Namen - dadurch unabhängig vom
+  gewählten Compose-Projektnamen (das manuelle Vorgehen war genau die
+  Stelle, an der heute ein falscher Volume-Name zu einem leeren Uploads-
+  Backup geführt hat). `restore.sh` fragt vor dem destruktiven Ersetzen
+  explizit eine Bestätigung ab. Bewusst nur Kommandozeile, keine Web-UI
+  (kein Restore-Upload über die Weboberfläche - vermeidet das damit
+  verbundene Sicherheitsrisiko) und keine automatische Zeitsteuerung
+  (Nutzer-Entscheidung: manuell auslösen reicht). `INSTALL.md` referenziert
+  die Skripte jetzt als empfohlenen Weg in allen drei Backup/Restore- bzw.
+  Migrations-Abschnitten, die manuellen Befehle bleiben als Fallback
+  dokumentiert.
+
 ## [0.18.8] - 2026-07-24
 
 ### Fixed

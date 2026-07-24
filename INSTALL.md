@@ -64,6 +64,19 @@ aktuell" und tut sonst nichts.
 
 ### Backup & Restore (LXC)
 
+`scripts/backup.sh`/`scripts/restore.sh` liegen bereits im geklonten Repo
+(`/opt/scandy-lite`) und erkennen automatisch, dass sie gegen die native
+LXC-Installation laufen (kein manuelles Nachschlagen von DB-Namen/Pfaden
+nötig):
+
+```bash
+cd /opt/scandy-lite
+./scripts/backup.sh                              # legt zwei Dateien in ./backups/ an
+./scripts/restore.sh backups/scandy_lite_<timestamp>.sql.gz   # fragt vor dem Ersetzen nach Bestätigung
+```
+
+Manuell geht es genauso (falls die Skripte mal nicht passen):
+
 ```bash
 # Im Container (pct enter <ID>):
 sudo -u postgres pg_dump scandy_lite | gzip > scandy_lite_$(date +%F).sql.gz
@@ -91,8 +104,10 @@ Beide Wege nutzen PostgreSQL 16 mit demselben Schema - ein normaler
 Zugangsdaten (DB-Passwort, `SECRET_KEY`) bleiben dabei die vom LXC-Installer
 generierten - nur der Dateninhalt der Datenbank wird ersetzt.
 
-**1. Auf dem Docker-Host: Datenbank + Uploads sichern** (App-Container vorher
-stoppen, damit während des Dumps nichts mehr reinschreibt):
+**1. Auf dem Docker-Host: Datenbank + Uploads sichern.** Am einfachsten mit
+`./scripts/backup.sh` (siehe Backup & Restore weiter unten) - erkennt den
+Docker-Weg automatisch, kein Container-/Volume-Name nötig. Manuell (App
+vorher stoppen, damit während des Dumps nichts mehr reinschreibt):
 
 ```bash
 docker compose stop app
@@ -252,6 +267,19 @@ zusätzlich im `uploads`-Volume (siehe `compose.yaml`). Kein
 automatisches Backup ist eingerichtet; für ein produktiv genutztes
 Ausleihsystem sollte mindestens eines der beiden folgenden Verfahren
 regelmäßig (z.B. täglich per Cron auf dem Host) laufen.
+
+**Empfohlen:** `scripts/backup.sh`/`scripts/restore.sh` im Repo-Verzeichnis
+(dort, wo `compose.yaml` liegt) - ermitteln Container-/Volume-Namen
+automatisch über `docker compose exec` (unabhängig vom Compose-Projektnamen,
+das manuelle Vorgehen unten ist genau die Stelle, an der ein falscher
+Volume-Name schon mal zu einem leeren Backup geführt hat):
+
+```bash
+./scripts/backup.sh                              # legt zwei Dateien in ./backups/ an
+./scripts/restore.sh backups/scandy_lite_<timestamp>.sql.gz   # fragt vor dem Ersetzen nach Bestätigung
+```
+
+Manuell geht es genauso (falls die Skripte mal nicht passen):
 
 **Backup (Datenbank):**
 
