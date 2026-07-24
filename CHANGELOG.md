@@ -13,6 +13,20 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.18.5] - 2026-07-24
+
+### Fixed
+- **LXC-Installer: App startete nicht (`ModuleNotFoundError: No module named
+  'httpx'`).** Regression aus 0.18.3: `httpx` wurde dort fälschlich als
+  "nur in tests/ gebraucht" aus dem Produktions-`pip install` gefiltert -
+  tatsächlich braucht `Authlib`s `starlette_client` (SSO/OIDC, siehe
+  `app/core/oidc.py`) es transitiv für seinen Async-OAuth-Client. Der
+  vorherige Check (Grep nach direkten `httpx`-Imports in `app/`/`scripts/`)
+  hat diese transitive Abhängigkeit über eine Drittbibliothek nicht erfasst.
+  `httpx` bleibt jetzt im Runtime-Install, nur `pytest`/`pytest-asyncio`/
+  `aiosqlite`/`ruff` werden weiterhin gefiltert (die sind wirklich nur in
+  `tests/` bzw. als Lint-Tool im Einsatz).
+
 ## [0.18.4] - 2026-07-24
 
 ### Fixed

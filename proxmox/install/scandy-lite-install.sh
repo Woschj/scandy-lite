@@ -57,7 +57,11 @@ $STD venv/bin/pip install --upgrade pip
 # werden (ruff bringt z.B. eine komplette Rust-Binary mit). Filtert on-the-fly
 # aus der einen, gemeinsamen requirements.txt statt eine zweite Datei im Repo
 # zu pflegen - bei neuen Dev-only-Paketen ggf. hier ergänzen.
-grep -Ev '^(pytest|pytest-asyncio|aiosqlite|httpx|ruff)==' requirements.txt >requirements-runtime.txt
+# WICHTIG: httpx NICHT rausfiltern, obwohl es nur in tests/ direkt importiert
+# wird - Authlibs starlette_client (SSO/OIDC, app/core/oidc.py) braucht es
+# transitiv für seinen Async-OAuth-Client. Ohne httpx startet die App gar
+# nicht erst (ModuleNotFoundError beim Import von app.routers.oidc).
+grep -Ev '^(pytest|pytest-asyncio|aiosqlite|ruff)==' requirements.txt >requirements-runtime.txt
 # --prefer-binary: alle übrigen Pakete liefern fertige Wheels für
 # linux/amd64+arm64 (siehe Dockerfile-Kommentar) - verhindert, dass pip bei
 # einer neueren, nur-als-Source-Release verfügbaren Version versehentlich
