@@ -54,6 +54,9 @@ _GROUPS: list[tuple[str, list[tuple[str, str | None, str | None]]]] = [
         ("MAX_UPLOAD_BYTES", None, "vor der Pillow-Verarbeitung"),
         ("IMAGE_MAX_DIMENSION", None, "px, längere Kante"),
     ]),
+    ("System-Update (nur native Proxmox-LXC-Installation)", [
+        ("NATIVE_LXC_DEPLOYMENT", None, "true nur bei proxmox/install/scandy-lite-install.sh - schaltet den In-App-Update-Mechanismus frei, bei Docker/Portainer leer/false lassen"),
+    ]),
 ]
 
 

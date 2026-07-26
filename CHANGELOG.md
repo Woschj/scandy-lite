@@ -13,6 +13,26 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.21.0] - 2026-07-26
+
+### Added
+- **In-App-Update für die native Proxmox-LXC-Installation** (*Einstellungen
+  → Update*, nur Admins, nur wenn `NATIVE_LXC_DEPLOYMENT=true` gesetzt ist -
+  bei Docker/Portainer bleibt der Tab ein reiner Hinweis ohne Aktion).
+  "Jetzt prüfen" vergleicht den lokalen Stand per `git fetch` gegen
+  `origin/master` - bewusst **nie automatisch im Hintergrund**, sondern nur
+  auf expliziten Klick, und dann höchstens einmal pro Stunde ein echter
+  Fetch (Cache dazwischen) - eine frühere, zu häufig laufende Fetch-Variante
+  hatte spürbar CPU-/Netzwerklast erzeugt. "Jetzt aktualisieren" zieht den
+  neuesten Stand, installiert Abhängigkeiten neu (dieselbe Runtime-Filterung
+  wie im LXC-Installer), wendet Migrationen an und startet danach beide
+  systemd-Dienste neu (verzögert + vom Request-Prozess losgelöst, damit die
+  HTTP-Antwort noch ausgeliefert wird, bevor der Dienst neu startet).
+  Schlägt ein Schritt fehl, wird NICHT neu gestartet, Fehler/Log werden
+  angezeigt. Per 12 automatisierten Tests abgesichert (echte
+  git/pip/alembic/systemctl-Aufrufe werden dabei durch Fakes ersetzt, nie
+  echt ausgeführt).
+
 ## [0.20.0] - 2026-07-26
 
 ### Added

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Update — Scandy-Lite</title>
+  <link rel="stylesheet" href="/static/css/app.css?v={{ asset_version }}">
+  {% if result.success %}<meta http-equiv="refresh" content="15;url=/admin/settings#update">{% endif %}
+</head>
+<body>
+  <div class="auth-screen">
+    <div class="auth-panel">
+      <div class="tag-card">
+        {% if result.success %}
+          <span class="chip chip-success">Update erfolgreich</span>
+          <h1 style="margin-top: var(--space-3);">Update eingespielt</h1>
+          <p>Die Dienste werden jetzt neu gestartet - diese Seite lädt sich in
+            15 Sekunden automatisch neu. Kurzzeitig nicht erreichbar ist dabei normal.</p>
+        {% else %}
+          <span class="chip chip-danger">Update fehlgeschlagen</span>
+          <h1 style="margin-top: var(--space-3);">Update fehlgeschlagen</h1>
+          <p>{{ result.error }}</p>
+          <p class="meta">Die Dienste laufen unverändert mit dem alten Stand weiter -
+            es wurde nichts neu gestartet.</p>
+        {% endif %}
+        {% if result.log %}
+          <details style="margin-top: var(--space-4);">
+            <summary>Log anzeigen</summary>
+            <pre style="white-space: pre-wrap; font-size: 0.85em; max-height: 400px; overflow-y: auto;">{{ result.log }}</pre>
+          </details>
+        {% endif %}
+        <a href="/admin/settings#update" class="btn btn-ghost btn-block" style="margin-top: var(--space-4);">Zurück zu Einstellungen</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

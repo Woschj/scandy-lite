@@ -91,6 +91,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES=720
 # HTTP-Zugang sonst stillschweigend kaputt machen (siehe INSTALL.md).
 SESSION_COOKIE_SECURE=false
 DEFAULT_DEPARTMENT_CODE=werkstatt
+# Schaltet den In-App-Update-Mechanismus in den Admin-Einstellungen frei
+# (siehe app/core/self_update.py) - nur bei dieser nativen LXC-Installation
+# sinnvoll, NICHT bei Docker/Portainer (dort per Default false/leer).
+NATIVE_LXC_DEPLOYMENT=true
 EOF
 set -a
 . /opt/scandy-lite/.env

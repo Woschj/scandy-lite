@@ -22,6 +22,7 @@
     <a href="#email" @click.prevent="tab = 'email'" :class="{active: tab === 'email'}">E-Mail</a>
     <a href="#trash" @click.prevent="tab = 'trash'" :class="{active: tab === 'trash'}">Papierkorb <span class="count">{{ (trash_items | length) + (trash_consumables | length) + (trash_users | length) }}</span></a>
     <a href="#changelog" @click.prevent="tab = 'changelog'" :class="{active: tab === 'changelog'}">Changelog</a>
+    <a href="#update" @click.prevent="tab = 'update'" :class="{active: tab === 'update'}">Update</a>
   </nav>
 
   <div class="settings-content">
@@ -544,6 +545,57 @@
       <div class="settings-empty">Papierkorb für Benutzer ist leer.</div>
     {% endfor %}
   </div>
+</section>
+
+{# ================= Update ================= #}
+<section class="settings-section" x-show="tab === 'update'" x-cloak>
+  <h2>Update</h2>
+  <p class="settings-hint">Aktuell installierte Version: <strong>v{{ version }}</strong></p>
+
+  {% if native_lxc_deployment %}
+    {% if update_check %}
+      {% if update_check.error %}
+        <div class="form-error" role="alert">Prüfung fehlgeschlagen: {{ update_check.error }}</div>
+      {% elif update_check.update_available %}
+        <div class="chip chip-success" style="margin-bottom: var(--space-3);">Update verfügbar</div>
+        <p class="meta">{{ update_check.local_commit[:7] }} → {{ update_check.remote_commit[:7] }}</p>
+      {% else %}
+        <div class="chip chip-neutral" style="margin-bottom: var(--space-3);">Bereits aktuell</div>
+      {% endif %}
+      <p class="meta">Zuletzt geprüft: {{ update_check.checked_at.strftime("%d.%m.%Y %H:%M") }} UTC</p>
+    {% else %}
+      <p class="meta">Noch nicht geprüft.</p>
+    {% endif %}
+
+    <div style="display: flex; gap: var(--space-2); margin-top: var(--space-4);">
+      <form method="post" action="/admin/update/check">
+        {% include "partials/csrf_field.html" %}
+        <button type="submit" class="btn btn-ghost">Jetzt prüfen</button>
+      </form>
+      {% if update_check and update_check.update_available %}
+        <form method="post" action="/admin/update/run"
+              onsubmit="return confirm('Update jetzt einspielen? Die App ist danach kurz nicht erreichbar (Dienst-Neustart).');">
+          {% include "partials/csrf_field.html" %}
+          <button type="submit" class="btn btn-primary">Jetzt aktualisieren</button>
+        </form>
+      {% endif %}
+    </div>
+    <p class="settings-hint" style="margin-top: var(--space-4);">
+      Der Update-Check läuft ausschließlich, wenn du auf "Jetzt prüfen" klickst
+      (höchstens einmal pro Stunde tatsächlich - kein automatisches
+      Hintergrund-Fetchen, um Last auf GitHub/Server zu vermeiden).
+      "Jetzt aktualisieren" zieht den neuesten Stand von <code>origin/master</code>,
+      installiert Abhängigkeiten neu, wendet Datenbank-Migrationen an und
+      startet die Dienste neu.
+    </p>
+  {% else %}
+    <p class="settings-hint">
+      Diese Installation läuft über Docker/Portainer - der In-App-Update-
+      Mechanismus ist nur für die native Proxmox-VE-LXC-Installation verfügbar.
+      Updates laufen hier über einen Portainer-Redeploy nach <code>git push</code>,
+      siehe <a href="https://github.com/Woschj/scandy-lite/blob/master/INSTALL.md" target="_blank" rel="noopener">INSTALL.md</a>.
+    </p>
+  {% endif %}
 </section>
 
 {# ================= Changelog ================= #}

@@ -63,6 +63,14 @@ class Settings(BaseSettings):
     MAX_UPLOAD_BYTES: int = 8 * 1024 * 1024  # 8 MB - vor der Pillow-Verarbeitung
     IMAGE_MAX_DIMENSION: int = 900  # px, längere Kante - hält Dateien klein & Karten einheitlich
 
+    # Nur von proxmox/install/scandy-lite-install.sh gesetzt - schaltet den
+    # In-App-Update-Mechanismus in den Admin-Einstellungen frei (git pull +
+    # pip install + alembic upgrade + Dienst-Neustart, siehe
+    # app/core/self_update.py). Bleibt bei Docker/Portainer-Installationen
+    # bewusst False - dort gibt es kein systemd/git-Checkout im Container,
+    # Updates laufen über einen Portainer-Redeploy nach git push.
+    NATIVE_LXC_DEPLOYMENT: bool = False
+
     @property
     def oidc_enabled(self) -> bool:
         return bool(self.OIDC_ISSUER and self.OIDC_CLIENT_ID and self.OIDC_CLIENT_SECRET)

@@ -24,7 +24,7 @@ from app.core.deps import Forbidden, RedirectToLogin
 from app.core.low_stock import low_stock_check_loop
 from app.core.static_cache import CachedStaticFiles
 from app.core.templating import templates
-from app.routers import admin_import, admin_settings, auth, badge, consumables, history, items, oidc, pages, pickup, reservations, scan
+from app.routers import admin_import, admin_settings, admin_update, auth, badge, consumables, history, items, oidc, pages, pickup, reservations, scan
 
 settings = get_settings()
 
@@ -149,6 +149,7 @@ app.include_router(consumables.router)
 app.include_router(history.router)
 app.include_router(admin_settings.router)
 app.include_router(admin_import.router)
+app.include_router(admin_update.router)
 
 
 @app.get("/favicon.ico", include_in_schema=False)

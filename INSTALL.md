@@ -54,13 +54,21 @@ nirgends gespeichert.
 
 ### Updates einspielen (LXC)
 
-Dasselbe One-Liner-Kommando erneut auf dem Proxmox-Host ausführen und bei der
-Frage nach einer bestehenden Container-ID die ID der laufenden
-Scandy-Lite-Installation eingeben (z.B. `pct list` zeigt sie an). Das Skript
-vergleicht dann den lokalen Stand im Container per `git fetch` gegen
-`origin/master`, spielt bei Bedarf neue Abhängigkeiten + Migrationen ein und
-startet die Dienste neu. Ohne Änderungen auf `master` meldet es "Bereits
-aktuell" und tut sonst nichts.
+**Direkt in der Weboberfläche** (empfohlen): *Einstellungen → Update* (nur
+für Admins sichtbar) - "Jetzt prüfen" zeigt, ob `origin/master` neuer ist als
+der installierte Stand (höchstens einmal pro Stunde ein echter `git fetch`,
+kein automatisches Hintergrund-Polling - das hat in einer früheren Version
+spürbar Last erzeugt). Ist ein Update verfügbar, spielt "Jetzt aktualisieren"
+es ein (`git pull` + Abhängigkeiten + Migrationen) und startet die Dienste
+neu - die Seite lädt sich danach automatisch neu. Schlägt ein Schritt fehl,
+wird NICHT neu gestartet, die Fehlermeldung/das Log wird angezeigt.
+
+**Alternativ vom Proxmox-Host aus**: dasselbe One-Liner-Kommando erneut
+ausführen und bei der Frage nach einer bestehenden Container-ID die ID der
+laufenden Scandy-Lite-Installation eingeben (z.B. `pct list` zeigt sie an).
+Funktioniert identisch (`git fetch`/`reset` + Abhängigkeiten + Migrationen +
+Dienst-Neustart), praktisch falls die Weboberfläche gerade nicht erreichbar
+ist.
 
 ### Backup & Restore (LXC)
 

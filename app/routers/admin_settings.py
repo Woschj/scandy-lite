@@ -21,6 +21,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.core.badge import qr_data_uri
 from app.core.changelog import parse_changelog
+from app.core.config import get_settings
 from app.core.crypto import encrypt_secret
 from app.core.database import get_session
 from app.core.deps import require_admin, populate_nav_context, verify_csrf
@@ -28,6 +29,7 @@ from app.core.email import get_email_settings, send_email
 from app.core.password_reset import create_reset_token
 from app.core.responses import redirect_with_query
 from app.core.security import MIN_PASSWORD_LENGTH, hash_password
+from app.core.self_update import get_cached_check
 from app.core.templating import templates
 from app.core.trash import (
     get_trash_entries,
@@ -89,6 +91,9 @@ async def settings_page(
 
     trash_items, trash_consumables, trash_users = await get_trash_entries(session)
 
+    native_lxc_deployment = get_settings().NATIVE_LXC_DEPLOYMENT
+    update_check = get_cached_check() if native_lxc_deployment else None
+
     return templates.TemplateResponse(
         request,
         "admin/settings.html",
@@ -106,6 +111,8 @@ async def settings_page(
             "trash_users": trash_users,
             "version": __version__,
             "changelog_releases": parse_changelog(),
+            "native_lxc_deployment": native_lxc_deployment,
+            "update_check": update_check,
             "ok": ok,
             "error": error,
         },
