@@ -13,6 +13,51 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.22.0] - 2026-07-26
+
+### Added
+- **Kachel-Schnellzugriff auf der mobilen Übersicht** (Scannen, Gegenstände,
+  Material, Reservierungen, Historie, Mein Ausweis) - app-artiges
+  Homescreen-Gefühl in der PWA statt sich allein auf das Burger-Menü zu
+  verlassen. Nur unterhalb des Tab-Bar-Breakpoints sichtbar, auf dem
+  Desktop deckt die volle Topnav bereits alles ab.
+- **Benutzer-Einstellungen**: Suche + Gruppierung nach Abteilung - bei
+  vielen Mitarbeiter-Ausweisen (getestet mit 150+) war die bisherige
+  flache Liste ohne Filter kaum noch zu bedienen.
+- **Dashboard "Reserviert"/"Ausgeliehen"** zeigt jetzt nur eine kurze
+  Vorschau (6 Einträge) statt beliebig langer Listen, mit Link zur
+  vollständigen Ansicht (Reservierungen bzw. Historie) - die Zähl-Badges
+  bleiben dabei weiterhin exakt.
+
+### Fixed
+- **Warenkorb-Badge blieb nach erfolgreichem Absenden fälschlich stehen**:
+  das Leeren lief per `setTimeout` nach dem Formular-Submit, aber der
+  Browser navigiert bei einem normalen (nicht per fetch abgefangenen)
+  POST sofort weg, sodass der Timer nie feuerte. Läuft jetzt synchron -
+  zusätzlich auch beim Logout, damit der Warenkorb nicht zwischen
+  Accounts im selben Browser "leakt".
+- **Item-/Material-Formulare verloren bei doppeltem Barcode alle bereits
+  eingegebenen Werte** (Name, Kategorie, Standort, Notizen) statt nur den
+  Barcode zurückzusetzen - betraf sowohl Neuanlage als auch Bearbeiten.
+- **Bemerkungen-Feld zeigte den literalen Text "None"** statt leer, wenn
+  ein Gegenstand keine Notiz hatte.
+- **Sammel-Abholung-Button auf der Scan-Seite war unpassend breit**
+  (steckte unbeabsichtigt in einer Flex-Reihe mit erzwungener
+  Vollbreite) und **ENTFERNEN war von BEARBEITEN farblich nicht
+  unterscheidbar** (nur der Hover-Zustand war rot, nicht der
+  Ruhezustand).
+- **"In den Warenkorb"-Button bei Gegenständen war größer als bei
+  Verbrauchsmaterial** (derselbe Grund wie beim Sammel-Abholung-Button) -
+  jetzt in Kachel- und Listenansicht überall einheitlich.
+- **Natives "×" im Suchfeld** (Gegenstände/Material/Historie) leerte nur
+  den sichtbaren Text, ohne die Ergebnisliste/URL zu aktualisieren.
+- **Mitarbeiterausweis zeigt jetzt die normale Navigation**
+  (Topnav/Tabbar) statt einer isolierten Vollbild-Ansicht ohne Rückweg
+  außer einem Schließen-Button.
+- Barcode-Feld auf der Scan-Seite wird nach Schließen der Kamera
+  automatisch wieder fokussiert (direkt weiterscannen ohne manuellen
+  Klick ins Feld).
+
 ## [0.21.0] - 2026-07-26
 
 ### Added
