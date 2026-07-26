@@ -122,9 +122,11 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
   formEl.addEventListener("submit", function () {
-    // Warenkorb wird erst nach erfolgreichem Absenden geleert (nicht vorher) -
-    // bei einem Fehler/Abbruch bleiben die Einträge sonst verloren.
-    setTimeout(function () { ScandyCart.clear(); }, 100);
+    // Synchron leeren, nicht per setTimeout: das Formular ist ein normales
+    // (nicht per fetch abgefangenes) POST - der Browser navigiert sofort nach
+    // den synchronen submit-Handlern weg, ein verzögerter Timeout feuert dann
+    // nie mehr und der Warenkorb-Badge blieb dauerhaft fälschlich > 0 stehen.
+    ScandyCart.clear();
   });
 })();
 });

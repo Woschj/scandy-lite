@@ -47,6 +47,13 @@ window.ScandyCamera = (function () {
       if (cfg.hideWhileActive) { cfg.hideWhileActive.style.display = ""; }
       document.body.classList.remove("camera-active");
       if (centerContent) { document.body.classList.remove("camera-active-centered"); }
+      // Barcode-Feld direkt wieder fokussieren: nach "Kamera schließen" ist
+      // die naheliegendste nächste Aktion, den Code per Scanner-Pistole oder
+      // Tastatur einzugeben - ohne das müsste erst manuell reingeklickt
+      // werden, und auf Mobilgeräten kann der Reflow (Kamera-Bereich
+      // verschwindet, Seite springt zurück) sonst zu einem Fehltipp auf die
+      // jetzt verschobenen darunterliegenden Elemente führen.
+      if (cfg.input) { cfg.input.focus(); }
       if (scanner) {
         var s = scanner;
         scanner = null;

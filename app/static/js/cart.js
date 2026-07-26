@@ -134,6 +134,16 @@ window.ScandyCart = (function () {
     initToggleButtons();
   });
 
+  // Logout ist wie der Warenkorb-Submit ein normales POST-Formular (kein
+  // fetch) - ohne synchrones Leeren hier bliebe der Warenkorb-Badge nach
+  // dem Wiedereinloggen (ggf. als anderer User im selben Browser) fälschlich
+  // stehen, siehe dieselbe Race-Ursache wie beim Warenkorb-Submit selbst.
+  document.addEventListener("submit", function (e) {
+    if (e.target.matches('form[action="/auth/logout"]')) {
+      clear();
+    }
+  });
+
   return {
     getEntries: getEntries, addItem: addItem, addConsumable: addConsumable,
     remove: remove, clear: clear, count: count, has: has, updateBadges: updateBadges,

@@ -2,6 +2,7 @@
 {% block title %}{% if consumable %}Material bearbeiten{% else %}Neues Material{% endif %} — Scandy-Lite{% endblock %}
 
 {% block content %}
+{% set fv = form_values if form_values is defined else {} %}
 <h1>{% if consumable %}Material bearbeiten{% else %}Neues Material{% endif %}</h1>
 
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
@@ -34,8 +35,8 @@
   <form data-guard method="post" action="{% if consumable %}/consumables/{{ consumable.id }}/edit{% else %}/consumables/new{% endif %}"
         x-data="{
           selectedDepartmentId: {{ (consumable.department_id if consumable else (selected_department_id or (departments[0].id if departments else ''))) | string | tojson }},
-          selectedCategory: {{ (consumable.category if consumable else '') | tojson }},
-          selectedLocation: {{ (consumable.location if consumable else '') | tojson }},
+          selectedCategory: {{ fv.get('category', consumable.category if consumable else '') | tojson }},
+          selectedLocation: {{ fv.get('location', consumable.location if consumable else '') | tojson }},
           categoriesByDepartment: {{ categories_by_department | tojson }},
           locationsByDepartment: {{ locations_by_department | tojson }}
         }"
@@ -57,7 +58,7 @@
     <div class="field">
       <label for="barcode">Barcode</label>
       <div class="barcode-input-row">
-        <input type="text" id="barcode" name="barcode" value="{{ consumable.barcode if consumable else '' }}" required autofocus autocomplete="off" data-scanner-enter="next">
+        <input type="text" id="barcode" name="barcode" value="{{ fv.get('barcode', consumable.barcode if consumable else '') }}" required autofocus autocomplete="off" data-scanner-enter="next">
         <button type="button" id="barcode-camera-start-btn" class="icon-btn" aria-label="Barcode mit Kamera scannen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>
         </button>
@@ -70,7 +71,7 @@
     </div>
     <div class="field">
       <label for="name">Bezeichnung</label>
-      <input type="text" id="name" name="name" value="{{ consumable.name if consumable else '' }}" required data-scanner-enter="next">
+      <input type="text" id="name" name="name" value="{{ fv.get('name', consumable.name if consumable else '') }}" required data-scanner-enter="next">
     </div>
     <div class="field">
       <label for="category">Kategorie</label>
@@ -97,23 +98,24 @@
       <label for="unit">Einheit</label>
       <select id="unit" name="unit">
         {% set units = ["Stück", "Packung", "Paar", "Rolle", "Meter", "Liter", "kg", "g", "Karton", "Satz"] %}
+        {% set unit_value = fv.get('unit', consumable.unit if consumable else 'Stück') %}
         {% for u in units %}
-          <option value="{{ u }}" {% if (consumable and consumable.unit == u) or (not consumable and u == "Stück") %}selected{% endif %}>{{ u }}</option>
+          <option value="{{ u }}" {% if u == unit_value %}selected{% endif %}>{{ u }}</option>
         {% endfor %}
-        {% if consumable and consumable.unit and consumable.unit not in units %}
-          <option value="{{ consumable.unit }}" selected>{{ consumable.unit }}</option>
+        {% if unit_value and unit_value not in units %}
+          <option value="{{ unit_value }}" selected>{{ unit_value }}</option>
         {% endif %}
       </select>
     </div>
     {% if not consumable %}
       <div class="field">
         <label for="quantity">Anfangsbestand</label>
-        <input type="number" id="quantity" name="quantity" value="0" min="0">
+        <input type="number" id="quantity" name="quantity" value="{{ fv.get('quantity', 0) }}" min="0">
       </div>
     {% endif %}
     <div class="field">
       <label for="min_quantity">Mindestbestand</label>
-      <input type="number" id="min_quantity" name="min_quantity" value="{{ consumable.min_quantity if consumable else 0 }}" min="0">
+      <input type="number" id="min_quantity" name="min_quantity" value="{{ fv.get('min_quantity', consumable.min_quantity if consumable else 0) }}" min="0">
     </div>
     <button type="submit" class="btn btn-primary btn-block">{% if consumable %}Speichern{% else %}Anlegen{% endif %}</button>
   </form>

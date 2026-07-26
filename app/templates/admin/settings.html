@@ -2,7 +2,7 @@
 {% block title %}Einstellungen — Scandy-Lite{% endblock %}
 
 {% block content %}
-<div x-data="{ tab: (window.location.hash || '#departments').slice(1) }">
+<div x-data="{ tab: (window.location.hash || '#departments').slice(1), userSearch: '' }">
 
 <span class="eyebrow">Admin</span>
 <h1>Einstellungen <span class="meta">v{{ version }}</span></h1>
@@ -92,51 +92,80 @@
     gehören direkt zum Login - jeder Benutzer kann damit auch ausleihen/reservieren.
   </p>
 
-  <div class="settings-list">
-    {% for u in users %}
-      <div class="settings-row user-row">
-        <div class="main">
-          <div class="user-identity">
-            <span class="name">{{ u.full_name }}</span>
-            <span class="meta">@{{ u.username }}{% if u.barcode %} · {{ u.barcode }}{% endif %}{% if u.id == user.id %} · (du){% endif %}</span>
-          </div>
-          <div class="user-tags">
-            {% if not u.barcode %}<span class="chip chip-danger">Kein Ausweis</span>{% endif %}
-            {% if u.is_admin %}<span class="chip chip-success">Admin</span>{% endif %}
-            {% if u.auth_source.value != "local" %}<span class="chip chip-neutral">{{ u.auth_source.value }}</span>{% endif %}
-            {% if not u.approved_at %}
-              <span class="chip chip-danger">Wartet auf Freischaltung</span>
-            {% elif not u.is_active %}
-              <span class="chip chip-neutral">Inaktiv</span>
-            {% endif %}
-            {% if not u.is_admin %}
-              {% for entry in access_by_user.get(u.id, []) %}
-                <span class="chip chip-neutral">{{ entry.department.name if entry.department else "?" }}: {{ entry.role.value }}</span>
-              {% else %}
-                <span class="chip chip-danger">Keine Abteilung zugewiesen</span>
-              {% endfor %}
-            {% endif %}
-          </div>
+  {% if users %}
+    <input type="text" x-model="userSearch" placeholder="Suche nach Name, Login, Ausweis oder Abteilung…"
+           class="search-input" style="margin-bottom: var(--space-4); max-width: 420px;">
+  {% endif %}
+
+  {% macro user_row(u) %}
+    <div class="settings-row user-row"
+         x-show="!userSearch || {{ (u.full_name ~ ' ' ~ u.username ~ ' ' ~ (u.barcode or '') ~ ' ' ~ (u.department.name if u.department else '')) | lower | tojson }}.includes(userSearch.toLowerCase())">
+      <div class="main">
+        <div class="user-identity">
+          <span class="name">{{ u.full_name }}</span>
+          <span class="meta">@{{ u.username }}{% if u.barcode %} · {{ u.barcode }}{% endif %}{% if u.id == user.id %} · (du){% endif %}</span>
         </div>
-        <div class="actions">
-          <a href="/admin/users/{{ u.id }}/edit" class="link-btn">Bearbeiten</a>
-          <a href="/admin/users/{{ u.id }}/ausweis" class="link-btn">Ausweis</a>
-          {% if u.id != user.id %}
-            <form method="post" action="/admin/users/{{ u.id }}/toggle">
-              {% include "partials/csrf_field.html" %}
-              <button type="submit" class="link-btn">{% if u.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
-            </form>
-            <form method="post" action="/admin/users/{{ u.id }}/delete" onsubmit="return confirm('{{ u.username }} wirklich entfernen? Landet im Papierkorb, kann von dort wiederhergestellt werden.')">
-              {% include "partials/csrf_field.html" %}
-              <button type="submit" class="link-btn danger">Entfernen</button>
-            </form>
+        <div class="user-tags">
+          {% if not u.barcode %}<span class="chip chip-danger">Kein Ausweis</span>{% endif %}
+          {% if u.is_admin %}<span class="chip chip-success">Admin</span>{% endif %}
+          {% if u.auth_source.value != "local" %}<span class="chip chip-neutral">{{ u.auth_source.value }}</span>{% endif %}
+          {% if not u.approved_at %}
+            <span class="chip chip-danger">Wartet auf Freischaltung</span>
+          {% elif not u.is_active %}
+            <span class="chip chip-neutral">Inaktiv</span>
+          {% endif %}
+          {% if not u.is_admin %}
+            {% for entry in access_by_user.get(u.id, []) %}
+              <span class="chip chip-neutral">{{ entry.department.name if entry.department else "?" }}: {{ entry.role.value }}</span>
+            {% else %}
+              <span class="chip chip-danger">Keine Abteilung zugewiesen</span>
+            {% endfor %}
           {% endif %}
         </div>
       </div>
-    {% else %}
-      <div class="settings-empty">Noch keine Benutzer.</div>
+      <div class="actions">
+        <a href="/admin/users/{{ u.id }}/edit" class="link-btn">Bearbeiten</a>
+        <a href="/admin/users/{{ u.id }}/ausweis" class="link-btn">Ausweis</a>
+        {% if u.id != user.id %}
+          <form method="post" action="/admin/users/{{ u.id }}/toggle">
+            {% include "partials/csrf_field.html" %}
+            <button type="submit" class="link-btn">{% if u.is_active %}Deaktivieren{% else %}Aktivieren{% endif %}</button>
+          </form>
+          <form method="post" action="/admin/users/{{ u.id }}/delete" onsubmit="return confirm('{{ u.username }} wirklich entfernen? Landet im Papierkorb, kann von dort wiederhergestellt werden.')">
+            {% include "partials/csrf_field.html" %}
+            <button type="submit" class="link-btn danger">Entfernen</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
+  {% endmacro %}
+
+  {% macro dept_search_blob(dept_users, dept_name) %}{{ (dept_users | map(attribute='full_name') | join(' ')) ~ ' ' ~ (dept_users | map(attribute='username') | join(' ')) ~ ' ' ~ (dept_users | map(attribute='barcode') | select | join(' ')) ~ ' ' ~ dept_name }}{% endmacro %}
+
+  {% if users %}
+    {% for d in ordered_departments %}
+      {% set dept_users = users | selectattr("department_id", "equalto", d.id) | list %}
+      {% if dept_users %}
+        <div x-show="!userSearch || {{ dept_search_blob(dept_users, d.name) | lower | trim | tojson }}.includes(userSearch.toLowerCase())">
+          <div class="settings-group-label">{{ d.name }}</div>
+          <div class="settings-list" style="margin-bottom: var(--space-4);">
+            {% for u in dept_users %}{{ user_row(u) }}{% endfor %}
+          </div>
+        </div>
+      {% endif %}
     {% endfor %}
-  </div>
+    {% set no_dept_users = users | rejectattr("department_id") | list %}
+    {% if no_dept_users %}
+      <div x-show="!userSearch || {{ dept_search_blob(no_dept_users, 'Ohne Abteilung') | lower | trim | tojson }}.includes(userSearch.toLowerCase())">
+        <div class="settings-group-label">Ohne Abteilung</div>
+        <div class="settings-list" style="margin-bottom: var(--space-4);">
+          {% for u in no_dept_users %}{{ user_row(u) }}{% endfor %}
+        </div>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="settings-empty">Noch keine Benutzer.</div>
+  {% endif %}
 
   <div x-data="{ showAdd: {{ 'true' if error else 'false' }} }">
     <button type="button" class="btn btn-ghost" @click="showAdd = !showAdd" style="margin-top: var(--space-3);">

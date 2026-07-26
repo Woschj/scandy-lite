@@ -41,6 +41,21 @@ document.addEventListener("submit", function (e) {
 });
 
 /*
+ * Das native "×" in <input type="search"> leert nur den Text im Feld, ohne
+ * das Formular neu abzusenden - die Ergebnisliste/URL bliebe auf dem alten
+ * Suchbegriff stehen, obwohl das Feld leer aussieht. Der "search"-Event
+ * feuert genau dann (Klick auf "×" oder Löschen+Enter), Guard auf leeren
+ * Wert verhindert einen doppelten Submit beim normalen Enter-mit-Text-Fall.
+ */
+document.addEventListener("search", function (e) {
+  var input = e.target;
+  if (!input.matches || !input.matches(".search-input")) return;
+  if (input.value === "" && input.form) {
+    input.form.requestSubmit();
+  }
+});
+
+/*
  * Scanner-Pistolen "tippen" den Barcode und senden danach automatisch Enter.
  * In Anlege-/Bearbeiten-Formularen (Aufkleber-Workflow: Barcode aufkleben,
  * dann einscannen) würde das Enter das halb ausgefüllte Formular sofort

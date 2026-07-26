@@ -143,6 +143,7 @@ select {
   font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.01em;
+  text-decoration: none;
   cursor: pointer;
   transition: transform 0.08s ease, background-color 0.15s ease;
   min-height: 44px; /* Touch-Ziel */
@@ -417,6 +418,15 @@ select {
   display: none;
 }
 
+/* Kachel-Schnellzugriff auf der Übersicht (dashboard.html) - nur auf
+   Mobil/PWA sichtbar (siehe @media unten, gleicher Breakpoint wie die
+   Tab-Bar): auf dem Desktop deckt die Topnav bereits alles ab, hier soll es
+   auf dem Handy wie ein App-Homescreen wirken statt sich allein auf das
+   Burger-Menü zu verlassen. Muss VOR dem @media-Block stehen, sonst
+   gewinnt diese gleich-spezifische Regel per Quellreihenfolge immer gegen
+   die display:grid-Regel darin, egal ob die Media Query zutrifft. */
+.quick-tiles { display: none; }
+
 @media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
   /* Bottom-Tab-Bar übernimmt hier die PRIMÄR-Navigation (siehe unten) -
      der Hamburger bleibt trotzdem sichtbar, weil Übersicht, Mein Ausweis
@@ -484,6 +494,61 @@ select {
   .tab-bar svg { width: 26px; height: 26px; }
 
   .main-content { padding: var(--space-4); padding-bottom: calc(var(--tab-bar-height) + var(--space-6)); }
+
+  /* Kachel-Schnellzugriff: 3 Spalten, große Antippfläche (min. 88px hoch),
+     Icon über Label - bewusst wie App-Icons auf einem Homescreen, nicht wie
+     die schmalen Text-Links der Topnav. */
+  .quick-tiles {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+  }
+  .quick-tile {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: 88px;
+    padding: var(--space-3) var(--space-2);
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-card);
+    color: var(--ink);
+    text-decoration: none;
+    font-family: var(--font-display);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    letter-spacing: 0.01em;
+    transition: background-color 0.1s ease;
+  }
+  .quick-tile:active { background: var(--bg); }
+  .quick-tile svg { width: 26px; height: 26px; flex-shrink: 0; }
+  .quick-tile-accent {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+  }
+  .quick-tile-accent:active { background: var(--brand-ink); }
+  .quick-tile-badge {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+  }
 }
 
 /* -------------------------------------------------------------------------
@@ -805,13 +870,11 @@ select {
 .item-grid.view-list .list-view-hide {
   display: none;
 }
-/* Bewusst KEIN display:flex auf .item-card selbst: .item-card-actions
-   enthält teils Buttons mit width:100% (siehe .cart-toggle-btn), die als
-   Kind eines auto-breiten Flex-Items unvorhersehbar überlaufen/überlappen
-   können (auf iOS Safari beobachtet). .item-card bleibt daher ein
-   normaler Block mit gestapelten Zeilen (Top-Zeile, ggf. Warenkorb-Button,
-   Aktionen-Zeile) - genau wie in der Kachelansicht, nur mit deutlich
-   weniger Abstand. */
+/* Bewusst KEIN display:flex auf .item-card selbst: der Warenkorb-Button
+   (.cart-toggle-btn) steht als eigene Zeile VOR .item-card-actions, nicht
+   darin - .item-card bleibt daher ein normaler Block mit gestapelten Zeilen
+   (Top-Zeile, ggf. Warenkorb-Button, Aktionen-Zeile) - genau wie in der
+   Kachelansicht, nur mit deutlich weniger Abstand. */
 .item-grid.view-list .item-card {
   padding: var(--space-2) var(--space-3);
   border-radius: 0;
@@ -958,7 +1021,8 @@ select {
   justify-content: center;
 }
 .link-btn:hover { color: var(--brand-ink); }
-.link-btn.danger:hover { color: var(--danger); }
+.link-btn.danger { color: var(--danger); }
+.link-btn.danger:hover { background: var(--danger-bg); border-radius: var(--radius); }
 .link-btn:disabled { opacity: 0.6; cursor: default; }
 
 .empty-state {
@@ -1537,8 +1601,8 @@ select {
    ------------------------------------------------------------------------- */
 
 .item-thumb {
-  width: 80px;
-  height: 80px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius);
   object-fit: cover;
   border: 1px solid var(--line);
@@ -1548,8 +1612,8 @@ select {
 }
 
 .item-thumb-placeholder {
-  width: 80px;
-  height: 80px;
+  width: 56px;
+  height: 56px;
   border-radius: var(--radius);
   background: var(--bg);
   border: 1px dashed var(--line-strong);
@@ -1559,7 +1623,7 @@ select {
   color: var(--line-strong);
   flex-shrink: 0;
 }
-.item-thumb-placeholder svg { width: 24px; height: 24px; }
+.item-thumb-placeholder svg { width: 18px; height: 18px; }
 
 .image-upload-preview {
   cursor: pointer;
@@ -1684,14 +1748,10 @@ select {
   color: #fff !important;
   border-radius: var(--radius);
   padding: 0 var(--space-4) !important;
-  /* flex-basis statt width:100% - als Kind eines flex-wrap-Containers
-     (.item-card-actions) sorgt nur flex-basis zuverlässig dafür, dass der
-     Button seine eigene volle Zeile bekommt. width:100% ließ die
-     benachbarten Links (Bearbeiten/Entfernen) weiterhin in den
-     Flex-Berechnungen derselben Zeile landen, obwohl der Button optisch
-     die volle Breite einnahm - Ergebnis: sichtbare Überlappung (siehe
-     Mobil-Screenshots, Listenansicht Gegenstände). */
-  flex: 1 0 100%;
+  /* Bewusst NICHT Teil der .item-card-actions-Flexreihe (Bearbeiten/
+     Entfernen) - steht als eigenständiges Element davor, damit es seine
+     natürliche (kleinere) Breite behält statt auf volle Kartenbreite
+     gestreckt zu werden (einheitlich mit Detailseite/Verbrauchsmaterial). */
   font-weight: 700;
   min-height: 48px !important;
 }
@@ -1757,38 +1817,18 @@ select {
 }
 
 /* -------------------------------------------------------------------------
-   Mitarbeiterausweis (app/templates/badge.html) - Vollbild-Vorzeigekarte
-   auf dem Handy UND druckbare Karte über dieselbe Ansicht (@media print
-   unten), statt zwei getrennte Templates zu pflegen.
+   Mitarbeiterausweis (app/templates/badge.html) - Vorzeigekarte im normalen
+   Seitenlayout (mit Topnav/Tabbar, wie jede andere Seite), UND druckbare
+   Karte über dieselbe Ansicht (@media print unten), statt zwei getrennte
+   Templates zu pflegen.
    ------------------------------------------------------------------------- */
 .badge-screen {
-  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: var(--space-6);
-  padding: var(--space-6);
+  padding: var(--space-6) 0;
 }
-
-.badge-close {
-  position: fixed;
-  top: var(--space-4);
-  right: var(--space-4);
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: var(--bg-raised);
-  border: 1px solid var(--line);
-  color: var(--ink-soft);
-  font-size: 1.25rem;
-  line-height: 1;
-  text-decoration: none;
-}
-.badge-close:hover { color: var(--ink); border-color: var(--line-strong); }
 
 /* Horizontales Kreditkarten-Layout: Seitenverhältnis einer echten Karte
    (85,6 x 54 mm), Marken-Kopfleiste, Identität links, QR rechts. Auf dem

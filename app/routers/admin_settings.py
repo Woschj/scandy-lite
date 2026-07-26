@@ -71,7 +71,9 @@ async def settings_page(
     locations = (await session.exec(
         select(Location).order_by(Location.department_id, Location.name)
     )).all()
-    users = (await session.exec(select(User).where(User.deleted_at.is_(None)).order_by(User.username))).all()
+    users = (await session.exec(
+        select(User).where(User.deleted_at.is_(None)).options(selectinload(User.department)).order_by(User.username)
+    )).all()
 
     access_result = await session.exec(
         select(UserDepartmentRole)

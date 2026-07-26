@@ -19,6 +19,42 @@
   </div>
 {% endif %}
 
+{# Kachel-Schnellzugriff - nur auf Mobil/PWA sichtbar (siehe .quick-tiles
+   media query in app.css): auf dem Desktop deckt die volle Topnav bereits
+   alles ab, hier geht es um ein app-artiges "Homescreen"-Gefühl auf dem
+   Handy statt sich allein auf das Burger-Menü zu verlassen. #}
+<div class="quick-tiles">
+  {% if has_any_staff_role %}
+    <a href="/scan" class="quick-tile quick-tile-accent">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>
+      Scannen
+    </a>
+  {% endif %}
+  <a href="/items" class="quick-tile">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="1"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+    Gegenstände
+  </a>
+  <a href="/consumables" class="quick-tile">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2h6v4l3 12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2l3-12V2Z"/><path d="M9 12h6"/></svg>
+    Material
+  </a>
+  <a href="/reservations" class="quick-tile" style="position:relative;">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Z"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+    Reservierungen
+    <span data-cart-badge class="quick-tile-badge" style="display:none;">0</span>
+  </a>
+  {% if has_any_staff_role %}
+    <a href="/history" class="quick-tile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+      Historie
+    </a>
+  {% endif %}
+  <a href="/me/ausweis" class="quick-tile">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M15 10h4M15 14h4M6 16c0-1.66 1.34-3 3-3s3 1.34 3 3"/></svg>
+    Mein Ausweis
+  </a>
+</div>
+
 <div class="stat-grid">
   <div class="stat-card">
     <div class="value">{{ item_count }}</div>
@@ -36,7 +72,7 @@
 
 <div class="kanban">
   <div class="kanban-col">
-    <h2>Reserviert <span class="count">{{ open_reservations | length }}</span></h2>
+    <h2>Reserviert <span class="count">{{ open_reservations_count }}</span></h2>
     {% for r in open_reservations %}
       <div class="kanban-card">
         <strong>{{ r.item.name if r.item else (r.item_name_snapshot or "?") }}</strong>
@@ -46,10 +82,13 @@
     {% else %}
       <div class="kanban-empty">Keine offenen Reservierungen</div>
     {% endfor %}
+    {% if open_reservations_count > open_reservations | length %}
+      <a href="/reservations" class="link-btn">→ Alle {{ open_reservations_count }} ansehen</a>
+    {% endif %}
   </div>
 
   <div class="kanban-col">
-    <h2>Ausgeliehen <span class="count">{{ active_lendings | length }}</span></h2>
+    <h2>Ausgeliehen <span class="count">{{ active_lendings_count }}</span></h2>
     {% for l in active_lendings %}
       <div class="kanban-card">
         <strong>{{ l.item.name if l.item else (l.item_name_snapshot or "?") }}</strong>
@@ -59,6 +98,9 @@
     {% else %}
       <div class="kanban-empty">Nichts ausgeliehen</div>
     {% endfor %}
+    {% if active_lendings_count > active_lendings | length %}
+      <a href="/history" class="link-btn">→ Alle {{ active_lendings_count }} in der Historie ansehen</a>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

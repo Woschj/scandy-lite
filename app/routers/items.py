@@ -316,6 +316,7 @@ async def create_item(
                 "custom_fields_by_department_category": custom_fields_by_department_category,
                 "custom_field_values": {},
                 "selected_department_id": department_id,
+                "form_values": {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes},
             },
             status_code=409,
         )
@@ -360,6 +361,7 @@ async def create_item(
                 "custom_fields_by_department_category": custom_fields_by_department_category,
                 "custom_field_values": {},
                 "selected_department_id": department_id,
+                "form_values": {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes},
             },
             status_code=400,
         )
@@ -555,10 +557,11 @@ async def update_item(
     )
     if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="item"):
         context = await _edit_form_context(session, user, item)
+        form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes}
         return templates.TemplateResponse(
             request,
             "items/form.html",
-            {"user": user, "item": item, "error": f"Barcode '{barcode}' ist bereits vergeben.", **context},
+            {"user": user, "item": item, "error": f"Barcode '{barcode}' ist bereits vergeben.", "form_values": form_values, **context},
             status_code=409,
         )
 
@@ -577,12 +580,14 @@ async def update_item(
         )
         if open_lending.first():
             context = await _edit_form_context(session, user, item)
+            form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes}
             return templates.TemplateResponse(
                 request,
                 "items/form.html",
                 {
                     "user": user, "item": item,
                     "error": "Gegenstand hat noch eine offene Ausleihe - erst über Scannen zurückgeben, dann Status ändern.",
+                    "form_values": form_values,
                     **context,
                 },
                 status_code=409,
@@ -606,12 +611,14 @@ async def update_item(
         )
         if open_lending_for_move.first():
             context = await _edit_form_context(session, user, item)
+            form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes}
             return templates.TemplateResponse(
                 request,
                 "items/form.html",
                 {
                     "user": user, "item": item,
                     "error": "Gegenstand hat noch eine offene Ausleihe - erst über Scannen zurückgeben, bevor die Abteilung gewechselt wird.",
+                    "form_values": form_values,
                     **context,
                 },
                 status_code=409,
@@ -626,12 +633,14 @@ async def update_item(
         )
         if open_reservation.first():
             context = await _edit_form_context(session, user, item)
+            form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes}
             return templates.TemplateResponse(
                 request,
                 "items/form.html",
                 {
                     "user": user, "item": item,
                     "error": "Gegenstand ist noch reserviert - erst stornieren oder abholen lassen, bevor die Abteilung gewechselt wird.",
+                    "form_values": form_values,
                     **context,
                 },
                 status_code=409,

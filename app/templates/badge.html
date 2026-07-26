@@ -1,15 +1,10 @@
 {% extends "base.html" %}
 {% block title %}{% if target.id == user.id %}Mein Ausweis{% else %}Ausweis: {{ target.full_name }}{% endif %} — Scandy-Lite{% endblock %}
 
-{# Überschreibt body KOMPLETT statt nur content - bewusst OHNE Topnav/Tabbar
-   (siehe base.html), damit die Karte auf dem Handy quasi den ganzen
-   Bildschirm einnimmt (Vollbild-Gefühl zur Vorzeige-Nutzung) statt zwischen
-   Navigationsleisten eingequetscht zu sein. Zurück kommt man über den
-   Schließen-Button, nicht über die sonstige Navigation. #}
-{% block body %}
-<div class="badge-screen">
-  <a href="{{ back_url }}" class="badge-close no-print" aria-label="Schließen">✕</a>
+{% block content %}
+<p class="no-print"><a href="{{ back_url }}" class="link-btn">← Zurück</a></p>
 
+<div class="badge-screen">
   {# Horizontales Kreditkarten-Layout (Seitenverhältnis 85,6 x 54 mm):
      Marken-Kopfleiste oben, Name/Abteilung links, QR-Code rechts, Barcode
      unten links wie eine Kartennummer. Beim Drucken bekommt die Karte per

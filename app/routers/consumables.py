@@ -207,6 +207,10 @@ async def create_consumable(
                 "categories_by_department": categories_by_department,
                 "locations_by_department": locations_by_department,
                 "selected_department_id": department_id,
+                "form_values": {
+                    "barcode": barcode, "name": name, "category": category, "location": location,
+                    "unit": unit, "quantity": quantity, "min_quantity": min_quantity,
+                },
             },
             status_code=409,
         )
@@ -367,10 +371,11 @@ async def update_consumable(
     )
     if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="consumable"):
         context = await _edit_form_context(session, user, consumable)
+        form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "unit": unit, "min_quantity": min_quantity}
         return templates.TemplateResponse(
             request,
             "consumables/form.html",
-            {"user": user, "consumable": consumable, "error": f"Barcode '{barcode}' ist bereits vergeben.", **context},
+            {"user": user, "consumable": consumable, "error": f"Barcode '{barcode}' ist bereits vergeben.", "form_values": form_values, **context},
             status_code=409,
         )
 
@@ -392,12 +397,14 @@ async def update_consumable(
         )
         if open_reservations.first():
             context = await _edit_form_context(session, user, consumable)
+            form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "unit": unit, "min_quantity": min_quantity}
             return templates.TemplateResponse(
                 request,
                 "consumables/form.html",
                 {
                     "user": user, "consumable": consumable,
                     "error": "Material ist noch vorgemerkt - erst stornieren oder abholen lassen, bevor die Abteilung gewechselt wird.",
+                    "form_values": form_values,
                     **context,
                 },
                 status_code=409,

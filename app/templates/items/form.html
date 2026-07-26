@@ -2,6 +2,7 @@
 {% block title %}{% if item %}Gegenstand bearbeiten{% else %}Neuer Gegenstand{% endif %} — Scandy-Lite{% endblock %}
 
 {% block content %}
+{% set fv = form_values if form_values is defined else {} %}
 <h1>{% if item %}Gegenstand bearbeiten{% else %}Neuer Gegenstand{% endif %}</h1>
 
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
@@ -34,8 +35,8 @@
   <form data-guard method="post" action="{% if item %}/items/{{ item.id }}/edit{% else %}/items/new{% endif %}"
         x-data="{
           selectedDepartmentId: {{ (item.department_id if item else (selected_department_id or (departments[0].id if departments else ''))) | string | tojson }},
-          selectedCategory: {{ (item.category if item else '') | tojson }},
-          selectedLocation: {{ (item.location if item else '') | tojson }},
+          selectedCategory: {{ fv.get('category', item.category if item else '') | tojson }},
+          selectedLocation: {{ fv.get('location', item.location if item else '') | tojson }},
           categoriesByDepartment: {{ categories_by_department | tojson }},
           locationsByDepartment: {{ locations_by_department | tojson }}
         }"
@@ -57,7 +58,7 @@
     <div class="field">
       <label for="barcode">Barcode</label>
       <div class="barcode-input-row">
-        <input type="text" id="barcode" name="barcode" value="{{ item.barcode if item else '' }}" required autofocus autocomplete="off" data-scanner-enter="next">
+        <input type="text" id="barcode" name="barcode" value="{{ fv.get('barcode', item.barcode if item else '') }}" required autofocus autocomplete="off" data-scanner-enter="next">
         <button type="button" id="barcode-camera-start-btn" class="icon-btn" aria-label="Barcode mit Kamera scannen">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></svg>
         </button>
@@ -70,7 +71,7 @@
     </div>
     <div class="field">
       <label for="name">Bezeichnung</label>
-      <input type="text" id="name" name="name" value="{{ item.name if item else '' }}" required data-scanner-enter="next">
+      <input type="text" id="name" name="name" value="{{ fv.get('name', item.name if item else '') }}" required data-scanner-enter="next">
     </div>
     <div class="field">
       <label for="category">Kategorie</label>
@@ -121,7 +122,7 @@
     {% endfor %}
     <div class="field">
       <label for="notes">Bemerkungen</label>
-      <textarea id="notes" name="notes" rows="3" style="width:100%; padding:0.75rem; border:1px solid var(--line-strong); border-radius:var(--radius); font-family:inherit; resize:vertical;">{{ item.notes if item else '' }}</textarea>
+      <textarea id="notes" name="notes" rows="3" style="width:100%; padding:0.75rem; border:1px solid var(--line-strong); border-radius:var(--radius); font-family:inherit; resize:vertical;">{{ fv.get('notes', (item.notes or '') if item else '') }}</textarea>
     </div>
     {% if item %}
       <div class="field">

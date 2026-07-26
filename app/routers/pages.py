@@ -51,25 +51,39 @@ async def dashboard(
     consumable_count = (await session.exec(consumable_stmt)).one()
     worker_count = (await session.exec(worker_stmt)).one()
 
-    # Kanban-Spalten: offene Reservierungen und aktive Ausleihen
+    # Kanban-Spalten: offene Reservierungen und aktive Ausleihen - nur eine
+    # kurze Vorschau (DASHBOARD_PREVIEW_LIMIT), die eigentliche Gesamtzahl
+    # fürs Badge kommt aus einer eigenen, ungedeckelten COUNT-Abfrage (sonst
+    # würde das Badge bei >DASHBOARD_PREVIEW_LIMIT offenen Vorgängen die
+    # falsche, gedeckelte Zahl anzeigen).
+    DASHBOARD_PREVIEW_LIMIT = 6
+
+    res_count_stmt = select(func.count()).select_from(Reservation).where(
+        Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None)
+    )
+    lend_count_stmt = select(func.count()).select_from(Lending).where(Lending.returned_at.is_(None))
     res_stmt = (
         select(Reservation)
         .where(Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None))
         .options(selectinload(Reservation.item), selectinload(Reservation.worker))
         .order_by(Reservation.created_at.desc())
-        .limit(50)
+        .limit(DASHBOARD_PREVIEW_LIMIT)
     )
     lend_stmt = (
         select(Lending)
         .where(Lending.returned_at.is_(None))
         .options(selectinload(Lending.item), selectinload(Lending.worker))
         .order_by(Lending.lent_at.desc())
-        .limit(50)
+        .limit(DASHBOARD_PREVIEW_LIMIT)
     )
     if visible_ids is not None:
+        res_count_stmt = res_count_stmt.where(Reservation.department_id.in_(visible_ids))
+        lend_count_stmt = lend_count_stmt.where(Lending.department_id.in_(visible_ids))
         res_stmt = res_stmt.where(Reservation.department_id.in_(visible_ids))
         lend_stmt = lend_stmt.where(Lending.department_id.in_(visible_ids))
 
+    open_reservations_count = (await session.exec(res_count_stmt)).one()
+    active_lendings_count = (await session.exec(lend_count_stmt)).one()
     open_reservations = (await session.exec(res_stmt)).all()
     active_lendings = (await session.exec(lend_stmt)).all()
 
@@ -83,6 +97,8 @@ async def dashboard(
             "consumable_count": consumable_count,
             "worker_count": worker_count,
             "open_reservations": open_reservations,
+            "open_reservations_count": open_reservations_count,
             "active_lendings": active_lendings,
+            "active_lendings_count": active_lendings_count,
         },
     )
