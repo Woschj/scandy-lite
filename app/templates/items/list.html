@@ -3,13 +3,23 @@
 {% block title %}Gegenstände — Scandy-Lite{% endblock %}
 
 {% block content %}
+{% set qs = "&q=" + q if q else "" %}
+{% set qs = qs + ("&status=" + status if status else "") %}
+{% set qs = qs + ("&category=" + category if category else "") %}
+{% set qs = qs + ("&location=" + location if location else "") %}
+{% set qs = qs + ("&sort=" + sort if sort else "") %}
 <div class="list-header">
   <div>
     <h1>Gegenstände</h1>
   </div>
-  {% if user.is_admin or staff_department_ids %}
-    <a href="/items/new" class="btn btn-primary">+ Neuer Gegenstand</a>
-  {% endif %}
+  <div style="display: flex; gap: var(--space-2);">
+    {% if has_any_staff_role %}
+      <a href="/items/export.csv?{{ qs[1:] }}" class="btn btn-ghost" title="Barcodes als CSV exportieren (für Label-Drucker-Massenimport)">📄 CSV-Export</a>
+    {% endif %}
+    {% if user.is_admin or staff_department_ids %}
+      <a href="/items/new" class="btn btn-primary">+ Neuer Gegenstand</a>
+    {% endif %}
+  </div>
 </div>
 
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}

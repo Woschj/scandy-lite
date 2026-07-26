@@ -13,6 +13,21 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.20.0] - 2026-07-26
+
+### Added
+- **CSV-Export der Gegenstands-Barcodes** (`GET /items/export.csv`, Button
+  "📄 CSV-Export" auf der Gegenstände-Liste) - gedacht für den Massenimport
+  in Label-Drucker-Software zum Drucken von QR-Codes. Spalten: Barcode,
+  Name, Kategorie, Standort, Abteilung. Respektiert dieselbe Abteilungs-
+  Scoping wie die Liste (nur Abteilungen, in denen der User die
+  Mitarbeiter-Rolle hat - Massenexport ist eine Verwaltungsaktion, keine
+  reine Sichtbarkeits-Frage) sowie dieselben Filter (Suche/Kategorie/
+  Standort/Status), sodass der Export exakt der aktuell angezeigten Ansicht
+  entspricht. UTF-8-BOM vorangestellt, damit Windows-Programme (Label-
+  Software, Excel) Umlaute in Kategorie-/Standort-Namen zuverlässig
+  erkennen.
+
 ## [0.19.0] - 2026-07-24
 
 ### Added

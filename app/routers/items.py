@@ -8,11 +8,13 @@ Kein "aktuell aktive Abteilung"-Kontext (kein Umschalter) - die Liste zeigt
 immer alles Sichtbare gemischt (mit Abteilungs-Badge pro Karte), und beim
 Anlegen ist die Abteilung ein normales Formularfeld.
 """
+import csv
+import io
 import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy import case
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
@@ -39,7 +41,7 @@ from app.core.inventory_crud import (
     upload_entity_image,
 )
 from app.core.templating import templates
-from app.models.common import ItemStatus, UserRole
+from app.models.common import ItemStatus, UserRole, utcnow
 from app.models.department import Department
 from app.models.item import Item
 from app.models.lending import Lending
@@ -186,6 +188,73 @@ async def list_items(
             "staff_department_ids": staff_department_ids, "has_any_staff_role": has_any_staff_role,
             "page": page, "has_more": has_more,
         },
+    )
+
+
+@router.get("/export.csv")
+async def export_items_csv(
+    q: str = "",
+    status: str = "",
+    category: str = "",
+    location: str = "",
+    user: User = Depends(require_staff),
+    session: AsyncSession = Depends(get_session),
+):
+    """CSV-Export der Barcodes (+ Name/Kategorie/Standort/Abteilung) aller
+    sichtbaren Gegenstände - gedacht für den Massenimport in Label-Drucker-
+    Software (QR-Code-Druck aus CSV). Dieselben Filter wie die Liste, damit
+    der Export exakt der aktuell angezeigten Ansicht entspricht. Nur für
+    Mitarbeiter/Admin (require_staff) - Nutzer-Rolle sieht Gegenstände zwar
+    auch, Massenexport für den Etikettendruck ist aber eine Verwaltungsaktion."""
+    stmt = (
+        select(Item)
+        .where(Item.deleted_at.is_(None))
+        .order_by(Item.name)
+        .options(selectinload(Item.department))
+    )
+
+    if not user.is_admin:
+        # require_staff garantiert an dieser Stelle schon mindestens eine
+        # Mitarbeiter-Rolle irgendwo (sonst waere die Dependency schon mit
+        # Forbidden fehlgeschlagen) - hier nur noch WELCHE Abteilungen das sind.
+        roles = await get_department_roles(session, user)
+        staff_department_ids = [r.department_id for r in roles if r.role == UserRole.MITARBEITER]
+        stmt = stmt.where(Item.department_id.in_(staff_department_ids))
+
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where((Item.name.ilike(like)) | (Item.barcode.ilike(like)))
+    if category:
+        stmt = stmt.where(Item.category == category)
+    if location:
+        stmt = stmt.where(Item.location == location)
+    if status:
+        try:
+            stmt = stmt.where(Item.status == ItemStatus(status))
+        except ValueError:
+            pass
+
+    items = (await session.exec(stmt)).all()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["barcode", "name", "kategorie", "standort", "abteilung"])
+    for item in items:
+        writer.writerow([
+            item.barcode, item.name, item.category or "", item.location or "",
+            item.department.name if item.department else "",
+        ])
+
+    filename = f"scandy-lite-barcodes_{utcnow().strftime('%Y-%m-%d')}.csv"
+    # UTF-8-BOM voranstellen: viele Windows-Programme (u.a. Label-Drucker-
+    # Software, Excel) erkennen ohne BOM Umlaute in Kategorie-/Standort-
+    # Namen nicht zuverlässig als UTF-8.
+    bom = chr(0xFEFF)
+    content = bom + buffer.getvalue()
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
