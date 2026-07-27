@@ -174,12 +174,12 @@
     <form class="settings-add-inline" method="post" action="/admin/users/new" x-show="showAdd" x-cloak style="margin-top: var(--space-3);">
       {% include "partials/csrf_field.html" %}
       <div class="field">
-        <label for="u-username">Benutzername (Login)</label>
+        <label for="u-username">Benutzername</label>
         <input type="text" id="u-username" name="username" required>
       </div>
       <div class="field">
-        <label for="u-password">Passwort (min. 8 Zeichen)</label>
-        <input type="password" id="u-password" name="password" minlength="8" required>
+        <label for="u-password">Passwort (min. 8 Zeichen, leer lassen = kein Login, nur Ausweis)</label>
+        <input type="password" id="u-password" name="password" minlength="8">
       </div>
       <div class="field">
         <label for="u-first-name">Vorname</label>
@@ -223,10 +223,12 @@
       <button type="submit" class="btn btn-primary">+ Anlegen</button>
     </form>
     <p class="settings-hint" x-show="showAdd" x-cloak style="margin-top: var(--space-2);">
-      Legt Login, Barcode/Name/Heimat-Abteilung UND (falls eine Zugriffsrolle
-      gewählt ist) direkt Zugriff auf die Heimat-Abteilung an - alles in einem
-      Schritt. Zugriff auf WEITERE Abteilungen oder eine andere Rolle danach
-      über "Bearbeiten" ändern.
+      Legt Barcode/Name/Heimat-Abteilung UND (falls eine Zugriffsrolle gewählt
+      ist) direkt Zugriff auf die Heimat-Abteilung an - alles in einem Schritt.
+      Ohne Passwort entsteht ein reiner Ausweis-Datensatz zum Scannen (kein
+      Login möglich, Zugriffsrolle dann wirkungslos) - Login kann jederzeit
+      über "Bearbeiten" nachgerüstet werden. Zugriff auf WEITERE Abteilungen
+      oder eine andere Rolle ebenfalls über "Bearbeiten" ändern.
     </p>
   </div>
 </section>

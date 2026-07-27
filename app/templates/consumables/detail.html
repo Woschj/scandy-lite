@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/_status_chips.html" import consumable_status_chip %}
+{% from "partials/_status_chips.html" import consumable_status_chip, consumable_low_stock_chip %}
 {% block title %}{{ consumable.name }} — Scandy-Lite{% endblock %}
 
 {% block content %}
@@ -23,9 +23,7 @@
     {{ consumable_status_chip(consumable, can_manage) }}
   </div>
 
-  {% if can_manage and consumable.quantity <= consumable.min_quantity %}
-    <p class="item-meta">Mindestbestand erreicht.</p>
-  {% endif %}
+  {{ consumable_low_stock_chip(consumable, can_manage) }}
 
   {% if consumable.category %}
     <p class="item-meta"><span class="eyebrow" style="display:block;">Kategorie</span>{{ consumable.category }}</p>

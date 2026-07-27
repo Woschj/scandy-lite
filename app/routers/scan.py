@@ -203,7 +203,7 @@ async def scan_return(
 @router.post("/consume")
 async def scan_consume(
     consumable_id: uuid.UUID = Form(...),
-    quantity: int = Form(...),
+    quantity: int = Form(..., gt=0, le=1_000_000_000),
     worker_barcode: str = Form(...),
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
@@ -212,9 +212,6 @@ async def scan_consume(
     if not consumable or consumable.deleted_at is not None:
         raise Forbidden()
     await _check_department_access(session, user, consumable.department_id)
-
-    if quantity <= 0:
-        return RedirectResponse(url="/scan?error=Menge+muss+größer+als+0+sein.", status_code=303)
 
     worker = await _find_active_worker_by_barcode(session, worker_barcode)
     if not worker:

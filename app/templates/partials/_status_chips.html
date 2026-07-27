@@ -36,3 +36,18 @@
     <span class="chip chip-danger">Nicht verfügbar</span>
   {% endif %}
 {% endmacro %}
+
+{# Separater Warn-Chip unterhalb, nur für can_manage - unterscheidet "leer"
+   (quantity == 0, dringlicher) von "niedrig, aber noch etwas da"
+   (0 < quantity <= min_quantity), analog zum Status-Filter in
+   app/routers/consumables.py ("leer" vs. "mindestbestand"), das bisher nur
+   im Filter, nicht im Badge selbst unterschieden wurde. #}
+{% macro consumable_low_stock_chip(consumable, can_manage, extra_class="") %}
+  {% if can_manage and consumable.quantity <= consumable.min_quantity %}
+    {% if consumable.quantity == 0 %}
+      <span class="chip chip-danger {{ extra_class }}">Leer</span>
+    {% else %}
+      <span class="chip chip-danger {{ extra_class }}">Mindestbestand erreicht</span>
+    {% endif %}
+  {% endif %}
+{% endmacro %}

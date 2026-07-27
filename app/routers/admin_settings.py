@@ -200,27 +200,34 @@ async def reject_pending_account(
 @router.post("/users/new")
 async def create_user(
     request: Request,
-    username: str = Form(...),
-    password: str = Form(...),
-    first_name: str = Form(...),
-    last_name: str = Form(...),
-    barcode: str = Form(...),
+    username: str = Form(..., max_length=100),
+    password: str = Form(""),
+    first_name: str = Form(..., max_length=100),
+    last_name: str = Form(..., max_length=100),
+    barcode: str = Form(..., max_length=100),
     home_department_id: uuid.UUID = Form(...),
     initial_role: str = Form(""),
     is_admin: str = Form(""),
-    email: str = Form(""),
+    email: str = Form("", max_length=255),
     user: User = Depends(require_admin),
     session: AsyncSession = Depends(get_session),
 ):
-    """Legt einen Login an - User und Mitarbeiter-Ausweis sind dieselbe
-    Entität (siehe app/models/user.py), also immer in einem Schritt.
+    """Legt einen Ausweis-Datensatz an, wahlweise mit Login - User und
+    Mitarbeiter-Ausweis sind dieselbe Entität (siehe app/models/user.py).
+
+    password ist bewusst optional: leer gelassen bleibt hashed_password NULL
+    (reiner Ausweis-Inhaber ohne Login, s. Docstring auf User.hashed_password) -
+    für Barcode-Scan (Ausleihe/Rückgabe/Entnahme) wird kein Login gebraucht,
+    nur wer sich selbst einloggen soll (Reservieren im Web, Verwalten) braucht
+    eins.
 
     home_department_id ist NUR die organisatorische Heimat des Ausweises (wo
     der Datensatz verwaltet wird) - das gewährt für sich genommen KEINEN
     Zugriff. Deshalb zusätzlich initial_role: optional wird direkt eine
-    UserDepartmentRole für dieselbe Abteilung mit angelegt, damit der neue
-    Login sofort etwas sehen kann. Weitere Abteilungen/Rollen bleiben über
-    den 'Zugriff'-Tab verwaltbar."""
+    UserDepartmentRole für dieselbe Abteilung mit angelegt, damit ein neuer
+    Login sofort etwas sehen kann (bei einem passwortlosen Ausweis ohne
+    Wirkung, da er sich ohnehin nicht einloggen kann). Weitere Abteilungen/
+    Rollen bleiben über den 'Zugriff'-Tab verwaltbar."""
     username = username.strip()
     barcode = barcode.strip()
     email = email.strip()
@@ -228,7 +235,7 @@ async def create_user(
     existing_user = await session.exec(select(User).where(User.username == username))
     if existing_user.first():
         return RedirectResponse(url="/admin/settings?error=Benutzername+bereits+vergeben.#users", status_code=303)
-    if len(password) < MIN_PASSWORD_LENGTH:
+    if password and len(password) < MIN_PASSWORD_LENGTH:
         return RedirectResponse(url=f"/admin/settings?error=Passwort+zu+kurz+(min.+{MIN_PASSWORD_LENGTH}+Zeichen).#users", status_code=303)
 
     existing_barcode = await session.exec(select(User).where(User.barcode == barcode, User.deleted_at.is_(None)))
@@ -239,7 +246,7 @@ async def create_user(
         username=username,
         email=email or None,
         is_admin=bool(is_admin),
-        hashed_password=await run_in_threadpool(hash_password, password),
+        hashed_password=await run_in_threadpool(hash_password, password) if password else None,
         first_name=first_name.strip(),
         last_name=last_name.strip(),
         barcode=barcode,

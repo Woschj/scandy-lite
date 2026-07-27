@@ -2097,3 +2097,48 @@ body.camera-active-centered .main-content {
 @media (min-width: 721px) {
   body.camera-active-centered .main-content { min-height: calc(100dvh - var(--nav-height)); }
 }
+
+/* Rein dekorativer Ziel-Rahmen im Kamerabild (barcode-camera.js::
+   buildControls) - der eigentliche Scan-Bereich ist das GESAMTE Videobild
+   (kein qrbox mehr), dieser Rahmen ist nur eine visuelle Orientierung, wo
+   man den Barcode ungefähr hinhalten sollte. Der Video-Container bekommt
+   von html5-qrcode selbst automatisch position:relative gesetzt. */
+.camera-viewfinder-hint {
+  position: absolute;
+  inset: 12% 8%;
+  border: 2px dashed rgba(255, 255, 255, 0.85);
+  border-radius: var(--radius);
+  pointer-events: none;
+}
+
+/* Hinweistext + Taschenlampe/Zoom-Regler unter der Kamera-Vorschau
+   (barcode-camera.js::buildControls). Der Hinweis ist immer da (häufigste
+   Ursache für "wird nicht erkannt" ist Positionierung, nicht Technik), die
+   Regler nur bei tatsächlicher Geräte-Unterstützung. */
+.camera-hint {
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  text-align: center;
+  margin: var(--space-2) 0 0;
+}
+.camera-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+.camera-torch-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.camera-zoom-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  font-size: 1.1rem;
+}
+.camera-zoom-control input[type="range"] {
+  flex: 1;
+}

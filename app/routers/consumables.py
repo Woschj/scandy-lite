@@ -177,14 +177,14 @@ async def new_consumable_form(
 @router.post("/new")
 async def create_consumable(
     request: Request,
-    barcode: str = Form(...),
-    name: str = Form(...),
+    barcode: str = Form(..., max_length=100),
+    name: str = Form(..., max_length=200),
     department_id: uuid.UUID = Form(...),
-    category: str = Form(""),
-    location: str = Form(""),
-    unit: str = Form("Stück"),
-    quantity: int = Form(0),
-    min_quantity: int = Form(0),
+    category: str = Form("", max_length=100),
+    location: str = Form("", max_length=100),
+    unit: str = Form("Stück", max_length=50),
+    quantity: int = Form(0, ge=0, le=1_000_000_000),
+    min_quantity: int = Form(0, ge=0, le=1_000_000_000),
     user: User = Depends(require_staff),
     session: AsyncSession = Depends(get_session),
 ):
@@ -343,13 +343,13 @@ async def edit_consumable_form(
 async def update_consumable(
     request: Request,
     consumable_id: uuid.UUID,
-    barcode: str = Form(...),
-    name: str = Form(...),
+    barcode: str = Form(..., max_length=100),
+    name: str = Form(..., max_length=200),
     department_id: uuid.UUID = Form(...),
-    category: str = Form(""),
-    location: str = Form(""),
-    unit: str = Form("Stück"),
-    min_quantity: int = Form(0),
+    category: str = Form("", max_length=100),
+    location: str = Form("", max_length=100),
+    unit: str = Form("Stück", max_length=50),
+    min_quantity: int = Form(0, ge=0, le=1_000_000_000),
     user: User = Depends(require_staff),
     session: AsyncSession = Depends(get_session),
 ):
@@ -430,7 +430,7 @@ async def update_consumable(
 @router.post("/{consumable_id}/adjust")
 async def adjust_consumable(
     consumable_id: uuid.UUID,
-    delta: int = Form(...),
+    delta: int = Form(..., ge=-1_000_000_000, le=1_000_000_000),
     worker_id: str = Form(""),
     user: User = Depends(require_staff),
     session: AsyncSession = Depends(get_session),

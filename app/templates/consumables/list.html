@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/_status_chips.html" import consumable_status_chip %}
+{% from "partials/_status_chips.html" import consumable_status_chip, consumable_low_stock_chip %}
 {% block title %}Verbrauchsmaterial — Scandy-Lite{% endblock %}
 
 {% block content %}
@@ -120,9 +120,7 @@
         {% if c.department %}
           <span class="chip chip-neutral list-view-hide" style="margin-top: var(--space-1);">{{ c.department.name }}</span>
         {% endif %}
-        {% if can_manage and c.quantity <= c.min_quantity %}
-          <span class="chip chip-danger list-view-hide">Mindestbestand erreicht</span>
-        {% endif %}
+        {{ consumable_low_stock_chip(c, can_manage, extra_class="list-view-hide") }}
 
         {% if linked_worker and c.quantity > 0 %}
           <div class="qty-stepper list-view-hide" style="max-width: 220px; margin-top: var(--space-3);">
