@@ -38,17 +38,36 @@
 {% if pending %}
   <div class="settings-list" style="margin-bottom: var(--space-6);">
     {% for r in pending %}
-      <div class="settings-row">
-        <div class="main">
-          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">{{ r.item.name if r.item else (r.item_name_snapshot or "?") }}</span>
-          <span class="meta">{{ r.item.barcode if r.item else (r.item_barcode_snapshot or "") }}</span>
+      <details class="settings-row pickup-item-row">
+        <summary>
+          <div class="main">
+            <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">{{ r.item.name if r.item else (r.item_name_snapshot or "?") }}</span>
+            <span class="meta">{{ r.item.barcode if r.item else (r.item_barcode_snapshot or "") }}</span>
+          </div>
+          <div class="actions">
+            <form method="post" action="/scan/pickup/{{ worker.id }}/remove/{{ r.id }}" onsubmit="return confirm('{{ (r.item.name if r.item else "Gegenstand") }} aus dieser Abholung entfernen? Die Reservierung wird storniert.')">
+              {% include "partials/csrf_field.html" %}
+              <input type="hidden" name="checked" value="{{ checked_param }}">
+              <button type="submit" class="link-btn danger">Entfernen</button>
+            </form>
+          </div>
+        </summary>
+        <div class="pickup-item-detail">
+          {% if r.item %}
+            {% if has_image("items", r.item.id) %}
+              <img src="{{ image_url('items', r.item.id) }}" alt="" class="image-upload-preview">
+            {% endif %}
+            {% if r.item.category %}<p class="item-meta"><span class="eyebrow" style="display:block;">Kategorie</span>{{ r.item.category }}</p>{% endif %}
+            {% if r.item.location %}<p class="item-meta"><span class="eyebrow" style="display:block;">Standort</span>{{ r.item.location }}</p>{% endif %}
+            {% if r.item.notes %}<p class="item-meta"><span class="eyebrow" style="display:block;">Notiz</span>{{ r.item.notes }}</p>{% endif %}
+            {% if not r.item.category and not r.item.location and not r.item.notes and not has_image("items", r.item.id) %}
+              <p class="item-meta">Keine weiteren Details hinterlegt.</p>
+            {% endif %}
+          {% else %}
+            <p class="item-meta">Gegenstand wurde inzwischen gelöscht.</p>
+          {% endif %}
         </div>
-        <form method="post" action="/scan/pickup/{{ worker.id }}/remove/{{ r.id }}" onsubmit="return confirm('{{ (r.item.name if r.item else "Gegenstand") }} aus dieser Abholung entfernen? Die Reservierung wird storniert.')">
-          {% include "partials/csrf_field.html" %}
-          <input type="hidden" name="checked" value="{{ checked_param }}">
-          <button type="submit" class="link-btn danger">Entfernen</button>
-        </form>
-      </div>
+      </details>
     {% endfor %}
   </div>
 {% else %}
@@ -59,13 +78,32 @@
   <h2>Abgehakt ({{ done | length }})</h2>
   <div class="settings-list" style="margin-bottom: var(--space-6);">
     {% for r in done %}
-      <div class="settings-row">
-        <div class="main">
-          <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">✓ {{ r.item.name if r.item else (r.item_name_snapshot or "?") }}</span>
-          <span class="meta">{{ r.item.barcode if r.item else (r.item_barcode_snapshot or "") }}</span>
+      <details class="settings-row pickup-item-row">
+        <summary>
+          <div class="main">
+            <span class="name" style="text-transform:none; letter-spacing:normal; font-family:var(--font-body); font-weight:600;">✓ {{ r.item.name if r.item else (r.item_name_snapshot or "?") }}</span>
+            <span class="meta">{{ r.item.barcode if r.item else (r.item_barcode_snapshot or "") }}</span>
+          </div>
+          <div class="actions">
+            <span class="chip chip-success">Gescannt</span>
+          </div>
+        </summary>
+        <div class="pickup-item-detail">
+          {% if r.item %}
+            {% if has_image("items", r.item.id) %}
+              <img src="{{ image_url('items', r.item.id) }}" alt="" class="image-upload-preview">
+            {% endif %}
+            {% if r.item.category %}<p class="item-meta"><span class="eyebrow" style="display:block;">Kategorie</span>{{ r.item.category }}</p>{% endif %}
+            {% if r.item.location %}<p class="item-meta"><span class="eyebrow" style="display:block;">Standort</span>{{ r.item.location }}</p>{% endif %}
+            {% if r.item.notes %}<p class="item-meta"><span class="eyebrow" style="display:block;">Notiz</span>{{ r.item.notes }}</p>{% endif %}
+            {% if not r.item.category and not r.item.location and not r.item.notes and not has_image("items", r.item.id) %}
+              <p class="item-meta">Keine weiteren Details hinterlegt.</p>
+            {% endif %}
+          {% else %}
+            <p class="item-meta">Gegenstand wurde inzwischen gelöscht.</p>
+          {% endif %}
         </div>
-        <span class="chip chip-success">Gescannt</span>
-      </div>
+      </details>
     {% endfor %}
   </div>
 
