@@ -55,14 +55,16 @@
         <details class="pickup-item-toggle">
           <summary>Details</summary>
           <div class="pickup-item-detail">
+            <div class="pickup-item-detail-text">
+              {% if r.item.category %}<p class="item-meta"><span class="eyebrow" style="display:block;">Kategorie</span>{{ r.item.category }}</p>{% endif %}
+              {% if r.item.location %}<p class="item-meta"><span class="eyebrow" style="display:block;">Standort</span>{{ r.item.location }}</p>{% endif %}
+              {% if r.item.notes %}<p class="item-meta"><span class="eyebrow" style="display:block;">Notiz</span>{{ r.item.notes }}</p>{% endif %}
+              {% if not r.item.category and not r.item.location and not r.item.notes and not has_image("items", r.item.id) %}
+                <p class="item-meta">Keine weiteren Details hinterlegt.</p>
+              {% endif %}
+            </div>
             {% if has_image("items", r.item.id) %}
-              <img src="{{ image_url('items', r.item.id) }}" alt="" class="image-upload-preview">
-            {% endif %}
-            {% if r.item.category %}<p class="item-meta"><span class="eyebrow" style="display:block;">Kategorie</span>{{ r.item.category }}</p>{% endif %}
-            {% if r.item.location %}<p class="item-meta"><span class="eyebrow" style="display:block;">Standort</span>{{ r.item.location }}</p>{% endif %}
-            {% if r.item.notes %}<p class="item-meta"><span class="eyebrow" style="display:block;">Notiz</span>{{ r.item.notes }}</p>{% endif %}
-            {% if not r.item.category and not r.item.location and not r.item.notes and not has_image("items", r.item.id) %}
-              <p class="item-meta">Keine weiteren Details hinterlegt.</p>
+              <img src="{{ image_url('items', r.item.id) }}" alt="" class="image-upload-preview pickup-item-detail-img">
             {% endif %}
           </div>
         </details>
@@ -90,14 +92,16 @@
         <details class="pickup-item-toggle">
           <summary>Details</summary>
           <div class="pickup-item-detail">
+            <div class="pickup-item-detail-text">
+              {% if r.item.category %}<p class="item-meta"><span class="eyebrow" style="display:block;">Kategorie</span>{{ r.item.category }}</p>{% endif %}
+              {% if r.item.location %}<p class="item-meta"><span class="eyebrow" style="display:block;">Standort</span>{{ r.item.location }}</p>{% endif %}
+              {% if r.item.notes %}<p class="item-meta"><span class="eyebrow" style="display:block;">Notiz</span>{{ r.item.notes }}</p>{% endif %}
+              {% if not r.item.category and not r.item.location and not r.item.notes and not has_image("items", r.item.id) %}
+                <p class="item-meta">Keine weiteren Details hinterlegt.</p>
+              {% endif %}
+            </div>
             {% if has_image("items", r.item.id) %}
-              <img src="{{ image_url('items', r.item.id) }}" alt="" class="image-upload-preview">
-            {% endif %}
-            {% if r.item.category %}<p class="item-meta"><span class="eyebrow" style="display:block;">Kategorie</span>{{ r.item.category }}</p>{% endif %}
-            {% if r.item.location %}<p class="item-meta"><span class="eyebrow" style="display:block;">Standort</span>{{ r.item.location }}</p>{% endif %}
-            {% if r.item.notes %}<p class="item-meta"><span class="eyebrow" style="display:block;">Notiz</span>{{ r.item.notes }}</p>{% endif %}
-            {% if not r.item.category and not r.item.location and not r.item.notes and not has_image("items", r.item.id) %}
-              <p class="item-meta">Keine weiteren Details hinterlegt.</p>
+              <img src="{{ image_url('items', r.item.id) }}" alt="" class="image-upload-preview pickup-item-detail-img">
             {% endif %}
           </div>
         </details>

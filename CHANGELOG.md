@@ -13,6 +13,18 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.23.2] - 2026-07-28
+
+### Changed
+- **Sammel-Abholung: aufgeklappte Gegenstand-Details zeigen Text links,
+  Bild rechts** statt beides untereinander gestapelt - kompakter und
+  optisch aufgeräumter auf breiteren Screens, bricht auf schmalen
+  Viewports weiterhin sauber untereinander um (`flex-wrap`).
+- Klargestellt (kein Bug): fehlte bei einem Gegenstand mit Bild die
+  Kategorie/Standort-Anzeige, lag das schlicht daran, dass diese Felder
+  am Gegenstand selbst nicht gepflegt waren - nicht an einem
+  Verdeckungs-Fehler.
+
 ## [0.23.1] - 2026-07-28
 
 ### Fixed

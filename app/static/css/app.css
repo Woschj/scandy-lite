@@ -2009,8 +2009,23 @@ details.pickup-row[open] summary::after { transform: rotate(180deg); }
 .pickup-item-toggle[open] > summary::after { content: " ▴"; }
 
 .pickup-item-detail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-4);
   padding: 0 var(--space-4) var(--space-4);
 }
+.pickup-item-detail-img {
+  width: 120px;
+  max-width: 120px;
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+.pickup-item-detail-text {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.pickup-item-detail-text .item-meta:first-child { margin-top: 0; }
 
 /* -------------------------------------------------------------------------
    Querformat: statt zu blockieren, wird das Layout unten für Querformat
