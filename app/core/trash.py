@@ -293,24 +293,11 @@ async def _close_open_or_block(
     return f"'{subject_name}' hat noch {message_label}: {names} - {message_action}"
 
 
-async def purge_department(session: AsyncSession, department: Department, *, force: bool = False) -> str | None:
-    """Löscht eine Abteilung KASKADIEREND statt (wie früher) bei jeder noch
-    referenzierenden Zeile zu blockieren - Gegenstände/Verbrauchsmaterial/
-    Benutzer der Abteilung werden über die bestehenden purge_item/
-    purge_consumable/purge_user mitgelöscht (die ihrerseits schon Name/
-    Barcode in die Historie snapshotten), Kategorien/Standorte/Zugriffs-
-    Zuweisungen direkt (reine Verwaltungsdaten, keine Historie). Nur
-    OFFENE Ausleihen/Reservierungen/Material-Vormerkungen sind aktive
-    Geschäftsvorgänge und blockieren normalerweise - mit force=True werden
-    sie stattdessen automatisch abgeschlossen (returned_at/cancelled_at =
-    jetzt), z.B. zum Aufräumen von Testdaten/Fehleingaben, ohne jede Zeile
-    erst händisch suchen und einzeln zurückgeben/stornieren zu müssen. Historie
-    wird dabei NIE gelöscht, sondern als Text-
-    Schnappschuss erhalten (department_name_snapshot, siehe
-    app/models/lending.py etc.) - force ändert daran nichts, es entfällt
-    nur die Vorbedingung "muss vorher schon abgeschlossen sein"."""
-    dept_id = department.id
-
+async def _block_on_open_department_activity(session: AsyncSession, department: Department, dept_id, force: bool) -> str | None:
+    """Phase 1 von purge_department: offene Ausleihen/Reservierungen/
+    Material-Vormerkungen der GESAMTEN Abteilung prüfen (department-weit,
+    nicht pro Item/Consumable - siehe _cascade_delete_department_entities
+    für den Grund, warum das die einzige Stelle ist, die das tun muss)."""
     error = await _close_open_or_block(
         session, Lending,
         where=[Lending.department_id == dept_id, Lending.returned_at.is_(None)],
@@ -333,7 +320,7 @@ async def purge_department(session: AsyncSession, department: Department, *, for
     if error:
         return error
 
-    error = await _close_open_or_block(
+    return await _close_open_or_block(
         session, ConsumableReservation,
         where=[
             ConsumableReservation.department_id == dept_id,
@@ -345,18 +332,22 @@ async def purge_department(session: AsyncSession, department: Department, *, for
         message_label="offene Material-Vormerkungen", message_action="erst stornieren oder abholen lassen.",
         subject_name=department.name, eager_load=ConsumableReservation.consumable,
     )
-    if error:
-        return error
 
-    # skip_open_check=True: die department-weiten Checks oben haben Lending/
-    # Reservation/ConsumableReservation für ALLE Items/Material dieser
-    # Abteilung schon geprüft/geschlossen (department_id kommt beim Anlegen
-    # immer vom Item/Material, ist unveränderlich) - der jeweils eigene
-    # Item-/Consumable-Check in purge_item/purge_consumable wäre hier
-    # garantiert redundant. purge_user bekommt das NICHT: ein Mitglied dieser
-    # Abteilung kann offene Ausleihen/Reservierungen auf Items EINER ANDEREN
-    # Abteilung haben (worker_id ist abteilungsunabhängig) - dort bleibt der
-    # volle Check zwingend nötig.
+
+async def _cascade_delete_department_entities(session: AsyncSession, dept_id, force: bool) -> str | None:
+    """Phase 2 von purge_department: Gegenstände/Verbrauchsmaterial/
+    Benutzer der Abteilung mitlöschen.
+
+    skip_open_check=True bei Item/Consumable: die department-weiten Checks
+    in _block_on_open_department_activity haben Lending/Reservation/
+    ConsumableReservation für ALLE Items/Material dieser Abteilung schon
+    geprüft/geschlossen (department_id kommt beim Anlegen immer vom Item/
+    Material, ist unveränderlich) - der jeweils eigene Item-/Consumable-
+    Check in purge_item/purge_consumable wäre hier garantiert redundant.
+    purge_user bekommt das NICHT: ein Mitglied dieser Abteilung kann offene
+    Ausleihen/Reservierungen auf Items EINER ANDEREN Abteilung haben
+    (worker_id ist abteilungsunabhängig) - dort bleibt der volle Check
+    zwingend nötig."""
     for item in (await session.exec(select(Item).where(Item.department_id == dept_id))).all():
         error = await purge_item(session, item, force=force, skip_open_check=True)
         if error:
@@ -372,6 +363,13 @@ async def purge_department(session: AsyncSession, department: Department, *, for
         if error:
             return error
 
+    return None
+
+
+async def _delete_department_presets_and_roles(session: AsyncSession, dept_id) -> None:
+    """Phase 3 von purge_department: Kategorien (samt Zusatzfeldern),
+    Standorte und Zugriffsrollen - reine Verwaltungsdaten ohne Historie,
+    werden direkt gelöscht statt gesnapshottet."""
     for category in (await session.exec(select(Category).where(Category.department_id == dept_id))).all():
         for field in (await session.exec(select(CustomFieldDefinition).where(CustomFieldDefinition.category_id == category.id))).all():
             for value in (await session.exec(select(CustomFieldValue).where(CustomFieldValue.field_id == field.id))).all():
@@ -385,9 +383,12 @@ async def purge_department(session: AsyncSession, department: Department, *, for
     for role in (await session.exec(select(UserDepartmentRole).where(UserDepartmentRole.department_id == dept_id))).all():
         await session.delete(role)
 
-    # Verbleibende Historien-Zeilen sind an dieser Stelle garantiert
-    # abgeschlossen (offene wurden oben bereits blockiert) - Name als Text
-    # erhalten, department_id auf NULL.
+
+async def _snapshot_remaining_department_history(session: AsyncSession, department: Department, dept_id) -> None:
+    """Phase 4 von purge_department: verbleibende Historien-Zeilen sind an
+    dieser Stelle garantiert abgeschlossen (offene wurden in Phase 1 bereits
+    blockiert/geschlossen) - Name als Text erhalten, department_id auf
+    NULL."""
     for lending in (await session.exec(select(Lending).where(Lending.department_id == dept_id))).all():
         lending.department_name_snapshot = department.name
         lending.department_id = None
@@ -407,6 +408,41 @@ async def purge_department(session: AsyncSession, department: Department, *, for
         cons_reservation.department_name_snapshot = department.name
         cons_reservation.department_id = None
         session.add(cons_reservation)
+
+
+async def purge_department(session: AsyncSession, department: Department, *, force: bool = False) -> str | None:
+    """Löscht eine Abteilung KASKADIEREND statt (wie früher) bei jeder noch
+    referenzierenden Zeile zu blockieren - Gegenstände/Verbrauchsmaterial/
+    Benutzer der Abteilung werden über die bestehenden purge_item/
+    purge_consumable/purge_user mitgelöscht (die ihrerseits schon Name/
+    Barcode in die Historie snapshotten), Kategorien/Standorte/Zugriffs-
+    Zuweisungen direkt (reine Verwaltungsdaten, keine Historie). Nur
+    OFFENE Ausleihen/Reservierungen/Material-Vormerkungen sind aktive
+    Geschäftsvorgänge und blockieren normalerweise - mit force=True werden
+    sie stattdessen automatisch abgeschlossen (returned_at/cancelled_at =
+    jetzt), z.B. zum Aufräumen von Testdaten/Fehleingaben, ohne jede Zeile
+    erst händisch suchen und einzeln zurückgeben/stornieren zu müssen. Historie
+    wird dabei NIE gelöscht, sondern als Text-
+    Schnappschuss erhalten (department_name_snapshot, siehe
+    app/models/lending.py etc.) - force ändert daran nichts, es entfällt
+    nur die Vorbedingung "muss vorher schon abgeschlossen sein".
+
+    Vier Phasen, siehe die jeweiligen _-Helferfunktionen: (1) offene
+    Vorgänge der Abteilung prüfen/schließen, (2) Items/Material/Benutzer
+    kaskadierend löschen, (3) Stammdaten (Kategorien/Standorte/Rollen)
+    löschen, (4) verbleibende Historie snapshotten."""
+    dept_id = department.id
+
+    error = await _block_on_open_department_activity(session, department, dept_id, force)
+    if error:
+        return error
+
+    error = await _cascade_delete_department_entities(session, dept_id, force)
+    if error:
+        return error
+
+    await _delete_department_presets_and_roles(session, dept_id)
+    await _snapshot_remaining_department_history(session, department, dept_id)
 
     await session.delete(department)
     return None
