@@ -66,6 +66,71 @@ ITEM_SORT_COLUMNS = {
 _PAGE_SIZE = 60  # an die Kachel-/Listenansicht angepasst
 
 
+def _apply_status_filter(stmt, status: str, user: User, staff_department_ids: set):
+    """Status-Filter für list_items - eigene Funktion, weil die Nutzer-Rolle
+    (siehe Kommentar unten) eine dritte, abteilungsgemischte Variante
+    braucht, die kein einfaches stmt.where(...) mehr ist."""
+    if status == "nicht_verfuegbar":
+        return stmt.where(Item.status != ItemStatus.VERFUEGBAR)
+    if status in ("ausgeliehen", "defekt", "ausgemustert"):
+        try:
+            target_status = ItemStatus(status)
+        except ValueError:
+            return stmt
+        if user.is_admin:
+            return stmt.where(Item.status == target_status)
+        # Genauer Grund ("firmeninterna") ist fuer reine Nutzer-Rolle nicht
+        # sichtbar/filterbar - WICHTIG: das muss ABTEILUNGSSPEZIFISCH gelten,
+        # nicht global. Ein User kann Mitarbeiter in Abteilung A und nur
+        # Nutzer in Abteilung B sein - ein globales "hat irgendwo
+        # Mitarbeiter-Rolle"-Flag (frueherer Bug) haette diesem User erlaubt,
+        # den granularen Filter auch fuer Abteilung B zu nutzen. Deshalb hier:
+        # granularer Filter nur innerhalb von staff_department_ids, in allen
+        # anderen sichtbaren Abteilungen auf die binaere Grenze heruntergestuft.
+        return stmt.where(
+            (Item.department_id.in_(staff_department_ids) & (Item.status == target_status))
+            | (Item.department_id.not_in(staff_department_ids) & (Item.status != ItemStatus.VERFUEGBAR))
+        )
+    if status:
+        try:
+            return stmt.where(Item.status == ItemStatus(status))
+        except ValueError:
+            return stmt  # ungültiger Wert (z.B. manipulierte URL) - Filter einfach ignorieren statt 500er
+    return stmt
+
+
+async def _item_filter_dropdown_options(session: AsyncSession, user: User, visible_ids) -> tuple[list[str], list[str]]:
+    """Kategorie-/Standort-Werte fürs Filter-Dropdown: unabhängig von den
+    aktuell gesetzten Filtern/der Suche, damit Optionen nicht verschwinden,
+    sobald ein anderer Filter aktiv ist - nur an dieselbe Abteilungs-
+    Sichtbarkeit gebunden wie die Liste selbst."""
+    category_stmt = select(Item.category).where(Item.deleted_at.is_(None), Item.category.is_not(None)).distinct()
+    location_stmt = select(Item.location).where(Item.deleted_at.is_(None), Item.location.is_not(None)).distinct()
+    if not user.is_admin:
+        category_stmt = category_stmt.where(Item.department_id.in_(visible_ids))
+        location_stmt = location_stmt.where(Item.department_id.in_(visible_ids))
+    available_categories = sorted((await session.exec(category_stmt)).all())
+    available_locations = sorted((await session.exec(location_stmt)).all())
+    return available_categories, available_locations
+
+
+async def _reserved_item_ids(session: AsyncSession, items: list[Item]) -> set:
+    """Offene Reservierungen der angezeigten Items (für "Reserviert"-Chip +
+    Button-Logik in der Liste)."""
+    if not items:
+        return set()
+    from app.models.reservation import Reservation
+
+    res_result = await session.exec(
+        select(Reservation.item_id).where(
+            Reservation.item_id.in_([i.id for i in items]),
+            Reservation.fulfilled_at.is_(None),
+            Reservation.cancelled_at.is_(None),
+        )
+    )
+    return set(res_result.all())
+
+
 @router.get("")
 async def list_items(
     request: Request,
@@ -80,7 +145,6 @@ async def list_items(
     user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    from app.models.reservation import Reservation
     from app.routers.reservations import get_linked_worker
 
     # page=0 oder negativ (z.B. per manipuliertem Query-Parameter) würde sonst
@@ -111,35 +175,7 @@ async def list_items(
         like = f"%{q}%"
         stmt = stmt.where((Item.name.ilike(like)) | (Item.barcode.ilike(like)))
 
-    if status == "nicht_verfuegbar":
-        stmt = stmt.where(Item.status != ItemStatus.VERFUEGBAR)
-    elif status in ("ausgeliehen", "defekt", "ausgemustert"):
-        try:
-            target_status = ItemStatus(status)
-        except ValueError:
-            target_status = None
-        if target_status is not None:
-            if user.is_admin:
-                stmt = stmt.where(Item.status == target_status)
-            else:
-                # Genauer Grund ("firmeninterna") ist fuer reine Nutzer-Rolle
-                # nicht sichtbar/filterbar - WICHTIG: das muss ABTEILUNGS-
-                # SPEZIFISCH gelten, nicht global. Ein User kann Mitarbeiter
-                # in Abteilung A und nur Nutzer in Abteilung B sein - ein
-                # globales "hat irgendwo Mitarbeiter-Rolle"-Flag (frueherer
-                # Bug) haette diesem User erlaubt, den granularen Filter auch
-                # fuer Abteilung B zu nutzen. Deshalb hier: granularer Filter
-                # nur innerhalb von staff_department_ids, in allen anderen
-                # sichtbaren Abteilungen auf die binaere Grenze heruntergestuft.
-                stmt = stmt.where(
-                    (Item.department_id.in_(staff_department_ids) & (Item.status == target_status))
-                    | (Item.department_id.not_in(staff_department_ids) & (Item.status != ItemStatus.VERFUEGBAR))
-                )
-    elif status:
-        try:
-            stmt = stmt.where(Item.status == ItemStatus(status))
-        except ValueError:
-            pass  # ungültiger Wert (z.B. manipulierte URL) - Filter einfach ignorieren statt 500er
+    stmt = _apply_status_filter(stmt, status, user, staff_department_ids)
     if category:
         stmt = stmt.where(Item.category == category)
     if location:
@@ -153,29 +189,8 @@ async def list_items(
     has_more = len(items) > _PAGE_SIZE
     items = items[:_PAGE_SIZE]
 
-    # Kategorie-/Standort-Werte fürs Filter-Dropdown: unabhängig von den
-    # aktuell gesetzten Filtern/der Suche, damit Optionen nicht verschwinden,
-    # sobald ein anderer Filter aktiv ist - nur an dieselbe Abteilungs-
-    # Sichtbarkeit gebunden wie die Liste selbst.
-    category_stmt = select(Item.category).where(Item.deleted_at.is_(None), Item.category.is_not(None)).distinct()
-    location_stmt = select(Item.location).where(Item.deleted_at.is_(None), Item.location.is_not(None)).distinct()
-    if not user.is_admin:
-        category_stmt = category_stmt.where(Item.department_id.in_(visible_ids))
-        location_stmt = location_stmt.where(Item.department_id.in_(visible_ids))
-    available_categories = sorted((await session.exec(category_stmt)).all())
-    available_locations = sorted((await session.exec(location_stmt)).all())
-
-    # Offene Reservierungen der angezeigten Items (für "Reserviert"-Chip + Button-Logik)
-    reserved_ids: set = set()
-    if items:
-        res_result = await session.exec(
-            select(Reservation.item_id).where(
-                Reservation.item_id.in_([i.id for i in items]),
-                Reservation.fulfilled_at.is_(None),
-                Reservation.cancelled_at.is_(None),
-            )
-        )
-        reserved_ids = set(res_result.all())
+    available_categories, available_locations = await _item_filter_dropdown_options(session, user, visible_ids)
+    reserved_ids = await _reserved_item_ids(session, items)
 
     return templates.TemplateResponse(
         request,
@@ -258,29 +273,36 @@ async def export_items_csv(
     )
 
 
+async def _new_form_context(session: AsyncSession, user: User) -> dict:
+    """Kontext fürs Anlegen-Formular - siehe _edit_form_context weiter unten
+    für das Bearbeiten-Pendant. Wird von new_item_form (GET) und den beiden
+    Fehlerpfaden von create_item (POST) gleichermaßen gebraucht, damit nicht
+    dieselben drei Abfragen an drei Stellen wiederholt werden."""
+    departments = await staff_departments(session, user)
+    categories_by_department, locations_by_department = await presets_by_department(session, [d.id for d in departments])
+    custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
+    return {
+        "departments": departments,
+        "categories_by_department": categories_by_department,
+        "locations_by_department": locations_by_department,
+        "custom_fields_by_department_category": custom_fields_by_department_category,
+    }
+
+
 @router.get("/new")
 async def new_item_form(
     request: Request,
     user: User = Depends(require_staff),
     session: AsyncSession = Depends(get_session),
 ):
-    departments = await staff_departments(session, user)
-    if not departments:
+    context = await _new_form_context(session, user)
+    if not context["departments"]:
         raise Forbidden()  # keine Abteilung, in der dieser User Mitarbeiter-Rolle hat
 
-    categories_by_department, locations_by_department = await presets_by_department(session, [d.id for d in departments])
-    custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
     return templates.TemplateResponse(
         request,
         "items/form.html",
-        {
-            "user": user, "item": None, "error": None,
-            "departments": departments,
-            "categories_by_department": categories_by_department,
-            "locations_by_department": locations_by_department,
-            "custom_fields_by_department_category": custom_fields_by_department_category,
-            "custom_field_values": {},
-        },
+        {"user": user, "item": None, "error": None, "custom_field_values": {}, **context},
     )
 
 
@@ -301,22 +323,17 @@ async def create_item(
 
     result = await session.exec(select(Item).where(Item.barcode == barcode, Item.deleted_at.is_(None)))
     if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="item"):
-        departments = await staff_departments(session, user)
-        categories_by_department, locations_by_department = await presets_by_department(session, [d.id for d in departments])
-        custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
+        context = await _new_form_context(session, user)
         return templates.TemplateResponse(
             request,
             "items/form.html",
             {
                 "user": user, "item": None,
                 "error": f"Barcode '{barcode}' ist bereits vergeben.",
-                "departments": departments,
-                "categories_by_department": categories_by_department,
-                "locations_by_department": locations_by_department,
-                "custom_fields_by_department_category": custom_fields_by_department_category,
                 "custom_field_values": {},
                 "selected_department_id": department_id,
                 "form_values": {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes},
+                **context,
             },
             status_code=409,
         )
@@ -346,22 +363,17 @@ async def create_item(
     form_data = await request.form()
     custom_field_errors = await save_values_for_item(session, item, form_data)
     if custom_field_errors:
-        departments = await staff_departments(session, user)
-        categories_by_department, locations_by_department = await presets_by_department(session, [d.id for d in departments])
-        custom_fields_by_department_category = await get_definitions_by_department_and_category(session, [d.id for d in departments])
+        context = await _new_form_context(session, user)
         return templates.TemplateResponse(
             request,
             "items/form.html",
             {
                 "user": user, "item": None,
                 "error": " ".join(custom_field_errors),
-                "departments": departments,
-                "categories_by_department": categories_by_department,
-                "locations_by_department": locations_by_department,
-                "custom_fields_by_department_category": custom_fields_by_department_category,
                 "custom_field_values": {},
                 "selected_department_id": department_id,
                 "form_values": {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes},
+                **context,
             },
             status_code=400,
         )
@@ -503,6 +515,38 @@ async def _edit_form_context(session: AsyncSession, user: User, item: Item) -> d
     }
 
 
+async def _has_open_lending(session: AsyncSession, item: Item) -> bool:
+    result = await session.exec(select(Lending).where(Lending.item_id == item.id, Lending.returned_at.is_(None)))
+    return result.first() is not None
+
+
+async def _has_open_reservation(session: AsyncSession, item: Item) -> bool:
+    from app.models.reservation import Reservation
+
+    result = await session.exec(
+        select(Reservation).where(
+            Reservation.item_id == item.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None)
+        )
+    )
+    return result.first() is not None
+
+
+async def _update_item_error(
+    request: Request, user: User, item: Item, session: AsyncSession, error: str, form_values: dict, status_code: int = 409,
+):
+    """Formular mit Fehlermeldung erneut ausliefern - dieselbe Kontext-
+    Beschaffung wiederholt sich in update_item an mehreren Validierungs-
+    Stellen (Barcode-Konflikt, offene Ausleihe, offene Reservierung), daher
+    hier gebündelt statt vierfach dupliziert."""
+    context = await _edit_form_context(session, user, item)
+    return templates.TemplateResponse(
+        request,
+        "items/form.html",
+        {"user": user, "item": item, "error": error, "form_values": form_values, **context},
+        status_code=status_code,
+    )
+
+
 @router.get("/{item_id}/edit")
 async def edit_item_form(
     request: Request,
@@ -555,14 +599,10 @@ async def update_item(
     result = await session.exec(
         select(Item).where(Item.barcode == barcode, Item.id != item_id, Item.deleted_at.is_(None))
     )
+    form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes}
     if result.first() or await barcode_taken_by_other_kind(session, barcode, kind="item"):
-        context = await _edit_form_context(session, user, item)
-        form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes}
-        return templates.TemplateResponse(
-            request,
-            "items/form.html",
-            {"user": user, "item": item, "error": f"Barcode '{barcode}' ist bereits vergeben.", "form_values": form_values, **context},
-            status_code=409,
+        return await _update_item_error(
+            request, user, item, session, f"Barcode '{barcode}' ist bereits vergeben.", form_values,
         )
 
     # Lending bleibt die alleinige Quelle der Wahrheit für "ausgeliehen"
@@ -574,24 +614,12 @@ async def update_item(
     # manipulierten Formulardaten oder einer parallel begonnenen Ausleihe
     # überhaupt erreicht).
     new_status = ItemStatus(status)
-    if new_status != ItemStatus.AUSGELIEHEN:
-        open_lending = await session.exec(
-            select(Lending).where(Lending.item_id == item.id, Lending.returned_at.is_(None))
+    if new_status != ItemStatus.AUSGELIEHEN and await _has_open_lending(session, item):
+        return await _update_item_error(
+            request, user, item, session,
+            "Gegenstand hat noch eine offene Ausleihe - erst über Scannen zurückgeben, dann Status ändern.",
+            form_values,
         )
-        if open_lending.first():
-            context = await _edit_form_context(session, user, item)
-            form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes}
-            return templates.TemplateResponse(
-                request,
-                "items/form.html",
-                {
-                    "user": user, "item": item,
-                    "error": "Gegenstand hat noch eine offene Ausleihe - erst über Scannen zurückgeben, dann Status ändern.",
-                    "form_values": form_values,
-                    **context,
-                },
-                status_code=409,
-            )
 
     # Abteilungswechsel: Lending.department_id/Reservation.department_id
     # werden beim Anlegen immer von item.department_id übernommen (siehe
@@ -606,44 +634,17 @@ async def update_item(
     # zusätzlich offene Reservierungen ab, die der Status-Wechsel bisher
     # ignorieren durfte, weil er den Gegenstand nicht aus seiner Abteilung nimmt.
     if department_id != item.department_id:
-        open_lending_for_move = await session.exec(
-            select(Lending).where(Lending.item_id == item.id, Lending.returned_at.is_(None))
-        )
-        if open_lending_for_move.first():
-            context = await _edit_form_context(session, user, item)
-            form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes}
-            return templates.TemplateResponse(
-                request,
-                "items/form.html",
-                {
-                    "user": user, "item": item,
-                    "error": "Gegenstand hat noch eine offene Ausleihe - erst über Scannen zurückgeben, bevor die Abteilung gewechselt wird.",
-                    "form_values": form_values,
-                    **context,
-                },
-                status_code=409,
+        if await _has_open_lending(session, item):
+            return await _update_item_error(
+                request, user, item, session,
+                "Gegenstand hat noch eine offene Ausleihe - erst über Scannen zurückgeben, bevor die Abteilung gewechselt wird.",
+                form_values,
             )
-
-        from app.models.reservation import Reservation
-
-        open_reservation = await session.exec(
-            select(Reservation).where(
-                Reservation.item_id == item.id, Reservation.fulfilled_at.is_(None), Reservation.cancelled_at.is_(None)
-            )
-        )
-        if open_reservation.first():
-            context = await _edit_form_context(session, user, item)
-            form_values = {"barcode": barcode, "name": name, "category": category, "location": location, "notes": notes}
-            return templates.TemplateResponse(
-                request,
-                "items/form.html",
-                {
-                    "user": user, "item": item,
-                    "error": "Gegenstand ist noch reserviert - erst stornieren oder abholen lassen, bevor die Abteilung gewechselt wird.",
-                    "form_values": form_values,
-                    **context,
-                },
-                status_code=409,
+        if await _has_open_reservation(session, item):
+            return await _update_item_error(
+                request, user, item, session,
+                "Gegenstand ist noch reserviert - erst stornieren oder abholen lassen, bevor die Abteilung gewechselt wird.",
+                form_values,
             )
         item.department_id = department_id
 
