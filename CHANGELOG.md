@@ -13,6 +13,25 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.23.1] - 2026-07-28
+
+### Fixed
+- **Aufklappbare Gegenstand-Details in der Sammel-Abholung überlagerten
+  sich in Safari** (Bild/Kategorie/Standort landeten rechts neben statt
+  unter Name+Barcode) - **die 0.23.0-Diagnose unten war falsch**, es lag
+  NICHT am Browser-Cache (per Inkognito-Fenster ausgeschlossen). Ursache:
+  die vorige Umsetzung kombinierte `<details class="settings-row
+  pickup-item-row">` - also ein `<details>`-Element, das gleichzeitig die
+  flexbasierte `.settings-row`-Zeilenklasse UND eine eigene
+  `display:block`-Override-Klasse trug. In Chrome/Firefox funktionierte die
+  Override-Kaskade wie erwartet, WebKit/Safari rendert diese Kombination
+  aber sichtbar anders. Fix: `<details>` bekommt jetzt gar keine
+  `.settings-row`-Klasse mehr - die normale Zeile (Name/Barcode/Entfernen)
+  bleibt ein unverändertes `<div class="settings-row">`, direkt danach
+  folgt ein komplett eigenständiges, schlichtes `<details
+  class="pickup-item-toggle">` nur für "Details ▾" - kein gemeinsames
+  Flex-Displays-Overriding mehr nötig, dadurch browserunabhängig robust.
+
 ## [0.23.0] - 2026-07-28
 
 ### Added
@@ -25,16 +44,14 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
   jetzt direkt in der Abholliste einsehen, ohne die Abholung zu verlassen.
 
 ### Fixed
-- **CSS/JS blieb nach einem Deploy im Browser gecacht, obwohl sich der
-  Inhalt geändert hatte**: die Cache-Busting-Query (`?v=...`) an allen
+- ~~CSS/JS blieb nach einem Deploy im Browser gecacht~~ **(überholt, siehe
+  0.23.1 oben - war nicht die tatsächliche Ursache, per Inkognito-Test
+  widerlegt)**: die Cache-Busting-Query (`?v=...`) an allen
   `/static/...`-URLs hängt an `app.version.__version__` - mehrere Commits
   seit 0.22.0 (u.a. die beiden oben genannten Features) hatten diesen Wert
-  nicht mitgezogen, wodurch Browser mit bereits gecachtem `app.css` die
-  neuen Styles für die aufklappbaren Details nie nachgeladen haben. Sichtbar
-  z.B. als Layout-Bruch (Bild/Text landete rechts statt darunter), weil die
-  alte `.settings-row`-Regel ohne die neuen `.pickup-item-row`-Overrides
-  griff. **Lektion:** `app/version.py` bei jeder CSS/JS-relevanten Änderung
-  mit hochziehen, nicht nur bei "großen" Releases.
+  nicht mitgezogen. Der Versionssprung selbst ist trotzdem sinnvoll
+  (Best Practice, wurde beibehalten), hat den eigentlichen Bug aber nicht
+  behoben.
 
 ## [0.22.0] - 2026-07-26
 
