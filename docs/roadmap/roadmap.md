@@ -3,7 +3,7 @@
 **Scope-Hinweis:** diese Roadmap beschreibt den Ausbau von Scandy-Lite
 INNERHALB seines aktuellen Zwecks (Ausleihe-/Ausgabe-Verwaltung für
 Werkzeuge und Verbrauchsmaterial). Sie ist keine Liste der langfristigen
-Vision aus `CLAUDE.md` ("Speziell für Scandy-Lite") - Punkte wie
+Vision aus `CLAUDE.md` ("Projektvision & aktueller Scope") - Punkte wie
 Discovery oder ein Plugin-System sind bewusst NICHT hier drin, siehe
 `docs/architecture/discovery.md` und `docs/architecture/plugin-system.md`
 für die Einordnung.

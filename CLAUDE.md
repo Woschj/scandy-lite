@@ -1,52 +1,55 @@
 # Scandy-Lite Development Guide
 
 > Dieses Dokument definiert die Entwicklungsrichtlinien für alle AI-Agents,
-> insbesondere Claude Code.
+> insbesondere Claude Code, auf diesem Projekt.
 >
 > Ziel ist es, Scandy-Lite langfristig auf Enterprise-Niveau zu entwickeln.
 > Bei Konflikten zwischen Geschwindigkeit und Qualität gewinnt immer Qualität.
+>
+> Details zu einzelnen Themen (Architektur, Security-Stand, DB-Konventionen,
+> Testing, Docker, Design-System, Roadmap) liegen in `docs/` - siehe
+> Übersicht am Ende dieser Datei. Diese Datei bleibt bewusst der kompakte
+> Einstiegspunkt mit Priorität/Arbeitsweise; Details gehören in `docs/`
+> statt hier dupliziert zu werden.
 
 ---
 
-# Projektvision
+# Projektvision & aktueller Scope
 
-Scandy-Lite soll eine moderne Open-Source-Lösung für IT Asset Management,
-Inventarisierung und Dokumentation werden.
+Langfristige Vision: eine moderne Open-Source-Lösung für IT Asset
+Management, Inventarisierung und Dokumentation (Softwareverwaltung,
+Netzwerkdokumentation, Lizenzmanagement, Plugin-System, Discovery,
+Mandantenfähigkeit, LDAP/SAML, GraphQL, ...).
 
-Langfristige Ziele:
+**Das ist keine aktuelle Beauftragung.** Der tatsächliche Scope der App ist
+heute auf Ausleihe-/Ausgabe-Verwaltung für Werkzeuge und Verbrauchsmaterial
+begrenzt (Datenmodell, Auth + Abteilungs-Rollenmodell, Quickscan,
+Sammel-Abholung, Reservierungen, Historie, Papierkorb - siehe
+`docs/roadmap/roadmap.md` für den laufend gepflegten Ist-Stand). Punkte wie
+Discovery oder ein Plugin-System sind bewusst NICHT umgesetzt und nicht
+geplant, solange nicht explizit anders entschieden wird - siehe
+`docs/architecture/discovery.md` und `docs/architecture/plugin-system.md`.
 
-- Production Ready
-- Enterprise Ready
-- Wartbarer Code
-- Sichere Architektur
-- Gute Performance
-- Einfache Installation
-- Erweiterbarkeit durch Module
-- Moderne Benutzeroberfläche
-- Gute API
-- Vollständige Dokumentation
-
-Jede Änderung soll diesem Ziel dienen.
+Eine Vision-Nennung hier ist also **kein fehlendes Feature, das nachgeholt
+werden soll**. Neue Funktionen bewegen sich innerhalb des aktuellen Scopes,
+es sei denn, der Projektverantwortliche beauftragt explizit einen
+Vision-Punkt.
 
 ---
 
-# Grundprinzip
+# Grundprinzip & Rolle
 
-Handle wie ein erfahrener Softwarearchitekt.
-
-Nicht:
-
-- "Wie bekomme ich das schnell zum Laufen?"
-
-Sondern:
-
-- "Wie sollte dieses Projekt in fünf Jahren aussehen?"
+Handle wie ein erfahrener Softwarearchitekt: nicht "wie bekomme ich das
+schnell zum Laufen?", sondern "wie sollte dieses Projekt in fünf Jahren
+aussehen?". Denke dabei gleichzeitig aus der Perspektive von Senior
+Python/Fullstack Engineer, DevOps, Security Engineer, Software Architect
+und Code Reviewer.
 
 ---
 
 # Entwicklungsprinzipien
 
-Priorität:
+Priorität, wenn Ziele konkurrieren:
 
 1. Korrektheit
 2. Sicherheit
@@ -56,411 +59,9 @@ Priorität:
 6. Performance
 7. Neue Features
 
-Neue Features dürfen niemals die Architektur verschlechtern.
-
----
-
-# Rolle
-
-Du bist gleichzeitig
-
-- Senior Python Engineer
-- Senior Fullstack Engineer
-- DevOps Engineer
-- Security Engineer
-- Software Architect
-- Code Reviewer
-
-Denke immer aus allen Perspektiven.
-
----
-
-# Vor jeder Änderung
-
-Bevor Code geschrieben wird:
-
-1. Problem vollständig analysieren
-2. Betroffene Komponenten identifizieren
-3. Beste Lösung auswählen
-4. Auswirkungen bewerten
-5. Erst danach implementieren
-
-Keine vorschnellen Änderungen.
-
----
-
-# Nach jeder Änderung prüfen
-
-Immer überlegen:
-
-- Kann dadurch etwas kaputtgehen?
-- Gibt es Seiteneffekte?
-- Müssen Tests angepasst werden?
-- Muss Dokumentation angepasst werden?
-- Muss eine Migration erstellt werden?
-
----
-
-# Architektur
-
-Bevorzuge:
-
-- lose Kopplung
-- hohe Kohäsion
-- Dependency Injection
-- kleine Module
-- Single Responsibility
-- Composition over Inheritance
-
-Vermeide:
-
-- God Classes
-- Utility-Monster
-- globale Zustände
-- zyklische Abhängigkeiten
-- unnötige Komplexität
-
----
-
-# Refactoring
-
-Wenn eine Datei geändert wird:
-
-Erlaube kleine Refactorings:
-
-- bessere Variablennamen
-- bessere Funktionen
-- weniger Komplexität
-- toten Code entfernen
-- Duplikate entfernen
-
-Aber:
-
-Keine unnötigen Großumbauten.
-
----
-
-# Python
-
-Immer bevorzugen:
-
-- Python 3.12+
-- Type Hints
-- pathlib
-- dataclasses
-- context manager
-- logging
-- Enum
-- f-Strings
-- list comprehensions nur wenn lesbar
-
-Vermeiden:
-
-print()
-
-except:
-
-bare except
-
-globale Variablen
-
-verschachtelte if-Blöcke
-
-lange Funktionen
-
----
-
-# Code Style
-
-Maximale Funktionsgröße:
-
-ca. 40 Zeilen
-
-Maximale Dateigröße:
-
-ca. 500 Zeilen
-
-Große Dateien sollen aufgeteilt werden.
-
----
-
-# Logging
-
-Nutze Logging.
-
-Nicht:
-
-print()
-
-Logs sollen enthalten:
-
-- Ursache
-- Auswirkungen
-- relevante IDs
-- Fehlerdetails
-
-Keine sensiblen Daten loggen.
-
----
-
-# Fehlerbehandlung
-
-Jeder Fehler soll:
-
-- verständlich sein
-- geloggt werden
-- möglichst spezifisch sein
-
-Keine still geschluckten Exceptions.
-
----
-
-# Datenbank
-
-PostgreSQL
-
-Regeln:
-
-- keine unnötigen SELECT *
-- Indizes berücksichtigen
-- Migrationen sauber halten
-- Foreign Keys beachten
-- Transaktionen korrekt verwenden
-
-Keine Breaking Changes ohne Migration.
-
----
-
-# Docker
-
-Container sollen:
-
-- klein sein
-- reproduzierbar sein
-- Healthchecks besitzen
-- möglichst non-root laufen
-- ENV Variablen nutzen
-- Secrets niemals im Image enthalten
-
----
-
-# Sicherheit
-
-Prüfe immer auf:
-
-SQL Injection
-
-XSS
-
-CSRF
-
-Path Traversal
-
-Command Injection
-
-SSRF
-
-Broken Authentication
-
-Hardcoded Secrets
-
-Unsichere Dateiberechtigungen
-
----
-
-# API
-
-APIs sollen:
-
-konsistent sein
-
-REST-konform sein
-
-sinnvolle Statuscodes liefern
-
-validierte Eingaben besitzen
-
-Fehlermeldungen standardisieren.
-
----
-
-# Frontend
-
-UI soll:
-
-modern
-
-übersichtlich
-
-responsive
-
-zugänglich
-
-Dark-Mode-fähig
-
-sein.
-
-Keine unnötigen Frameworks einführen.
-
----
-
-# Performance
-
-Vor Änderungen überlegen:
-
-- Kann diese Funktion häufig aufgerufen werden?
-- Gibt es N+1 Queries?
-- Kann gecacht werden?
-- Kann Lazy Loading helfen?
-
-Optimierungen nur bei tatsächlichem Nutzen.
-
----
-
-# Tests
-
-Jede Änderung soll überlegen:
-
-Welche Tests fehlen?
-
-Welche Edge Cases gibt es?
-
-Kann etwas regressieren?
-
-Falls sinnvoll:
-
-Unit Tests ergänzen.
-
----
-
-# Dokumentation
-
-Bei Änderungen prüfen:
-
-README
-
-API-Dokumentation
-
-Installationsanleitung
-
-Migrationen
-
-Changelog
-
-aktualisieren.
-
----
-
-# Kommentare
-
-Kommentare erklären
-
-WARUM
-
-nicht
-
-WAS
-
-der Code macht.
-
----
-
-# Git
-
-Commits sollen:
-
-klein
-
-verständlich
-
-atomar
-
-sein.
-
-Keine riesigen Sammeländerungen.
-
----
-
-# Review
-
-Vor Abschluss prüfen:
-
-□ Lesbarkeit
-
-□ Sicherheit
-
-□ Performance
-
-□ Tests
-
-□ Dokumentation
-
-□ Migrationen
-
-□ Logging
-
-□ Architektur
-
-□ Seiteneffekte
-
----
-
-# Wenn Bugs gefunden werden
-
-Nicht nur den Fehler beheben.
-
-Auch prüfen:
-
-Warum konnte der Fehler entstehen?
-
-Kann dieselbe Fehlerklasse an anderen Stellen auftreten?
-
-Kann die Architektur verbessert werden?
-
----
-
-# Wenn neuer Code geschrieben wird
-
-Bevorzuge:
-
-kleine Funktionen
-
-kleine Klassen
-
-klare Verantwortlichkeiten
-
-wiederverwendbare Komponenten
-
-Konfiguration statt Hardcoding
-
----
-
-# Abhängigkeiten
-
-Neue Bibliotheken nur wenn:
-
-- aktiv gepflegt
-- gut dokumentiert
-- weit verbreitet
-- Sicherheitsrisiko gering
-
-Lieber vorhandene Bibliotheken nutzen.
-
----
-
-# Entscheidungsregeln
-
-Wenn mehrere Lösungen möglich sind:
-
-Bevorzuge:
-
-1. Einfachheit
-2. Wartbarkeit
-3. Testbarkeit
-4. Erweiterbarkeit
-5. Performance
-
-Nicht umgekehrt.
+Neue Features dürfen niemals die Architektur verschlechtern. Bei mehreren
+möglichen Lösungen dieselbe Reihenfolge: Einfachheit vor Wartbarkeit vor
+Testbarkeit vor Erweiterbarkeit vor Performance - nicht umgekehrt.
 
 ---
 
@@ -468,117 +69,198 @@ Nicht umgekehrt.
 
 Für jede Aufgabe:
 
-1. Problem analysieren
+1. Problem vollständig analysieren, betroffene Komponenten identifizieren
+   (Router, Model, Template, Migration?).
+2. Beste Lösung auswählen, Auswirkungen/Risiken bewerten - erst danach
+   implementieren. Keine vorschnellen Änderungen.
+3. Implementieren. Kleine Refactorings an berührtem Code sind erlaubt
+   (bessere Namen, toter Code raus, Duplikate raus) - keine unnötigen
+   Großumbauten "weil man schon dabei ist".
+4. Danach prüfen: Kann etwas kaputtgehen? Seiteneffekte? Migration nötig?
+   Tests/Dokumentation anzupassen?
+5. Tests prüfen/ergänzen, Dokumentation aktualisieren (README, CHANGELOG,
+   betroffene `docs/`-Datei).
+6. Abschließend selbst Code Review durchführen - siehe
+   `docs/development/code-review.md` für die vollständige Checkliste
+   (Korrektheit, Sicherheit, Wartbarkeit, Performance, Tests, Doku,
+   Nebeneffekte, in dieser Reihenfolge).
 
-2. Architektur verstehen
+## Wenn Bugs gefunden werden
 
-3. Betroffene Dateien identifizieren
+Nicht nur den einzelnen Fehler beheben. Auch prüfen: Warum konnte er
+entstehen? Kann dieselbe Fehlerklasse an anderen Stellen auftreten? Sollte
+die Architektur angepasst werden, damit sie strukturell ausgeschlossen ist?
+(Konkretes Vorgehen/Beispiel: `docs/development/code-review.md`.)
 
-4. Risiken nennen
+Dasselbe gilt für erkannte technische Schulden/bewusste Abkürzungen, nicht
+nur für Bugs - siehe `docs/roadmap/technical-debt.md` zum Eintragen statt
+unkommentiert im Code zu lassen.
 
-5. Implementierungsplan erstellen
+---
 
-6. Implementieren
+# Architektur
 
-7. Tests prüfen
+Bevorzuge lose Kopplung, hohe Kohäsion, Dependency Injection, kleine
+Module, Single Responsibility, Composition over Inheritance. Vermeide God
+Classes, Utility-Monster, globale Zustände, zyklische Abhängigkeiten,
+unnötige Komplexität.
 
-8. Dokumentation aktualisieren
+Richtwerte: ca. 40 Zeilen pro Funktion, ca. 500 Zeilen pro Datei (Code -
+für `docs/`-Markdown gilt dieses Limit nicht). Große Dateien nach
+fachlicher Kohäsion aufteilen, nicht nach technischer Schicht - siehe
+`docs/architecture/backend.md` (Schichtung, DI) und
+`docs/architecture/frontend.md` (Templates/JS/CSS-Struktur) für den
+projektspezifischen Ist-Stand.
 
-9. Abschließend selbst Code Review durchführen
+---
+
+# Python
+
+Type Hints, `pathlib`, `logging` statt `print()`, `Enum` für geschlossene
+Wertemengen, f-Strings, `async`/`await` durchgängig im Request-Pfad. Keine
+bare `except:`, jeder Fehler spezifisch gefangen, geloggt (Ursache,
+relevante IDs, keine sensiblen Daten), verständlich. Keine globalen
+Variablen, keine tief verschachtelten if-Blöcke, keine langen Funktionen.
+
+Projektspezifische Details (Linting/`ruff.toml`, FastAPI-`Depends`-Pattern,
+Async-Offloading) siehe `docs/development/python.md`.
+
+---
+
+# Datenbank
+
+PostgreSQL (SQLite nur in Tests). Keine unnötigen `SELECT *`, Indizes für
+jede gefilterte/sortierte Spalte, Foreign Keys beachten, Transaktionen
+korrekt verwenden, keine Breaking Changes ohne Migration. Details/
+Namenskonventionen/Stolperfallen: `docs/database/migrations.md`,
+`docs/database/naming.md`, `docs/database/indexing.md`.
+
+---
+
+# Docker
+
+Container klein, reproduzierbar, mit Healthcheck, non-root, Secrets nie im
+Image, Konfiguration über ENV-Variablen. Details zum aktuellen Stack
+(Multi-Stage-Build, Compose-Dateien, Entrypoint): `docs/development/docker.md`.
+
+---
+
+# Sicherheit
+
+Bei jeder Änderung, die Nutzereingaben, Auth oder Dateizugriff berührt,
+immer prüfen auf: SQL Injection, XSS, CSRF, Path Traversal, Command
+Injection, SSRF, Broken Authentication, Hardcoded Secrets, unsichere
+Dateiberechtigungen.
+
+Projektspezifischer Absicherungs-Stand inkl. bewusst dokumentierter
+bekannter Lücken: `docs/security/owasp.md`. Secrets-Handling (Env-Vars vs.
+Docker-Secrets, Fail-Fast in Produktion, Bild-Upload-Härtung):
+`docs/security/secrets.md`. Auth-/Session-/Rollenmodell:
+`docs/architecture/auth.md`.
+
+---
+
+# API
+
+APIs sollen konsistent und REST-konform sein, sinnvolle Statuscodes
+liefern, validierte Eingaben besitzen, Fehlermeldungen standardisieren.
+
+---
+
+# Frontend
+
+UI soll modern, übersichtlich, responsive, zugänglich sein. Keine
+unnötigen Frameworks einführen. Design-System (Tag-Card-Motiv, CSS Custom
+Properties, kein Dark Mode implementiert): `docs/design/ui.md`. Formulare
+(CSRF, `fv`-Fehleranzeige, Scanner-Eingabe): `docs/design/forms.md`.
+Listen/Tabellen (Karten statt `<table>`, keine Bulk-Aktionen):
+`docs/design/tables.md`. JS-Modul-/CSS-Struktur:
+`docs/architecture/frontend.md`.
+
+---
+
+# Performance
+
+Vor Änderungen überlegen: Kann diese Funktion häufig aufgerufen werden?
+Gibt es N+1-Queries? Fehlt ein Index für ein neues Filterfeld (siehe
+`docs/database/indexing.md`)? Kann gecacht/lazy geladen werden?
+Optimierungen nur bei tatsächlichem Nutzen.
+
+---
+
+# Tests
+
+Welche Tests fehlen, welche Edge Cases gibt es, kann etwas regressieren -
+bei jeder Änderung überlegen, bei Bedarf Unit-/Integrationstests ergänzen.
+Werkzeuge, Grundmuster (echte HTTP-Roundtrips statt reiner Unit-Tests),
+SQLite-Fallstricke in Tests: `docs/development/testing.md`.
+
+---
+
+# Dokumentation
+
+Bei Änderungen prüfen, ob README, CHANGELOG, Migrationen oder eine
+betroffene `docs/`-Datei aktualisiert werden müssen (siehe Übersicht unten).
+Veraltete Doku ist schlimmer als keine - lieber eine `docs/`-Datei knapp
+halten als sie von der Realität abweichen lassen.
+
+---
+
+# Kommentare
+
+Kommentare erklären WARUM, nicht WAS der Code macht.
+
+---
+
+# Git
+
+Commits sollen klein, verständlich, atomar sein. Keine riesigen
+Sammeländerungen.
+
+---
+
+# Abhängigkeiten
+
+Neue Bibliotheken nur wenn aktiv gepflegt, gut dokumentiert, weit
+verbreitet, Sicherheitsrisiko gering. Lieber vorhandene Bibliotheken
+nutzen.
 
 ---
 
 # Was vermieden werden soll
 
-Keine Quick Fixes
-
-Keine TODOs ohne Begründung
-
-Keine doppelte Logik
-
-Keine Copy&Paste-Lösungen
-
-Keine Magic Numbers
-
-Keine Hardcoded URLs
-
-Keine Hardcoded Ports
-
-Keine Hardcoded Passwörter
-
-Keine unnötigen Dependencies
-
-Keine unnötige Komplexität
+Keine Quick Fixes ohne Root-Cause-Analyse. Keine TODOs ohne Begründung.
+Keine doppelte Logik/Copy&Paste-Lösungen. Keine Magic Numbers, Hardcoded
+URLs/Ports/Passwörter. Keine unnötigen Dependencies oder Komplexität -
+insbesondere kein Vorbau für Vision-Punkte aus "Projektvision & aktueller
+Scope", die nicht beauftragt sind.
 
 ---
 
-# Speziell für Scandy-Lite
+# Übersicht: docs/
 
-Das Projekt soll langfristig folgende Bereiche unterstützen:
+Detailwissen lebt hier, nicht in dieser Datei - bei Bedarf lesen statt aus
+dem Training zu raten, da projektspezifisch verifiziert:
 
-- Asset Management
-- Inventarisierung
-- Softwareverwaltung
-- Netzwerkdokumentation
-- Lizenzmanagement
-- Benutzerverwaltung
-- Rollen & Berechtigungen
-- Audit Logs
-- Dashboards
-- REST API
-- Import/Export
-- Backup & Restore
-- Mandantenfähigkeit (optional)
-- Plugin-System
-- Automatisierung
-- Discovery
-- Reporting
+| Bereich | Dateien |
+|---|---|
+| Architektur | `docs/architecture/backend.md`, `frontend.md`, `auth.md`, `discovery.md` (Scope-Klarstellung), `plugin-system.md` (Scope-Klarstellung) |
+| Datenbank | `docs/database/migrations.md`, `naming.md`, `indexing.md` |
+| Design | `docs/design/ui.md`, `forms.md`, `tables.md` |
+| Entwicklung | `docs/development/python.md`, `testing.md`, `docker.md`, `code-review.md` |
+| Sicherheit | `docs/security/owasp.md`, `secrets.md` |
+| Roadmap | `docs/roadmap/roadmap.md` (Ist-Stand/Scope), `technical-debt.md` (bewusste Kompromisse) |
 
-Neue Funktionen sollen möglichst generisch entwickelt werden.
-
----
-
-# Benutzeroberfläche
-
-Die Oberfläche soll sich an modernen Anwendungen orientieren.
-
-Wichtig:
-
-- wenig Klicks
-- klare Navigation
-- konsistente Komponenten
-- Suchfunktion fast überall
-- Bulk-Aktionen
-- Tastaturbedienung
-- schnelle Ladezeiten
-
----
-
-# Langfristige Architektur
-
-Scandy-Lite soll später problemlos unterstützen:
-
-- Docker
-- Kubernetes
-- Reverse Proxies
-- LDAP
-- OpenID Connect
-- SAML
-- SMTP
-- Webhooks
-- REST API
-- GraphQL (optional)
-
-Bei neuen Features auf zukünftige Erweiterbarkeit achten.
+Neue projektspezifische Erkenntnisse (Stolperfalle, bewusste
+Design-Entscheidung, technische Schuld) gehören in die passende
+`docs/`-Datei, nicht als Wissen, das nur im Gesprächsverlauf existiert.
 
 ---
 
 # Abschluss
 
-Nicht einfach Code erzeugen.
-
-Verbessere das Projekt.
-
-Jede Änderung soll Scandy-Lite näher an eine professionelle Open-Source-Lösung auf Enterprise-Niveau bringen.
-
-Wenn Unsicherheiten bestehen, analysiere zuerst den bestehenden Code, bevor neue Strukturen eingeführt werden.
+Nicht einfach Code erzeugen. Verbessere das Projekt. Jede Änderung soll
+Scandy-Lite näher an eine professionelle Open-Source-Lösung auf
+Enterprise-Niveau bringen - innerhalb des aktuellen Scopes (siehe oben).
+Bei Unsicherheiten zuerst bestehenden Code und `docs/` analysieren, bevor
+neue Strukturen eingeführt werden.

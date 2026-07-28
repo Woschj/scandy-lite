@@ -8,9 +8,10 @@ Code-Änderungen im Hauptrepo (mit Tests, Review, Migration bei Bedarf) -
 nicht über nachladbare Module.
 
 Diese Datei existiert aus demselben Grund wie
-`docs/architecture/discovery.md`: `CLAUDE.md`s "Speziell für Scandy-Lite"-
-Abschnitt nennt ein Plugin-System als mögliches langfristiges Ziel für das
-übergeordnete Projekt. Das ist **keine Aufforderung, jetzt eines zu bauen**.
+`docs/architecture/discovery.md`: `CLAUDE.md`s "Projektvision & aktueller
+Scope"-Abschnitt nennt ein Plugin-System als mögliches langfristiges Ziel
+für das übergeordnete Projekt. Das ist **keine Aufforderung, jetzt eines zu
+bauen**.
 Solange nicht explizit anders entschieden wird, gilt: keine neue
 Abstraktionsschicht "für später" einführen, die aktuell nichts tut außer
 Komplexität hinzuzufügen (siehe `CLAUDE.md` "Was vermieden werden soll" -

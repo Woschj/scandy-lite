@@ -1,8 +1,8 @@
 # Code Review
 
 Gilt sowohl für Reviews an fremdem Code als auch als Selbst-Check vor
-Abschluss einer eigenen Änderung (siehe `CLAUDE.md` "Arbeitsweise", Punkt
-9 - abschließend selbst Code Review durchführen).
+Abschluss einer eigenen Änderung (siehe `CLAUDE.md` "Arbeitsweise" - letzter
+Schritt: abschließend selbst Code Review durchführen).
 
 ## Prüf-Reihenfolge (nach Priorität, siehe `CLAUDE.md`)
 
@@ -46,4 +46,4 @@ kombinieren") als Lektion in `docs/architecture/frontend.md` festgehalten.
 Keine unnötigen Großumbauten "weil man schon dabei ist" durchwinken -
 kleine Refactorings (bessere Namen, toter Code raus) sind erwünscht, ein
 Umbau der Architektur gehört in eine eigene, separat besprochene Änderung
-(siehe `CLAUDE.md` "Refactoring").
+(siehe `CLAUDE.md` "Arbeitsweise").
