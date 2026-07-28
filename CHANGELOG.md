@@ -13,6 +13,29 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.23.0] - 2026-07-28
+
+### Added
+- **Ausweis als eigenes Tab-Bar-Icon** (statt nur Dashboard-Kachel/Hamburger)
+  - gerade Nutzer ohne Mitarbeiter-Rolle zeigen ihn oft, um eine Sammel-
+  Abholung auszulösen, da lohnt sich der direkte Tab. Historie im Gegenzug
+  aus der Tab-Bar entfernt (Kachel/Hamburger reichen dafür).
+- **Gegenstand-Details in der Sammel-Abholung aufklappbar** (natives
+  `<details>`, kein JS): Kategorie, Standort, Notiz und Bild lassen sich
+  jetzt direkt in der Abholliste einsehen, ohne die Abholung zu verlassen.
+
+### Fixed
+- **CSS/JS blieb nach einem Deploy im Browser gecacht, obwohl sich der
+  Inhalt geändert hatte**: die Cache-Busting-Query (`?v=...`) an allen
+  `/static/...`-URLs hängt an `app.version.__version__` - mehrere Commits
+  seit 0.22.0 (u.a. die beiden oben genannten Features) hatten diesen Wert
+  nicht mitgezogen, wodurch Browser mit bereits gecachtem `app.css` die
+  neuen Styles für die aufklappbaren Details nie nachgeladen haben. Sichtbar
+  z.B. als Layout-Bruch (Bild/Text landete rechts statt darunter), weil die
+  alte `.settings-row`-Regel ohne die neuen `.pickup-item-row`-Overrides
+  griff. **Lektion:** `app/version.py` bei jeder CSS/JS-relevanten Änderung
+  mit hochziehen, nicht nur bei "großen" Releases.
+
 ## [0.22.0] - 2026-07-26
 
 ### Added
