@@ -13,6 +13,19 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.24.2] - 2026-07-28
+
+### Fixed
+- **Schwarzer Balken unter dem Kamerabild auf Desktop-Breiten.** Die
+  Kamera-Container hatten ein festes `min-height` (280px/220px). Das
+  `<video>`-Element wird von html5-qrcode exakt auf die Container-Breite
+  gesetzt, die Höhe folgt dem nativen Seitenverhältnis der Kamera - bei der
+  auf 480px begrenzten Kamera-Karte ergibt sich daraus eine geringere Höhe
+  als die feste Mindesthöhe, der Rest blieb als Container-eigene
+  Hintergrundfarbe (Schwarz) sichtbar. `min-height` entfernt (Scan-Seite,
+  Gegenstand-/Material-Formular) - deckt sich jetzt mit den bereits
+  bar-freien Kamera-Containern (Sammel-Abholung, Mitarbeiter-Scan).
+
 ## [0.24.1] - 2026-07-28
 
 ### Changed
