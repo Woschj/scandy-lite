@@ -29,6 +29,20 @@ window.ScandyCamera = (function () {
     }
   }
 
+  // Native BarcodeDetector-API ist hardwarebeschleunigt und dekodiert auch
+  // hochauflösende Frames schnell - der mitgelieferte JS-Fallback-Decoder
+  // (u.a. iOS Safari, siehe startScanner()) ist Software und wird durch
+  // dieselbe Auflösung spürbar langsamer. Derselbe isSupported()-Check wie
+  // im html5-qrcode-Bundle selbst (Quelle geprüft), damit wir VOR dem
+  // Kamerastart wissen, welchen Pfad der Browser nehmen wird.
+  var HAS_NATIVE_BARCODE_DETECTOR = (function () {
+    try {
+      return "BarcodeDetector" in window && typeof new BarcodeDetector({ formats: ["qr_code"] }) !== "undefined";
+    } catch (e) {
+      return false;
+    }
+  })();
+
   // Auf Werkzeug-/Material-Etiketten und Mitarbeiterausweisen kommen in der
   // Praxis nur 1D-Barcodes (per Label-Drucker/Ausweisdrucker) oder ein
   // gelegentlicher QR-Code vor - nie Aztec/Data-Matrix/PDF417/RSS. Den
@@ -234,10 +248,20 @@ window.ScandyCamera = (function () {
           // mehr Rohpixel, um überhaupt lesbar aufgelöst zu werden. "ideal"
           // statt "min"/"exact": fällt auf schwächeren Geräten/Kameras ohne
           // Fehler auf das Machbare zurück, statt den Kamerastart abzulehnen.
-          videoConstraints: {
+          // Volle 1080p NUR mit nativem BarcodeDetector (hardwarebeschleunigt,
+          // steckt die zusätzlichen Pixel locker weg) - der JS-Fallback-
+          // Decoder scannt jetzt das GESAMTE Bild (kein qrbox mehr, s.u.) und
+          // würde bei 1080p auf schwächeren/Fallback-Geräten spürbar
+          // langsamer als bei 720p, bei nur mäßig kleinerem Lesbarkeits-
+          // Spielraum für sehr kleine Barcodes.
+          videoConstraints: HAS_NATIVE_BARCODE_DETECTOR ? {
             facingMode: "environment",
             width: { ideal: 1920 },
             height: { ideal: 1080 },
+          } : {
+            facingMode: "environment",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
           },
         },
         function (decodedText) {

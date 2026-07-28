@@ -13,6 +13,18 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.24.3] - 2026-07-28
+
+### Changed
+- **Kamera-Videoauflösung geräteabhängig gewählt**: volle 1920x1080 nur
+  noch mit nativer BarcodeDetector-API (hardwarebeschleunigt, verkraftet
+  die zusätzlichen Pixel locker), sonst 1280x720. Der JS-Fallback-Decoder
+  (u.a. iOS Safari) scannt seit der "sucht überall im Bild"-Änderung das
+  GESAMTE Kamerabild pro Frame - bei 1080p spürbar langsamer als bei 720p,
+  bei nur mäßig kleinerem Lesbarkeits-Spielraum für sehr kleine Barcodes.
+  Geräte mit nativer API sind von der Änderung nicht betroffen, behalten
+  die volle Auflösung.
+
 ## [0.24.2] - 2026-07-28
 
 ### Fixed
