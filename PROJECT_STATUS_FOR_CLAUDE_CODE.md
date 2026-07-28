@@ -12,16 +12,15 @@
 **Scandy-Lite** ist eine schlanke Ausleihe-/Ausgabe-Verwaltung für Werkzeuge
 und Verbrauchsmaterial mit Mehr-Abteilungs-Unterstützung. Es ist eine
 **saubere Neuentwicklung** (nicht Fortentwicklung) von **Scandy2**
-(altes System, Flask + MongoDB, Repo: `MD-BTZ/btz-scandy`), reduziert auf den
-Kern-Workflow: kein Ticketsystem, kein Kantinenplan, keine Job-Verwaltung.
+(altes System, Flask + MongoDB), reduziert auf den Kern-Workflow: kein
+Ticketsystem, kein Kantinenplan, keine Job-Verwaltung.
 
-**Auftraggeber-Kontext:** Andreas arbeitet bei der Rheinischen Hochschule
-Köln (RH Köln) in einer IT-nahen Rolle. Scandy-Lite soll Scandy2 als
-Inventar-/Ausleihsystem für mehrere Abteilungen (Werkstatt, Büro, IT, ...)
-ablösen. Deployment erfolgt über Portainer (Docker-Compose-Stacks) auf einem
-Proxmox-Server. Interner Netzwerkbetrieb ohne generellen Internetzugriff nach
-außen war mehrfach relevant (siehe Abschnitt 6, "selbst gehostete
-JS-Bibliotheken").
+**Einsatzkontext:** Scandy-Lite ist als Inventar-/Ausleihsystem für
+Organisationen mit mehreren Abteilungen gedacht (Beispiel-Abteilungen im Code:
+Werkstatt, Büro, IT, ...), typischerweise selbst gehostet per Docker/Portainer
+oder als Proxmox-LXC in einem internen Netz. Interner Netzwerkbetrieb ohne
+generellen Internetzugriff nach außen war mehrfach relevant (siehe Abschnitt
+6, "selbst gehostete JS-Bibliotheken").
 
 ## 2. Tech-Stack
 
@@ -200,9 +199,9 @@ nach jeder größeren Mobile-Änderung nochmal zu testen.
 
 ## 6. Externe Abhängigkeiten — bewusst selbst gehostet
 
-**Kein CDN-Zugriff verlassen** — das interne Netz beim Nutzer (RH Köln)
-erreicht `unpkg.com` & Co. teils nicht (gleiches Muster wie bei einem
-früheren Projekt des Nutzers, "Wall-Ink"). Alle drei JS-Bibliotheken
+**Kein CDN-Zugriff verlassen** — interne Netze mit restriktivem Egress
+(Firmen/Behörden/Bildungseinrichtungen) erreichen `unpkg.com` & Co. teils
+nicht. Alle drei JS-Bibliotheken
 (htmx, Alpine.js, html5-qrcode) liegen deshalb unter
 `app/static/js/vendor/` und werden vom eigenen Server ausgeliefert, nicht
 per CDN geladen. Jede Datei wurde vor dem Einbinden auf fehlende externe

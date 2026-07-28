@@ -28,6 +28,26 @@ Installation aktualisieren" wählen und den Container aus der Liste
 auswählen - vergleicht den lokalen Stand per `git fetch` gegen
 `origin/master` und aktualisiert nur, wenn es tatsächlich etwas Neues gibt.
 
+## 🐳 Quick Install (Docker, jede Plattform)
+
+Kein Proxmox nötig - läuft überall, wo Docker läuft (Linux, macOS, Windows
+via Docker Desktop):
+
+```bash
+git clone https://github.com/woschj/scandy-lite.git && cd scandy-lite
+./install.sh          # Linux/macOS
+# oder: .\install.ps1   # Windows (PowerShell)
+```
+
+Prüft Docker/Docker Compose, erzeugt eine `.env` mit sicheren, zufällig
+generierten Zugangsdaten (`SECRET_KEY`, `POSTGRES_PASSWORD`,
+`ADMIN_PASSWORD`), baut und startet den Stack (App + PostgreSQL + optionaler
+Caddy-HTTPS-Proxy fürs Kamera-Scannen) und zeigt danach URL + Admin-Login an.
+Erneutes Ausführen ist gefahrlos (eine bereits vorhandene `.env` wird nicht
+verändert). Für einen dauerhaften Server-Betrieb per Portainer-Stack,
+alle Umgebungsvariablen, Backup/Restore und Troubleshooting:
+[INSTALL.md](INSTALL.md#alternative-dockerportainer).
+
 ## Tech-Stack
 
 - **Backend:** FastAPI (async)
@@ -218,9 +238,9 @@ erwartet sie ein leeres Container-`<div>`, in das sie ihr eigenes
 Video-/Canvas-Element einhängt.
 
 Auch mit der neuen Bibliothek dann die Meldung "kein Internetzugriff?" -
-die URL selbst war korrekt (per npm-Registry verifiziert), aber euer internes
-Netz erreicht `unpkg.com` offenbar generell nicht, genau wie schon einmal beim
-Wall-Ink-Projekt. Alle drei externen JS-Bibliotheken (htmx, Alpine.js,
+die URL selbst war korrekt (per npm-Registry verifiziert), aber viele interne
+Netze (Firmen/Behörden/Bildungseinrichtungen mit restriktivem Egress) erreichen
+`unpkg.com` offenbar generell nicht. Alle drei externen JS-Bibliotheken (htmx, Alpine.js,
 html5-qrcode) werden deshalb jetzt **selbst gehostet**
 (`app/static/js/vendor/`) statt per CDN geladen - damit ist die App komplett
 unabhängig von ausgehendem Internetzugriff des Browsers. Jede Datei wurde vor
