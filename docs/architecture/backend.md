@@ -14,8 +14,14 @@ das zusätzliche Indirektion ohne echten Nutzen. Stattdessen:
 
 - **`app/routers/`** - ein Router pro fachlichem Bereich, spricht direkt mit
   der SQLModel-`AsyncSession`. Jede Datei bleibt beim jeweiligen Bereich
-  (Items, Consumables, Scan, Pickup, Reservations, History, Admin-Settings,
-  Auth, OIDC, Badge).
+  (Items, Consumables, Scan, Pickup, Reservations, History, Auth, OIDC,
+  Badge). Der Admin-Bereich ist selbst weiter aufgeteilt, sobald eine
+  einzelne Datei zu groß wurde: `admin_settings.py` liefert nur noch die
+  zusammengesetzte Übersichtsseite, die Aktionen sitzen in
+  `admin_users.py`, `admin_departments.py`, `admin_presets.py`
+  (Kategorien/Standorte/Zusatzfelder), `admin_email.py`, `admin_trash.py`,
+  `admin_pending_accounts.py`, `admin_import.py`, `admin_update.py` - alle
+  mit `prefix="/admin"` bzw. eigenem Unterpfad, siehe deren Docstrings.
 - **`app/core/`** - geteilte Bausteine, die von mehreren Routern gebraucht
   werden (Auth-Dependencies, Zugriffsprüfung, Uploads, CSRF, E-Mail,
   Passwort-Reset, Migration von Scandy2, ...). Wird ein Codepfad von zwei

@@ -1,6 +1,6 @@
 """
-SSO/OIDC (app.core.oidc, app.routers.oidc, app.routers.admin_settings
-pending-accounts): der volle Redirect-Handshake gegen einen echten Identity-
+SSO/OIDC (app.core.oidc, app.routers.oidc, app.routers.admin_pending_accounts):
+der volle Redirect-Handshake gegen einen echten Identity-
 Provider lässt sich hier nicht durchspielen, daher testgetrennt:
 - unique_username_from_claims als reine Funktion (Kollisions-Vermeidung),
 - Freischalten/Ablehnen/Auflisten als normale, direkt aufrufbare Admin-Routen

@@ -1,6 +1,6 @@
 """
 Regressionstests für echte Custom Fields (app.core.custom_fields,
-app.routers.admin_settings, app.routers.items): admin-definierbare
+app.routers.admin_presets, app.routers.items): admin-definierbare
 Zusatzfelder pro Kategorie, nur für Gegenstände (siehe migrations_legacy/
 README.md - im alten Scandy2 vorhanden, hier gezielt nachgeholt).
 """

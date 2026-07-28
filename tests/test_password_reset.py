@@ -1,6 +1,6 @@
 """
 Regressionstests für den Passwort-Reset-Flow (app.routers.auth) und die
-Willkommens-Mail beim Anlegen eines Benutzers (app.routers.admin_settings).
+Willkommens-Mail beim Anlegen eines Benutzers (app.routers.admin_users).
 
 smtplib wird nie wirklich angesprochen - app.core.email._send_sync wird per
 monkeypatch auf ein Fake umgebogen, das die verschickten Mails nur aufzeichnet

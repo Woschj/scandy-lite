@@ -1,5 +1,5 @@
 """
-Mitarbeiterausweis (app.routers.badge, app.routers.admin_settings.user_badge):
+Mitarbeiterausweis (app.routers.badge, app.routers.admin_users.user_badge):
 QR-Code kodiert denselben Barcode-Wert wie ein normaler Scan-Vorgang, beide
 Routen (Selbstbedienung + Admin-Ansicht für einen beliebigen Benutzer) nutzen
 dasselbe Template.

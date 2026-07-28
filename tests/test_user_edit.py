@@ -1,6 +1,6 @@
 """
 Regressionstest für die vereinheitlichte Benutzer-Bearbeiten-Seite
-(app.routers.admin_settings.update_user): Login- (Benutzername/E-Mail/
+(app.routers.admin_users.update_user): Login- (Benutzername/E-Mail/
 Passwort/Admin) UND Ausweis-Stammdaten (Vorname/Nachname/Barcode/Abteilung)
 sind jetzt Felder DESSELBEN Users (siehe app/models/user.py) und werden in
 einem einzigen POST gespeichert. Deckt außerdem ab, dass eine E-Mail-Adresse
