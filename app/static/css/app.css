@@ -429,8 +429,8 @@ select {
 
 @media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
   /* Bottom-Tab-Bar übernimmt hier die PRIMÄR-Navigation (siehe unten) -
-     der Hamburger bleibt trotzdem sichtbar, weil Übersicht, Mein Ausweis
-     und Einstellungen nicht in der Tab-Bar liegen und sonst auf dem Handy
+     der Hamburger bleibt trotzdem sichtbar, weil Übersicht, Historie und
+     Einstellungen nicht in der Tab-Bar liegen und sonst auf dem Handy
      überhaupt nicht erreichbar wären. */
 
   /* Top-Leiste lief früher über den rechten Rand hinaus (Abteilungs-Select +

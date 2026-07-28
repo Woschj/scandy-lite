@@ -20,10 +20,8 @@
     <span data-cart-badge style="display:none; position:absolute; top:2px; right:calc(50% - 22px); min-width:16px; height:16px; padding:0 3px; border-radius:8px; background:var(--brand); color:#fff; font-size:0.625rem; font-weight:700; line-height:16px; text-align:center;">0</span>
     Reserviert
   </a>
-  {% if user and has_any_staff_role %}
-  <a href="/history" class="{% if request.url.path.startswith('/history') %}active{% endif %}">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
-    Historie
+  <a href="/me/ausweis" class="{% if request.url.path.startswith('/me/ausweis') %}active{% endif %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M15 10h4M15 14h4M6 16c0-1.66 1.34-3 3-3s3 1.34 3 3"/></svg>
+    Ausweis
   </a>
-  {% endif %}
 </nav>
