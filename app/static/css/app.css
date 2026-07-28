@@ -39,6 +39,10 @@
   --tab-bar-height: 64px;
 
   --shadow-card: 0 1px 2px rgba(20, 32, 29, 0.06), 0 4px 12px rgba(20, 32, 29, 0.06);
+
+  /* Icon für Leerzustände (.empty-state/.settings-empty) - einmal zentral
+     codiert statt in jeder Regel dupliziert. */
+  --icon-empty-inbox: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
 }
 
 * {
@@ -165,6 +169,7 @@ select {
 .btn-ghost:hover { background: var(--bg-raised); }
 
 .btn-block { width: 100%; }
+.btn svg { width: 20px; height: 20px; flex-shrink: 0; }
 
 /* -------------------------------------------------------------------------
    Formulare
@@ -413,19 +418,72 @@ select {
 @media (min-width: 900px) {
   .detail-layout { grid-template-columns: minmax(320px, 420px) 1fr; }
 }
+/* Ohne Historie-Spalte (z.B. Nutzer-Rolle ohne can_manage) bleibt die
+   zweite Grid-Spur leer - die Stammdaten-Karte darf dann breiter werden,
+   statt einsam schmal neben viel ungenutztem Freiraum zu stehen. */
+.detail-layout > .tag-card:only-child {
+  max-width: 640px;
+}
 
 .tab-bar {
   display: none;
 }
 
-/* Kachel-Schnellzugriff auf der Übersicht (dashboard.html) - nur auf
-   Mobil/PWA sichtbar (siehe @media unten, gleicher Breakpoint wie die
-   Tab-Bar): auf dem Desktop deckt die Topnav bereits alles ab, hier soll es
-   auf dem Handy wie ein App-Homescreen wirken statt sich allein auf das
-   Burger-Menü zu verlassen. Muss VOR dem @media-Block stehen, sonst
-   gewinnt diese gleich-spezifische Regel per Quellreihenfolge immer gegen
-   die display:grid-Regel darin, egal ob die Media Query zutrifft. */
-.quick-tiles { display: none; }
+/* Kachel-Schnellzugriff auf der Übersicht (dashboard.html) - jetzt auch auf
+   Desktop sichtbar (vorher nur Mobil/PWA): die Topnav deckt dieselben Ziele
+   zwar schon ab, aber die Übersicht wirkte ohne die Kacheln merklich
+   nüchterner/lieblosser als ihr mobiles Pendant - ein redundanter, aber
+   prominenter Schnellzugriff ist hier bewusst in Kauf genommen (weniger
+   Klicks zu den Kernaktionen, siehe CLAUDE.md "Benutzeroberfläche"). Die
+   @media-Regel unten überschreibt Spaltenzahl/Größe für schmale Viewports
+   (3 statt auto-fit Spalten, kompaktere Kacheln) - muss NACH dieser Regel
+   stehen, damit sie bei zutreffender Media Query gewinnt. */
+.quick-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+.quick-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 96px;
+  padding: var(--space-4) var(--space-2);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  color: var(--ink);
+  text-decoration: none;
+  font-family: var(--font-display);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.01em;
+  transition: transform 0.08s ease, box-shadow 0.15s ease;
+}
+.quick-tile:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(20, 32, 29, 0.1); }
+.quick-tile svg { width: 28px; height: 28px; flex-shrink: 0; }
+.quick-tile-accent { background: var(--brand); border-color: var(--brand); color: #fff; }
+.quick-tile-accent:hover { background: var(--brand-ink); }
+.quick-tile-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 18px;
+}
 
 @media (max-width: 720px), (max-height: 500px) and (orientation: landscape) {
   /* Bottom-Tab-Bar übernimmt hier die PRIMÄR-Navigation (siehe unten) -
@@ -528,27 +586,10 @@ select {
   }
   .quick-tile:active { background: var(--bg); }
   .quick-tile svg { width: 26px; height: 26px; flex-shrink: 0; }
-  .quick-tile-accent {
-    background: var(--brand);
-    border-color: var(--brand);
-    color: #fff;
-  }
+  /* .quick-tile-accent (Grundfarben) und .quick-tile-badge sind identisch
+     zur Desktop-Basisregel weiter oben - hier nur noch der mobil-typische
+     Tap-Zustand, den Desktop (nutzt :hover statt :active) nicht braucht. */
   .quick-tile-accent:active { background: var(--brand-ink); }
-  .quick-tile-badge {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 4px;
-    border-radius: 9px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 0.6875rem;
-    font-weight: 700;
-    line-height: 18px;
-    text-align: center;
-  }
 }
 
 /* -------------------------------------------------------------------------
@@ -670,6 +711,17 @@ select {
   gap: var(--space-3);
   flex-wrap: wrap;
   margin-bottom: var(--space-6);
+}
+
+/* CSV-Export (items/list.html) ist eine Verwaltungsaktion für den
+   Label-Drucker-Massenimport mit geringer mobiler Relevanz - auf schmalen
+   Viewports nur noch als Icon neben dem primären "+ Neuer Gegenstand", statt
+   gleichrangig um Aufmerksamkeit zu konkurrieren. title/aria-label bleiben
+   als Beschriftung erhalten, Klickfläche bleibt über die .btn-Mindesthöhe
+   touch-tauglich. */
+@media (max-width: 720px) {
+  .csv-export-btn { padding-left: var(--space-3); padding-right: var(--space-3); }
+  .csv-export-label { display: none; }
 }
 
 .search-input {
@@ -870,6 +922,21 @@ select {
 .item-grid.view-list .list-view-hide {
   display: none;
 }
+/* Gegenstück zu .list-view-hide: die Kategorie war in der Listenansicht
+   bisher komplett unsichtbar (nur die .item-meta-Zeile mit Kategorie+
+   Standort trug list-view-hide) - hier stattdessen ein kompakter Chip NUR
+   in der Listenansicht sichtbar (Standort bleibt dort bewusst weg, für die
+   knappe Zeile reicht die Kategorie als schnell scannbare Info). */
+.list-view-only { display: none; }
+.item-grid.view-list .list-view-only { display: inline-flex; }
+
+.item-card-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
 /* Bewusst KEIN display:flex auf .item-card selbst: der Warenkorb-Button
    (.cart-toggle-btn) steht als eigene Zeile VOR .item-card-actions, nicht
    darin - .item-card bleibt daher ein normaler Block mit gestapelten Zeilen
@@ -1030,6 +1097,39 @@ select {
   padding: var(--space-12) var(--space-4);
   color: var(--ink-soft);
 }
+/* Ein generisches "leere Ablage"-Icon vor JEDEM .empty-state (Papierkorb-
+   Tabs leer, keine Reservierungen, keine Historie, ...) statt einer reinen
+   Textbox - per mask-image auf einem Pseudo-Element, damit EIN einziger
+   CSS-Ort reicht statt das SVG in jedem der ~12 Templates zu duplizieren.
+   mask() statt eines eingefärbten background-image, damit die Icon-Farbe
+   automatisch background-color (hier --ink-soft) folgt statt fest im
+   SVG codiert zu sein. */
+.empty-state::before {
+  content: "";
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto var(--space-3);
+  background-color: var(--ink-soft);
+  opacity: 0.4;
+  -webkit-mask: var(--icon-empty-inbox) no-repeat center / contain;
+  mask: var(--icon-empty-inbox) no-repeat center / contain;
+}
+
+/* .settings-empty (Abteilungen/Benutzer/Kategorien/Standorte/Zusatzfelder/
+   Papierkorb "ist leer") ist kompakter als .empty-state - dasselbe Icon,
+   aber kleiner und ohne den großzügigen Abstand. */
+.settings-empty::before {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 24px;
+  margin: 0 auto var(--space-2);
+  background-color: var(--ink-soft);
+  opacity: 0.4;
+  -webkit-mask: var(--icon-empty-inbox) no-repeat center / contain;
+  mask: var(--icon-empty-inbox) no-repeat center / contain;
+}
 
 .qty-badge {
   font-family: var(--font-display);
@@ -1071,8 +1171,12 @@ select {
   gap: var(--space-2);
   margin-bottom: var(--space-4);
 }
-.checkbox-field input { width: 20px; height: 20px; }
-.checkbox-field label { margin: 0; text-transform: none; font-family: var(--font-body); font-size: 1rem; letter-spacing: normal; color: var(--ink); }
+/* accent-color lässt die native Checkbox (volle Tastatur-/Screenreader-
+   Unterstützung geschenkt, siehe docs/design/ui.md) in der Marken-Farbe
+   erscheinen statt im browserabhängigen Default-Blau - kein Nachbau als
+   Custom-Widget nötig. */
+.checkbox-field input { width: 20px; height: 20px; accent-color: var(--brand); cursor: pointer; }
+.checkbox-field label { margin: 0; text-transform: none; font-family: var(--font-body); font-size: 1rem; letter-spacing: normal; color: var(--ink); cursor: pointer; }
 
 /* -------------------------------------------------------------------------
    Quickscan-CTA - der primäre Einstiegspunkt, deshalb visuell hervorgehoben
@@ -1383,6 +1487,22 @@ select {
   gap: var(--space-2);
 }
 
+/* .settings-row selbst ist ein 2-Item-Flex-Container (.main + .actions) mit
+   justify-content:space-between + flex-wrap:wrap - ob .actions neben oder
+   unter .main landet, hing dadurch vom exakten Pixel-Verhältnis der beiden
+   Items ab (z.B. Namenslänge + Anzahl Chips), nicht von einer festen Regel.
+   Zwei Nutzer mit strukturell identischer Zeile konnten dadurch sichtbar
+   unterschiedlich umbrechen. user-row erzwingt deshalb IMMER Stapelung
+   (Identität+Tags oben, Aktionen darunter, rechtsbündig) statt sich auf
+   den Wrap-Zufall zu verlassen - deterministisch unabhängig vom Namen. */
+.settings-row.user-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+.settings-row.user-row .actions {
+  justify-content: flex-end;
+}
+
 .user-identity {
   display: flex;
   align-items: baseline;
@@ -1397,6 +1517,18 @@ select {
 }
 
 .settings-row form { margin: 0; }
+
+/* Trennt destruktive Aktionen (Löschen/Entfernen/Endgültig löschen) optisch
+   von harmlosen (Aktivieren/Wiederherstellen/Bearbeiten) - vorher gleicher
+   Abstand/gleiches Gewicht für alle Aktionen einer Zeile, was ein
+   versehentliches Klicken direkt neben einer harmlosen Aktion begünstigte.
+   :has() statt einer zusätzlichen Klasse an jeder Stelle, damit das nicht in
+   jedem Template einzeln nachgezogen werden muss. */
+.actions form:has(.link-btn.danger),
+.item-card-actions form:has(.link-btn.danger) {
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--line);
+}
 
 .settings-group-label {
   padding: var(--space-2) var(--space-4);
@@ -1628,7 +1760,7 @@ select {
 .image-upload-preview {
   cursor: pointer;
   width: 100%;
-  max-width: 240px;
+  max-width: 320px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
   margin-bottom: var(--space-3);
@@ -1673,6 +1805,34 @@ select {
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+/* input[type="file"] hat keine sinnvoll stylbare Box (die Browser-eigene
+   "Datei auswählen"-Fläche lässt sich nicht wie ein normales Input rahmen) -
+   deshalb nur den Auswahl-Button selbst an .btn-ghost angleichen, statt den
+   nativen, unstylbaren Rest zu verstecken (bliebe sonst funktional, sähe
+   aber neben den sonst durchgestylten Formularfeldern wie vergessen aus). */
+input[type="file"] {
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+input[type="file"]::file-selector-button {
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 0.625rem 1.125rem;
+  margin-right: var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+input[type="file"]::file-selector-button:hover {
+  background: var(--bg-raised);
 }
 
 /* Alpine: verhindert kurzes Aufblitzen aller Tab-Inhalte vor der Initialisierung */

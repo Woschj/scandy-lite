@@ -16,6 +16,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from sqlalchemy import text
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.core.config import get_settings
@@ -206,6 +207,17 @@ async def handle_redirect_to_login(request: Request, exc: RedirectToLogin):
 @app.exception_handler(Forbidden)
 async def handle_forbidden(request: Request, exc: Forbidden):
     return templates.TemplateResponse(request, "errors/403.html", {}, status_code=403)
+
+
+@app.exception_handler(StarletteHTTPException)
+async def handle_http_exception(request: Request, exc: StarletteHTTPException):
+    # Nur 404 bekommt eine gestaltete Seite - alle anderen HTTP-Fehler
+    # (z.B. 405 bei falscher Methode) sind praktisch nie erreichbar, ohne
+    # dass jemand absichtlich eine falsche URL/Methode konstruiert, dafür
+    # reicht FastAPIs Default-JSON-Verhalten.
+    if exc.status_code == 404:
+        return templates.TemplateResponse(request, "errors/404.html", {}, status_code=404)
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 
 
 @app.exception_handler(Exception)

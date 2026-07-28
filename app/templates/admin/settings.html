@@ -7,7 +7,10 @@
 <span class="eyebrow">Admin</span>
 <h1>Einstellungen <span class="meta">v{{ version }}</span></h1>
 
-<a href="/admin/import" class="btn btn-ghost" style="margin-bottom: var(--space-4);">📥 Import aus Scandy2</a>
+<a href="/admin/import" class="btn btn-ghost" style="margin-bottom: var(--space-4);">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+  Import aus Scandy2
+</a>
 
 {% if ok %}<div class="chip chip-success" style="margin-bottom: var(--space-4);">{{ ok }}</div>{% endif %}
 {% if error %}<div class="form-error" role="alert">{{ error }}</div>{% endif %}
@@ -55,7 +58,7 @@
           <form method="post" action="/admin/departments/{{ d.id }}/delete" onsubmit="return confirm('{{ d.name }} WIRKLICH löschen? Offene Ausleihen/Reservierungen/Vormerkungen werden dabei automatisch als abgeschlossen markiert (bleiben in der Historie sichtbar) statt das Löschen zu blockieren.')" title="Nur nötig, wenn 'Löschen' wegen offener Ausleihen/Reservierungen blockiert - schließt diese automatisch ab, statt sie händisch suchen zu müssen.">
             {% include "partials/csrf_field.html" %}
             <input type="hidden" name="force" value="true">
-            <button type="submit" class="link-btn">Trotzdem entfernen</button>
+            <button type="submit" class="link-btn danger">Trotzdem entfernen</button>
           </form>
         </div>
       </div>
@@ -506,7 +509,7 @@
           <form method="post" action="/admin/trash/items/{{ i.id }}/purge" onsubmit="return confirm('{{ i.name }} WIRKLICH löschen? Offene Ausleihen/Reservierungen werden dabei automatisch als abgeschlossen markiert (bleiben in der Historie sichtbar).')" title="Nur nötig, wenn 'Endgültig löschen' wegen offener Ausleihe/Reservierung blockiert.">
             {% include "partials/csrf_field.html" %}
             <input type="hidden" name="force" value="true">
-            <button type="submit" class="link-btn">Trotzdem entfernen</button>
+            <button type="submit" class="link-btn danger">Trotzdem entfernen</button>
           </form>
         </div>
       </div>
@@ -537,7 +540,7 @@
           <form method="post" action="/admin/trash/consumables/{{ c.id }}/purge" onsubmit="return confirm('{{ c.name }} WIRKLICH löschen? Offene Vormerkungen werden dabei automatisch als abgeschlossen markiert (bleiben in der Historie sichtbar).')" title="Nur nötig, wenn 'Endgültig löschen' wegen offener Vormerkung blockiert.">
             {% include "partials/csrf_field.html" %}
             <input type="hidden" name="force" value="true">
-            <button type="submit" class="link-btn">Trotzdem entfernen</button>
+            <button type="submit" class="link-btn danger">Trotzdem entfernen</button>
           </form>
         </div>
       </div>
@@ -568,7 +571,7 @@
           <form method="post" action="/admin/trash/users/{{ u.id }}/purge" onsubmit="return confirm('{{ u.full_name }} WIRKLICH löschen? Offene Ausleihen/Reservierungen/Vormerkungen werden dabei automatisch als abgeschlossen markiert (bleiben in der Historie sichtbar).')" title="Nur nötig, wenn 'Endgültig löschen' wegen offener Ausleihe/Reservierung blockiert.">
             {% include "partials/csrf_field.html" %}
             <input type="hidden" name="force" value="true">
-            <button type="submit" class="link-btn">Trotzdem entfernen</button>
+            <button type="submit" class="link-btn danger">Trotzdem entfernen</button>
           </form>
         </div>
       </div>

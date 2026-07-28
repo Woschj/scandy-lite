@@ -14,7 +14,10 @@
   </div>
   <div style="display: flex; gap: var(--space-2);">
     {% if has_any_staff_role %}
-      <a href="/items/export.csv?{{ qs[1:] }}" class="btn btn-ghost" title="Barcodes als CSV exportieren (für Label-Drucker-Massenimport)">📄 CSV-Export</a>
+      <a href="/items/export.csv?{{ qs[1:] }}" class="btn btn-ghost csv-export-btn" title="Barcodes als CSV exportieren (für Label-Drucker-Massenimport)" aria-label="CSV-Export: Barcodes exportieren für Label-Drucker-Massenimport">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span class="csv-export-label">CSV-Export</span>
+      </a>
     {% endif %}
     {% if user.is_admin or staff_department_ids %}
       <a href="/items/new" class="btn btn-primary">+ Neuer Gegenstand</a>
@@ -118,7 +121,10 @@
               <span class="item-barcode">{{ item.barcode }}</span>
             </a>
           </div>
-          {{ item_status_chip(item, can_manage_item, is_reserved=(item.id in reserved_ids)) }}
+          <div class="item-card-chips">
+            {% if item.category %}<span class="chip chip-neutral list-view-only">{{ item.category }}</span>{% endif %}
+            {{ item_status_chip(item, can_manage_item, is_reserved=(item.id in reserved_ids)) }}
+          </div>
         </div>
         {% if item.category or item.location %}
           <p class="item-meta list-view-hide">

@@ -108,7 +108,10 @@
               <span class="item-barcode">{{ c.barcode }}</span>
             </a>
           </div>
-          {{ consumable_status_chip(c, can_manage) }}
+          <div class="item-card-chips">
+            {% if c.category %}<span class="chip chip-neutral list-view-only">{{ c.category }}</span>{% endif %}
+            {{ consumable_status_chip(c, can_manage) }}
+          </div>
         </div>
         {% if c.category or c.location %}
           <p class="item-meta list-view-hide">

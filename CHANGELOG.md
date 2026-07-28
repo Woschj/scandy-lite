@@ -13,6 +13,47 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.24.0] - 2026-07-28
+
+### Fixed
+- **Benutzerliste (Einstellungen): Aktionen (Bearbeiten/Ausweis/...) wrappten
+  bei strukturell identischen Zeilen unterschiedlich** - `.settings-row` war
+  ein 2-Item-Flex-Container mit `justify-content: space-between`, wodurch der
+  Umbruch vom exakten Pixel-Verhältnis von Name+Chips zu Aktionen abhing statt
+  einer festen Regel. `user-row` erzwingt jetzt immer Stapelung (Identität
+  oben, Aktionen darunter), unabhängig vom Namen.
+
+### Changed
+- **Native Formularelemente an das Design-System angeglichen**: der
+  browsereigene "Datei auswählen"-Button (Bild-Upload) hat jetzt denselben
+  Rahmen-/Hover-Stil wie `.btn-ghost`; Checkboxen nutzen `accent-color` in
+  der Marken-Farbe statt browserabhängigem Default-Blau.
+- **Icon-System vereinheitlicht**: Emoji (📷/📋/🛒/📄/📥) in Buttons/Links
+  durch Inline-SVG im selben Stil wie Historie/mobile Startseite ersetzt
+  (Scan-Seite, Sammel-Abholung, Reservierungen, CSV-Export, Scandy2-Import).
+- **Desktop-Übersicht bekommt den Icon-Kachel-Schnellzugriff**, der vorher
+  nur auf Mobil sichtbar war - die Desktop-Ansicht wirkte im Vergleich zur
+  mobilen Variante deutlich nüchterner.
+- **Kategorie ist jetzt auch in der Listenansicht** von Gegenständen/Material
+  sichtbar (als kompakter Chip neben dem Status), vorher nur in der
+  Kachelansicht.
+- **Destruktive Aktionen (Löschen/Entfernen/Endgültig löschen) sind jetzt
+  optisch von harmlosen Aktionen abgesetzt** (dezenter Trenner) statt
+  gleiches Gewicht/gleichen Abstand wie Bearbeiten/Aktivieren/
+  Wiederherstellen zu haben - u.a. war "Trotzdem entfernen" bisher gar nicht
+  als destruktiv markiert.
+- **Leerzustände** (Papierkorb, keine Reservierungen, keine Historie, ...)
+  zeigen jetzt ein kleines Symbol statt einer reinen Textbox.
+- Gegenstand-/Material-Detailseiten ohne Historie-Spalte (z.B. Nutzer-Rolle)
+  und Bild-Vorschauen nutzen etwas mehr von der verfügbaren Breite auf
+  großen Bildschirmen, statt einsam schmal neben viel Leerraum zu stehen.
+- CSV-Export in der Gegenstände-Liste ist auf schmalen Viewports nur noch
+  ein Icon (weniger prominent neben dem primären "+ Neuer Gegenstand").
+
+### Added
+- Eigene, gestaltete 404-Seite statt FastAPIs rohem JSON bei unbekannten
+  Adressen.
+
 ## [0.23.2] - 2026-07-28
 
 ### Changed
