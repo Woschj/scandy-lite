@@ -202,7 +202,22 @@ window.ScandyCamera = (function () {
       scanner.start(
         { facingMode: "environment" }, // Rückkamera bevorzugen (Barcodes werden selten mit der Frontkamera gescannt)
         {
-          fps: 10,
+          fps: 20,
+          // disableFlip: html5-qrcode versucht bei JEDEM Frame ohne Treffer
+          // (Quelle: foreverScan() im Bundle geprüft) zusätzlich einen
+          // ZWEITEN Dekodier-Durchlauf auf dem horizontal gespiegelten Bild,
+          // bevor der nächste Frame geplant wird - Default ist also PRO
+          // erfolglosem Frame die doppelte Rechenzeit. Für echte Barcode-
+          // Symbologien (Code128/EAN/...) unnötig: die kodieren Start-/Stop-
+          // Muster so, dass ein Scan "von hinten" ohnehin korrekt gelesen
+          // wird, ein Bild-Flip bringt nichts. Das Spiegeln abzuschalten
+          // halbiert die Rechenzeit pro erfolglosem Frame - auf Geräten ohne
+          // native BarcodeDetector-API (u.a. iOS Safari, die dort auf den
+          // langsameren JS-Fallback-Decoder zurückfallen) macht genau das
+          // den größten Teil des "trägen" Scan-Gefühls aus, weil
+          // foreverScan() den nächsten Frame erst NACH Abschluss des
+          // aktuellen Dekodier-Durchlaufs plant (kein fester Takt).
+          disableFlip: true,
           // Bewusst KEIN qrbox: ohne dieses Feld deckt der Scan-Bereich das
           // GESAMTE Kamerabild ab statt nur einen eng eingegrenzten
           // Ausschnitt (Quelle: Html5Qrcode-internes setupUi() im Bundle

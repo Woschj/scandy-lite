@@ -13,6 +13,22 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.24.1] - 2026-07-28
+
+### Changed
+- **Kamera-Barcode-Scan spürbar schneller** auf Geräten ohne native
+  BarcodeDetector-API (u.a. iOS Safari, ältere Android-Browser), die auf
+  den langsameren JS-Fallback-Decoder zurückfallen: html5-qrcode hat bei
+  jedem Frame ohne Treffer zusätzlich einen zweiten Dekodier-Durchlauf auf
+  dem horizontal gespiegelten Bild gemacht (Default-Verhalten der
+  Bibliothek), was pro erfolglosem Frame die Rechenzeit verdoppelte - für
+  reguläre Barcode-Symbologien (Code128/EAN/...) unnötig, da die ihr
+  Start-/Stop-Muster ohnehin richtungsunabhängig kodieren. Jetzt
+  abgeschaltet (`disableFlip: true`), zusätzlich Ziel-Bildrate von 10 auf
+  20 fps angehoben (wirkt sich nur auf ohnehin schnelle Geräte aus, siehe
+  `barcode-camera.js`-Kommentar zur Selbstdrosselung bei langsamen
+  Dekodier-Durchläufen).
+
 ## [0.24.0] - 2026-07-28
 
 ### Fixed
