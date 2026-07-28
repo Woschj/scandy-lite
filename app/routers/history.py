@@ -66,6 +66,97 @@ class HistoryEntry:
         return f"{self.title} {self.subtitle} {extra} {self.barcodes}".lower()
 
 
+def _grouped_lending_entry(group: list[Lending], signature: str) -> HistoryEntry:
+    """Ein HistoryEntry für eine ganze (Mitarbeiter, Unterschrift)-Gruppe -
+    siehe Modul-Docstring, warum das der Gruppierungsschlüssel ist."""
+    group.sort(key=lambda lend: lend.lent_at)
+    worker_name = group[0].worker.full_name if group[0].worker else (group[0].worker_name_snapshot or "(gelöschter Mitarbeiter)")
+    details = [
+        LendingDetail(
+            name=lend.item.name if lend.item else (lend.item_name_snapshot or "(gelöschter Gegenstand)"),
+            lent_at=lend.lent_at, returned_at=lend.returned_at,
+        )
+        for lend in group
+    ]
+    open_count = sum(1 for lend in group if lend.returned_at is None)
+    title = details[0].name if len(group) == 1 else f"{len(group)} Gegenstände"
+    barcodes = " ".join((lend.item.barcode if lend.item else lend.item_barcode_snapshot) or "" for lend in group)
+    return HistoryEntry(
+        timestamp=group[0].lent_at, action="ausgeliehen", title=title, subtitle=worker_name,
+        signature=signature, lending_items=details, open_count=open_count, total_count=len(group),
+        barcodes=barcodes,
+    )
+
+
+def _single_lending_entry(lending: Lending) -> HistoryEntry:
+    """Ein HistoryEntry für eine einzelne, unsignierte Ausleihe (Alt-/
+    Import-Daten ohne Unterschrift, siehe Modul-Docstring)."""
+    item_name = lending.item.name if lending.item else (lending.item_name_snapshot or "(gelöschter Gegenstand)")
+    item_barcode = (lending.item.barcode if lending.item else lending.item_barcode_snapshot) or ""
+    worker_name = lending.worker.full_name if lending.worker else (lending.worker_name_snapshot or "(gelöschter Mitarbeiter)")
+    return HistoryEntry(
+        timestamp=lending.lent_at, action="ausgeliehen", title=item_name, subtitle=worker_name,
+        open_count=(1 if lending.returned_at is None else 0), total_count=1,
+        lending_items=[LendingDetail(name=item_name, lent_at=lending.lent_at, returned_at=lending.returned_at)],
+        barcodes=item_barcode,
+    )
+
+
+async def _lending_history_entries(session: AsyncSession, visible_ids) -> list[HistoryEntry]:
+    """Ausleih-Einträge: nach (Mitarbeiter, Unterschrift) gruppiert - nur
+    wenn eine Unterschrift vorhanden ist, sonst bleibt jede Ausleihe ein
+    eigener Eintrag (siehe Modul-Docstring)."""
+    stmt = (
+        select(Lending)
+        .options(selectinload(Lending.item), selectinload(Lending.worker))
+        .order_by(Lending.lent_at.desc())
+        .limit(_FETCH_LIMIT)
+    )
+    if visible_ids is not None:
+        stmt = stmt.where(Lending.department_id.in_(visible_ids))
+    lendings = (await session.exec(stmt)).all()
+
+    groups: dict[tuple, list[Lending]] = defaultdict(list)
+    ungrouped: list[Lending] = []
+    for lending in lendings:
+        if lending.signature:
+            groups[(lending.worker_id, lending.signature)].append(lending)
+        else:
+            ungrouped.append(lending)
+
+    entries = [_grouped_lending_entry(group, signature) for (_worker_id, signature), group in groups.items()]
+    entries += [_single_lending_entry(lending) for lending in ungrouped]
+    return entries
+
+
+async def _consumable_usage_history_entries(session: AsyncSession, visible_ids) -> list[HistoryEntry]:
+    """Entnahme-Einträge - anders als Ausleihen nicht gruppiert (Sammel-
+    Entnahmen mehrerer Materialien haben keine gemeinsame Unterschrift)."""
+    stmt = (
+        select(ConsumableUsage)
+        .options(selectinload(ConsumableUsage.consumable), selectinload(ConsumableUsage.worker))
+        .order_by(ConsumableUsage.used_at.desc())
+        .limit(_FETCH_LIMIT)
+    )
+    if visible_ids is not None:
+        stmt = stmt.where(ConsumableUsage.department_id.in_(visible_ids))
+    usages = (await session.exec(stmt)).all()
+
+    entries = []
+    for usage in usages:
+        consumable_name = usage.consumable.name if usage.consumable else (usage.consumable_name_snapshot or "(gelöschtes Material)")
+        # Kein consumable_barcode_snapshot-Feld vorhanden (nur der Name wird
+        # gesnapshottet) - nach einem Papierkorb-Purge ist der Barcode fuer
+        # ein gelöschtes Verbrauchsmaterial hier daher nicht mehr rekonstruierbar.
+        consumable_barcode = usage.consumable.barcode if usage.consumable else ""
+        worker_name = usage.worker.full_name if usage.worker else (usage.worker_name_snapshot or "(gelöschter Mitarbeiter)")
+        entries.append(HistoryEntry(
+            timestamp=usage.used_at, action="entnommen", title=consumable_name, subtitle=worker_name,
+            detail=f"{usage.quantity}x", barcodes=consumable_barcode,
+        ))
+    return entries
+
+
 @router.get("")
 async def history_index(
     request: Request,
@@ -79,81 +170,9 @@ async def history_index(
     # liefern statt auf Seite 1 zu klemmen.
     page = max(page, 1)
 
-    entries: list[HistoryEntry] = []
     visible_ids = await get_visible_department_ids(session, user)  # None = Admin (alles)
-
-    lending_stmt = (
-        select(Lending)
-        .options(selectinload(Lending.item), selectinload(Lending.worker))
-        .order_by(Lending.lent_at.desc())
-        .limit(_FETCH_LIMIT)
-    )
-    if visible_ids is not None:
-        lending_stmt = lending_stmt.where(Lending.department_id.in_(visible_ids))
-    lendings = (await session.exec(lending_stmt)).all()
-
-    # Gruppieren nach (worker_id, signature) - siehe Modul-Docstring. Nur wenn
-    # eine Unterschrift vorhanden ist; ohne Unterschrift (Alt-/Import-Daten)
-    # bleibt jede Ausleihe ein eigener Eintrag.
-    groups: dict[tuple, list[Lending]] = defaultdict(list)
-    ungrouped: list[Lending] = []
-    for lending in lendings:
-        if lending.signature:
-            groups[(lending.worker_id, lending.signature)].append(lending)
-        else:
-            ungrouped.append(lending)
-
-    for (_worker_id, signature), group in groups.items():
-        group.sort(key=lambda lend: lend.lent_at)
-        worker_name = group[0].worker.full_name if group[0].worker else (group[0].worker_name_snapshot or "(gelöschter Mitarbeiter)")
-        details = [
-            LendingDetail(
-                name=lend.item.name if lend.item else (lend.item_name_snapshot or "(gelöschter Gegenstand)"),
-                lent_at=lend.lent_at, returned_at=lend.returned_at,
-            )
-            for lend in group
-        ]
-        open_count = sum(1 for lend in group if lend.returned_at is None)
-        title = details[0].name if len(group) == 1 else f"{len(group)} Gegenstände"
-        barcodes = " ".join((lend.item.barcode if lend.item else lend.item_barcode_snapshot) or "" for lend in group)
-        entries.append(HistoryEntry(
-            timestamp=group[0].lent_at, action="ausgeliehen", title=title, subtitle=worker_name,
-            signature=signature, lending_items=details, open_count=open_count, total_count=len(group),
-            barcodes=barcodes,
-        ))
-
-    for lending in ungrouped:
-        item_name = lending.item.name if lending.item else (lending.item_name_snapshot or "(gelöschter Gegenstand)")
-        item_barcode = (lending.item.barcode if lending.item else lending.item_barcode_snapshot) or ""
-        worker_name = lending.worker.full_name if lending.worker else (lending.worker_name_snapshot or "(gelöschter Mitarbeiter)")
-        entries.append(HistoryEntry(
-            timestamp=lending.lent_at, action="ausgeliehen", title=item_name, subtitle=worker_name,
-            open_count=(1 if lending.returned_at is None else 0), total_count=1,
-            lending_items=[LendingDetail(name=item_name, lent_at=lending.lent_at, returned_at=lending.returned_at)],
-            barcodes=item_barcode,
-        ))
-
-    usage_stmt = (
-        select(ConsumableUsage)
-        .options(selectinload(ConsumableUsage.consumable), selectinload(ConsumableUsage.worker))
-        .order_by(ConsumableUsage.used_at.desc())
-        .limit(_FETCH_LIMIT)
-    )
-    if visible_ids is not None:
-        usage_stmt = usage_stmt.where(ConsumableUsage.department_id.in_(visible_ids))
-    usages = (await session.exec(usage_stmt)).all()
-
-    for usage in usages:
-        consumable_name = usage.consumable.name if usage.consumable else (usage.consumable_name_snapshot or "(gelöschtes Material)")
-        # Kein consumable_barcode_snapshot-Feld vorhanden (nur der Name wird
-        # gesnapshottet) - nach einem Papierkorb-Purge ist der Barcode fuer
-        # ein gelöschtes Verbrauchsmaterial hier daher nicht mehr rekonstruierbar.
-        consumable_barcode = usage.consumable.barcode if usage.consumable else ""
-        worker_name = usage.worker.full_name if usage.worker else (usage.worker_name_snapshot or "(gelöschter Mitarbeiter)")
-        entries.append(HistoryEntry(
-            timestamp=usage.used_at, action="entnommen", title=consumable_name, subtitle=worker_name,
-            detail=f"{usage.quantity}x", barcodes=consumable_barcode,
-        ))
+    entries = await _lending_history_entries(session, visible_ids)
+    entries += await _consumable_usage_history_entries(session, visible_ids)
 
     if q:
         q_lower = q.lower()
