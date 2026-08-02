@@ -45,6 +45,67 @@
   --icon-empty-inbox: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='22 12 16 12 14 15 10 15 8 12 2 12'/%3E%3Cpath d='M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z'/%3E%3C/svg%3E");
 }
 
+/* Dark-Mode: identisches Konzept wie im Schwestermodul ScandyPro (beide
+   Apps als zusammengehörige Werkzeug-Familie behandelt, siehe CLAUDE.md
+   Kopf "an Scandy-Lite angelehnt"). Standardmäßig systemgesteuert über
+   prefers-color-scheme, zusätzlich per manuellem Umschalter (siehe
+   partials/nav.html, app/static/js/theme-toggle.js) über
+   data-theme="dark"/"light" auf <html> übersteuerbar - Klick gewinnt immer
+   gegenüber der Systemeinstellung. Gleiche, kontrastgeprüfte Farbwerte wie
+   in ScandyPro, damit beide Apps nebeneinander geöffnet gleich wirken. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141c1a;
+    --bg-raised: #1c2725;
+    --ink: #eef2f0;
+    --ink-soft: #a3b0a9;
+    --brand: #1f7a72;
+    --brand-ink: #7fd6c9;
+    --accent: #f0b25c;
+    --success: #5aab7e;
+    --success-bg: #1e3327;
+    --danger: #b8503f;
+    --danger-bg: #3a211d;
+    --line: #33413c;
+    --line-strong: #4a5d56;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 14px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #141c1a;
+  --bg-raised: #1c2725;
+  --ink: #eef2f0;
+  --ink-soft: #a3b0a9;
+  --brand: #1f7a72;
+  --brand-ink: #7fd6c9;
+  --accent: #f0b25c;
+  --success: #5aab7e;
+  --success-bg: #1e3327;
+  --danger: #b8503f;
+  --danger-bg: #3a211d;
+  --line: #33413c;
+  --line-strong: #4a5d56;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .icon-btn { background: var(--bg-raised); }
+}
+:root[data-theme="dark"] .icon-btn { background: var(--bg-raised); }
+
+/* Umschalter-Button (siehe partials/nav.html): zeigt Mond ("zu Dunkel
+   wechseln") wenn aktuell hell, Sonne wenn aktuell dunkel - Zustand rein
+   per CSS abgeleitet, kein Icon-Austausch per JS nötig. */
+.theme-toggle-sonne { display: none; }
+.theme-toggle-mond { display: inline-flex; }
+:root[data-theme="dark"] .theme-toggle-sonne { display: inline-flex; }
+:root[data-theme="dark"] .theme-toggle-mond { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle-sonne { display: inline-flex; }
+  :root:not([data-theme="light"]) .theme-toggle-mond { display: none; }
+}
+
 * {
   box-sizing: border-box;
 }

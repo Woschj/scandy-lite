@@ -6,6 +6,17 @@
   <title>{% block title %}Scandy-Lite{% endblock %}</title>
 
   <link rel="stylesheet" href="/static/css/app.css?v={{ asset_version }}">
+  <script>
+    /* Muss synchron und vor dem Stylesheet-Rendering laufen, sonst blitzt
+       kurz das falsche Farbschema auf (FOUC) - siehe
+       app/static/js/theme-toggle.js für die restliche Umschalt-Logik.
+       Eigener localStorage-Namespace ("scandylite-theme") getrennt von
+       ScandyPro, da beide Apps unter unterschiedlichen Origins laufen. */
+    (function () {
+      var gespeichert = localStorage.getItem("scandylite-theme");
+      if (gespeichert) document.documentElement.setAttribute("data-theme", gespeichert);
+    })();
+  </script>
   <link rel="manifest" href="/static/manifest.webmanifest">
   <meta name="theme-color" content="#1b5e5a">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
@@ -19,6 +30,7 @@
   <script src="/static/js/view-toggle.js?v={{ asset_version }}" defer></script>
   <script src="/static/js/lightbox.js?v={{ asset_version }}" defer></script>
   <script src="/static/js/offline-banner.js?v={{ asset_version }}" defer></script>
+  <script src="/static/js/theme-toggle.js?v={{ asset_version }}" defer></script>
   <script>
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", function () {

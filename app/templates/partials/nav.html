@@ -32,6 +32,14 @@
   </nav>
 
   <div class="user-chip">
+    <button type="button" id="theme-toggle" class="icon-btn" style="width:36px; height:36px;" aria-pressed="false" aria-label="Zu dunklem Modus wechseln">
+      <span class="theme-toggle-sonne">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.5V3M8 13V14.5M14.5 8H13M3 8H1.5M12.6 3.4L11.6 4.4M4.4 11.6L3.4 12.6M12.6 12.6L11.6 11.6M4.4 4.4L3.4 3.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </span>
+      <span class="theme-toggle-mond">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false"><path d="M13.5 9.5A6 6 0 016.5 2.5a6 6 0 106.7 6.7 6 6 0 010.3.3z" fill="currentColor"/></svg>
+      </span>
+    </button>
     {% if user %}
       <span class="username-text">{{ user.username }}</span>
       <form method="post" action="/auth/logout" style="margin:0;">
