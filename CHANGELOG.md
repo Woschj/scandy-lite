@@ -13,6 +13,18 @@ enthalten - üblich für Software vor dem ersten stabilen Release).
 > orientiert sich an zusammenhängenden Arbeits-Sessions statt an einzelnen
 > Commits.
 
+## [0.24.4] - 2026-08-02
+
+### Added
+- Manueller Dark-/Light-Mode-Umschalter im User-Chip, zusätzlich zur
+  automatischen Systemerkennung.
+
+### Fixed
+- Grellweiße native Formularelemente im Dark-Mode (fehlende
+  `color-scheme`-Deklaration) sowie mehrere hartcodierte `#fff`-
+  Hintergründe (Suchfeld, Filter-Selects, Icon-Buttons, Mengen-Stepper,
+  Ansicht-Umschalter), die dadurch nicht auf den Theme-Wechsel reagierten.
+
 ## [0.24.3] - 2026-07-28
 
 ### Changed
