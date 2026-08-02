@@ -4,6 +4,12 @@
    ========================================================================== */
 
 :root {
+  /* Ohne color-scheme rendert der Browser native Formularelemente ohne
+     eigenes Author-Styling (freistehende <select>, der native "Datei
+     auswählen"-Button, Scrollbars) unabhängig vom Seiten-Theme mit ihrem
+     Standard-Chrome - das ergab im Dark-Mode grellweiße Boxen mit
+     dadurch unlesbarem Text (siehe auch Schwestermodul ScandyPro). */
+  color-scheme: light;
   /* Farben */
   --bg: #eff1ee;
   --bg-raised: #ffffff;
@@ -55,6 +61,7 @@
    in ScandyPro, damit beide Apps nebeneinander geöffnet gleich wirken. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
+    color-scheme: dark;
     --bg: #141c1a;
     --bg-raised: #1c2725;
     --ink: #eef2f0;
@@ -73,6 +80,7 @@
 }
 
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #141c1a;
   --bg-raised: #1c2725;
   --ink: #eef2f0;
